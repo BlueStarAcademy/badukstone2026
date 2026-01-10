@@ -11,14 +11,15 @@ interface TournamentPlayerManagementModalProps {
     onUpdateParticipants: (ids: string[]) => void;
     onAssignTeams: (mode: 'random' | 'ranked', ids?: string[]) => void;
     currentView: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'mission';
-    onStartSwiss: (mode: 'random' | 'ranked') => void;
+    onStartSwiss: (mode: 'random' | 'ranked', ids: string[]) => void; // IDs 매개변수 추가
     onInitMission?: (ids?: string[]) => void;
+    onInitHybrid?: (ids: string[]) => void; // 하이브리드 초기화 추가
 }
 
 export const TournamentPlayerManagementModal = (props: TournamentPlayerManagementModalProps) => {
     const { 
         isOpen, onClose, allStudents, participantIds, 
-        onUpdateParticipants, onAssignTeams, currentView, onStartSwiss, onInitMission
+        onUpdateParticipants, onAssignTeams, currentView, onStartSwiss, onInitMission, onInitHybrid
     } = props;
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -80,9 +81,11 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         if (currentView === 'relay') {
             onAssignTeams(assignmentMode, ids);
         } else if (currentView === 'swiss') {
-            onStartSwiss(assignmentMode);
+            onStartSwiss(assignmentMode, ids); // 수정: ids 전달
         } else if (currentView === 'mission' && onInitMission) {
             onInitMission(ids);
+        } else if (currentView === 'hybrid' && onInitHybrid) {
+            onInitHybrid(ids); // 추가: 하이브리드 초기화
         }
     };
 
@@ -91,13 +94,14 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         return participantIds.every(id => selectedIds.has(id));
     }, [selectedIds, participantIds]);
 
-    const showFinalizeButton = currentView === 'relay' || currentView === 'swiss' || currentView === 'mission';
+    const showFinalizeButton = currentView === 'relay' || currentView === 'swiss' || currentView === 'mission' || currentView === 'hybrid';
     const showAssignmentOptions = currentView === 'relay' || currentView === 'swiss';
 
     let finalizeButtonText = '시작';
     if (currentView === 'relay') finalizeButtonText = '배정';
     else if (currentView === 'swiss') finalizeButtonText = '스위스 리그 시작';
     else if (currentView === 'mission') finalizeButtonText = '미션 바둑 시작';
+    else if (currentView === 'hybrid') finalizeButtonText = '예선 리그 생성';
 
     return (
         <div className="modal-overlay" onClick={onClose}>

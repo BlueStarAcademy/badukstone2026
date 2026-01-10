@@ -434,8 +434,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 1rem;
-    list-style: none;
-    padding: 0;
+    list-style: none; padding: 0;
 }
 
 .swiss-match {
@@ -593,9 +592,31 @@
     overflow: hidden;
 }
 
+/* FIX: Ensure the student table in chess panel is scrollable internally */
+.chess-roster-wrapper .student-table {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 200px;
+    margin-bottom: 1rem;
+    border: 1px solid #eee;
+    border-radius: 8px;
+}
+
+.chess-roster-wrapper .student-table table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.chess-roster-wrapper .student-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8f9fa;
+}
+
 .new-match-recorder {
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
+    margin-top: 0.5rem;
+    padding-top: 1rem;
     border-top: 1px solid #eee;
     text-align: center;
 }
@@ -605,7 +626,7 @@
     justify-content: center;
     align-items: center;
     gap: 2rem;
-    margin: 1.5rem 0;
+    margin: 1rem 0;
 }
 
 .player-slot {

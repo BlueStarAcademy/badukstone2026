@@ -18,15 +18,17 @@ const calculateTimeLeft = (player: MissionBadukPlayer, timeLimitMinutes: number)
     
     const limitMs = (timeLimitMinutes + (player.timeAdded || 0)) * 60 * 1000;
     const elapsed = Date.now() - new Date(player.startTime).getTime();
-    const remaining = Math.max(0, Math.ceil((limitMs - elapsed) / 1000));
+    const remaining = Math.ceil((limitMs - elapsed) / 1000);
     
-    return remaining;
+    return Math.max(-3599, remaining); // Allow negative time for display if needed, but floor at -1hr
 };
 
 const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    const absSec = Math.abs(seconds);
+    const m = Math.floor(absSec / 60);
+    const s = absSec % 60;
+    const prefix = seconds < 0 ? "-" : "";
+    return `${prefix}${m}:${s.toString().padStart(2, '0')}`;
 };
 
 // Slot Machine Component for Text
@@ -82,9 +84,7 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
             const updateTimer = () => {
                 const remaining = calculateTimeLeft(player, missionSettings?.timeLimit || 50);
                 setTimeLeft(remaining);
-                if (remaining <= 0) {
-                    onFinish(player.studentId);
-                }
+                // Removed auto-finish logic: No longer automatically calling onFinish(player.studentId)
             };
             
             updateTimer();
@@ -93,7 +93,7 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
         } else {
             setTimeLeft(0);
         }
-    }, [player.status, player.startTime, player.timeAdded, missionSettings?.timeLimit, player.studentId, onFinish]);
+    }, [player.status, player.startTime, player.timeAdded, missionSettings?.timeLimit, player.studentId]);
 
     const handleStart = () => {
         onUpdate(player.studentId, { status: 'active', startTime: new Date().toISOString() });
@@ -197,7 +197,7 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
                         {player.status === 'waiting' && <button className="btn-xs primary" onClick={handleStart}>시작</button>}
                         {player.status === 'active' && (
                             <>
-                                <span className={`timer-badge ${timeLeft < 300 ? 'status-expired' : ''}`}>{formatTime(timeLeft)}</span>
+                                <span className={`timer-badge ${timeLeft <= 0 ? 'status-expired' : ''}`}>{formatTime(timeLeft)}</span>
                                 <button className="btn-xs" onClick={handleAddTime}>+10분</button>
                                 <button className="btn-xs danger" onClick={() => onFinish(player.studentId)}>종료</button>
                             </>
@@ -394,12 +394,12 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
             if (!prev.missionBaduk) return prev;
             // 1. MissionBaduk 리스트에서 완전 삭제
             const newPlayers = prev.missionBaduk.players.filter(p => p.studentId !== studentId);
-            // 2. TournamentData의 전체 참가자 명단(participantIds)에서도 삭제하여 선수 관리와 동기화
-            const newParticipantIds = (prev.participantIds || []).filter(id => id !== studentId);
+            // 2. TournamentData의 미션 참가자 명단에서도 삭제
+            const newParticipantIds = (prev.missionParticipantIds || []).filter(id => id !== studentId);
             
             return { 
                 ...prev, 
-                participantIds: newParticipantIds,
+                missionParticipantIds: newParticipantIds,
                 missionBaduk: { ...prev.missionBaduk, players: newPlayers } 
             };
         });
@@ -418,12 +418,12 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
                 if (!prev.missionBaduk) return prev;
                 // 선수 리스트에서 필터링
                 const newPlayers = prev.missionBaduk.players.filter(p => p.studentId !== finishingPlayerId);
-                // 참가자 명단에서도 삭제 (요청사항: 선수 관리 선택에서도 제외)
-                const newParticipantIds = (prev.participantIds || []).filter(id => id !== finishingPlayerId);
+                // 참가자 명단에서도 삭제
+                const newParticipantIds = (prev.missionParticipantIds || []).filter(id => id !== finishingPlayerId);
 
                 return {
                     ...prev,
-                    participantIds: newParticipantIds,
+                    missionParticipantIds: newParticipantIds,
                     missionBaduk: { ...prev.missionBaduk, players: newPlayers }
                 };
             });
@@ -441,11 +441,11 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
                 .map(p => p.studentId);
                 
             const activePlayers = prev.missionBaduk.players.filter(p => p.status !== 'finished');
-            const newParticipantIds = (prev.participantIds || []).filter(id => !finishedIds.includes(id));
+            const newParticipantIds = (prev.missionParticipantIds || []).filter(id => !finishedIds.includes(id));
             
             return { 
                 ...prev, 
-                participantIds: newParticipantIds,
+                missionParticipantIds: newParticipantIds,
                 missionBaduk: { ...prev.missionBaduk, players: activePlayers } 
             };
         });

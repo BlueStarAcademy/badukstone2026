@@ -68,13 +68,13 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
 
 export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const { students, data, setData, settings, onOpenPlayerManagement, onBulkAddTransaction } = props;
-    const { participantIds } = data;
+    const { hybridParticipantIds } = data;
     const { hybridMode, hybridAdvanceCount, hybridGroupCount } = settings;
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
 
     const handleGeneratePreliminaries = () => {
-        const participants = participantIds
+        const participants = (hybridParticipantIds || [])
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
         
@@ -298,7 +298,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 </div>
                 <p style={{ marginBottom: '1rem' }}>참가 선수를 선택하고 예선 리그를 생성하세요.</p>
                 <div style={{display: 'flex', justifyContent: 'center', gap: '1rem'}}>
-                    <button className="btn primary" onClick={handleGeneratePreliminaries} disabled={participantIds.length < 2}>예선 리그 생성</button>
+                    <button className="btn primary" onClick={handleGeneratePreliminaries} disabled={(hybridParticipantIds || []).length < 2}>예선 리그 생성</button>
                 </div>
             </div>
         );

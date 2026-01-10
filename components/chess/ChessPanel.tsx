@@ -271,9 +271,10 @@ export const ChessPanel = (props: ChessPanelProps) => {
                     <h3>체스반 명단</h3>
                     <button className="btn" onClick={() => setIsSettingsModalOpen(true)}>설정</button>
                 </div>
-                <div className="student-table">
-                    <table>
-                        <thead>
+                {/* FIX: Ensure direct class for scrolling control */}
+                <div className="student-table" style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid #eee', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8f9fa' }}>
                             <tr>
                                 <th>순위</th>
                                 <th>이름</th>
@@ -369,12 +370,21 @@ export const ChessPanel = (props: ChessPanelProps) => {
                         <p><strong>{missionStudent.name}</strong> 학생의 미션</p>
                         <ul className="mission-list">
                            {studentMissions.length > 0 ? studentMissions.map(mission => {
+                                // FIX: Display completion count for attendance mission as well
+                                const completionsToday = missionCompletionCounts.get(mission.description) || 0;
+
                                 if (mission.id === 'chess_attendance_mission') {
                                     const hasAttended = chessAttendanceToday.has(missionStudent.id);
                                     return (
                                         <li key={mission.id} className="mission-item">
                                             <span>{mission.description}</span>
                                             <div className="mission-actions">
+                                                {/* Added completion count display for attendance */}
+                                                {completionsToday > 0 && (
+                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-color-secondary)' }}>
+                                                        ({completionsToday}회)
+                                                    </span>
+                                                )}
                                                 <span className="mission-stones">+{mission.stones}</span>
                                                 <button className="btn-sm primary" onClick={() => onChessAttendance(missionStudent.id)} disabled={hasAttended}>
                                                     {hasAttended ? '완료' : '출석'}
@@ -384,7 +394,6 @@ export const ChessPanel = (props: ChessPanelProps) => {
                                     );
                                 }
 
-                                const completionsToday = missionCompletionCounts.get(mission.description) || 0;
                                 return (
                                     <li key={mission.id} className="mission-item">
                                         <span>{mission.description}</span>

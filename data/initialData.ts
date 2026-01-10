@@ -172,6 +172,11 @@ export const INITIAL_TOURNAMENT_SETTINGS: TournamentSettings = {
 
 export const INITIAL_TOURNAMENT_DATA: TournamentData = {
     participantIds: [],
+    relayParticipantIds: [],
+    bracketParticipantIds: [],
+    swissParticipantIds: [],
+    hybridParticipantIds: [],
+    missionParticipantIds: [],
     teams: [
         { name: 'A', players: [], mannerPenalties: 0 },
         { name: 'B', players: [], mannerPenalties: 0 },

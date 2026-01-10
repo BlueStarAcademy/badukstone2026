@@ -708,7 +708,7 @@ export const AdminPanel = (props: AdminPanelProps) => {
                                                     <span className="drag-handle-mini"><DragHandle /></span>
                                                     <div className="item-main-info">
                                                         <span className="item-desc">{m.description}</span>
-                                                        <span className="item-stones">+{m.stones}💎</span>
+                                                        <span className="item-stones">+{m.stones} 스톤</span>
                                                     </div>
                                                     <div className="item-row-actions">
                                                         <button className="icon-btn" onClick={() => { setMissionToEdit(m); setIsMissionModalOpen(true); }}>✎</button>
@@ -749,7 +749,7 @@ export const AdminPanel = (props: AdminPanelProps) => {
                                                 <span className="drag-handle-mini"><DragHandle /></span>
                                                 <div className="item-main-info">
                                                     <span className="item-desc">{m.description}</span>
-                                                    <span className="item-stones">+{m.stones}💎</span>
+                                                    <span className="item-stones">+{m.stones} 스톤</span>
                                                 </div>
                                                 <div className="item-row-actions">
                                                     <button className="icon-btn" onClick={() => { setMissionToEdit(m); setIsMissionModalOpen(true); }}>✎</button>
@@ -813,6 +813,11 @@ export const AdminPanel = (props: AdminPanelProps) => {
             <MissionFormModal isOpen={isMissionModalOpen} onClose={() => setIsMissionModalOpen(false)} onSave={handleSaveMission} missionToEdit={missionToEdit} groupSettings={groupSettings} groupOrder={generalSettings.groupOrder} isChessMission={missionTypeToAdd === 'chess' || (!!missionToEdit && !missionToEdit.group)} />
             <ShopItemFormModal isOpen={isShopItemModalOpen} onClose={() => setIsShopItemModalOpen(false)} onSave={handleSaveShopItem} itemToEdit={itemToEdit} categories={shopCategories} />
             <BulkStoneAwardModal isOpen={isBulkAwardModalOpen} onClose={() => setIsBulkAwardModalOpen(false)} onAward={handleBulkAward} />
+            <BulkAllStudentsAwardModal
+                isOpen={isBulkAllStudentsAwardModalOpen}
+                onClose={() => setIsBulkAllStudentsAwardModalOpen(false)}
+                onAward={handleBulkAwardToAll}
+            />
             <CouponFormModal isOpen={isCouponModalOpen} onClose={() => setIsCouponModalOpen(false)} onSave={handleSaveCoupon} studentName={studentForCoupon?.name || ''} />
             {isGroupSettingsModalOpen && <GroupSettingsModal isOpen={isGroupSettingsModalOpen} onClose={() => setIsGroupSettingsModalOpen(false)} groupSettings={groupSettings} generalSettings={generalSettings} onUpdateGroupSettings={onUpdateGroupSettings} onUpdateGeneralSettings={onUpdateGeneralSettings} />}
             {isShopSettingsModalOpen && <ShopSettingsModal isOpen={isShopSettingsModalOpen} onClose={() => setIsShopSettingsModalOpen(false)} shopSettings={shopSettings} setShopSettings={setShopSettings} shopCategories={shopCategories} setShopCategories={setShopCategories} shopItems={shopItems} setShopItems={setShopItems} setConfirmation={setConfirmation} />}
@@ -826,11 +831,6 @@ export const AdminPanel = (props: AdminPanelProps) => {
                     groupOrder={generalSettings.groupOrder} 
                 />
             )}
-            <BulkAllStudentsAwardModal
-                isOpen={isBulkAllStudentsAwardModalOpen}
-                onClose={() => setIsBulkAllStudentsAwardModalOpen(false)}
-                onAward={handleBulkAwardToAll}
-            />
             {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
         </div>
     );

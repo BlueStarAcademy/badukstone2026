@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentData, TournamentSettings, SwissPlayer, MissionBadukPlayer, TournamentPlayer } from '../../types';
+import type { Student, TournamentData, TournamentSettings, SwissPlayer, MissionBadukPlayer, TournamentPlayer, SwissMatch } from '../../types';
 import { TournamentRelayView } from './TournamentRelayView';
 import { TournamentBracketView } from './TournamentBracketView';
 import { TournamentSwissView } from './TournamentSwissView';
@@ -29,12 +29,32 @@ export const TournamentView = (props: TournamentViewProps) => {
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isSwissPrizeModalOpen, setIsSwissPrizeModalOpen] = useState(false);
 
+    const getTabParticipantIds = (tab: TournamentTab): string[] => {
+        switch (tab) {
+            case 'relay': return data.relayParticipantIds || [];
+            case 'bracket': return data.bracketParticipantIds || [];
+            case 'swiss': return data.swissParticipantIds || [];
+            case 'hybrid': return data.hybridParticipantIds || [];
+            case 'mission': return data.missionParticipantIds || [];
+            default: return [];
+        }
+    };
+
     const handleUpdateParticipants = (ids: string[]) => {
-        setData(prev => ({ ...prev, participantIds: ids }));
+        setData(prev => {
+            const updates: Partial<TournamentData> = {};
+            if (activeTab === 'relay') updates.relayParticipantIds = ids;
+            else if (activeTab === 'bracket') updates.bracketParticipantIds = ids;
+            else if (activeTab === 'swiss') updates.swissParticipantIds = ids;
+            else if (activeTab === 'hybrid') updates.hybridParticipantIds = ids;
+            else if (activeTab === 'mission') updates.missionParticipantIds = ids;
+            
+            return { ...prev, ...updates };
+        });
     };
 
     const handleAssignTeams = (mode: 'random' | 'ranked', ids?: string[]) => {
-        const participantIdsToUse = ids || data.participantIds;
+        const participantIdsToUse = ids || getTabParticipantIds('relay');
 
         const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
@@ -61,26 +81,24 @@ export const TournamentView = (props: TournamentViewProps) => {
             else teamB.push(player);
         });
 
-        // Auto-assign colors based on rank difference immediately after assignment
         const maxLen = Math.max(teamA.length, teamB.length);
         for(let i=0; i<maxLen; i++) {
             if (teamA[i] && teamB[i]) {
                 const rankA = parseRank(teamA[i].rank);
                 const rankB = parseRank(teamB[i].rank);
-                if (rankA > rankB) { // A is stronger
+                if (rankA > rankB) { 
                     teamA[i].game1Color = 'white';
                     teamB[i].game1Color = 'black';
-                } else if (rankB > rankA) { // B is stronger
+                } else if (rankB > rankA) { 
                     teamB[i].game1Color = 'white';
                     teamA[i].game1Color = 'black';
                 }
-                // If equal, default is black (from init), can be changed manually
             }
         }
         
         setData(prev => ({
             ...prev,
-            participantIds: participantIdsToUse,
+            relayParticipantIds: participantIdsToUse,
             teams: [
                 { name: 'A', players: teamA, mannerPenalties: 0 },
                 { name: 'B', players: teamB, mannerPenalties: 0 }
@@ -89,11 +107,17 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleStartSwiss = (mode: 'random' | 'ranked') => {
-        const participants = data.participantIds
+    const handleStartSwiss = (mode: 'random' | 'ranked', ids?: string[]) => {
+        const participantIdsToUse = ids || getTabParticipantIds('swiss');
+        const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
         
+        if (participants.length === 0) {
+            alert('참가 선수가 없습니다.');
+            return;
+        }
+
         const swissPlayers: SwissPlayer[] = participants.map(p => ({
             studentId: p.id,
             name: p.name,
@@ -103,15 +127,15 @@ export const TournamentView = (props: TournamentViewProps) => {
             sosos: 0,
         }));
 
-        let sortedPlayers: SwissPlayer[];
+        let sortedPlayers: SwissPlayer[] = [...swissPlayers];
         if (mode === 'ranked') {
-             sortedPlayers = [...swissPlayers].sort((a, b) => {
+             sortedPlayers.sort((a, b) => {
                 const sA = students.find(s => s.id === a.studentId);
                 const sB = students.find(s => s.id === b.studentId);
                 return parseRank(sB?.rank || '') - parseRank(sA?.rank || '');
             });
         } else {
-            sortedPlayers = [...swissPlayers].sort(() => 0.5 - Math.random());
+            sortedPlayers.sort(() => 0.5 - Math.random());
         }
         
         const firstRoundMatches: any[] = [];
@@ -138,6 +162,7 @@ export const TournamentView = (props: TournamentViewProps) => {
 
         setData(prev => ({
             ...prev,
+            swissParticipantIds: participantIdsToUse,
             swiss: {
                 status: 'in_progress',
                 players: swissPlayers,
@@ -147,8 +172,74 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
+    const handleInitHybrid = (ids?: string[]) => {
+        const participantIdsToUse = ids || getTabParticipantIds('hybrid');
+        const participants = participantIdsToUse
+            .map(id => students.find(s => s.id === id))
+            .filter((s): s is Student => !!s);
+        
+        if (participants.length < (settings.hybridAdvanceCount || 8)) {
+            alert(`참가 인원(${participants.length}명)이 본선 진출 인원(${settings.hybridAdvanceCount || 8}명)보다 적습니다.`);
+            return;
+        }
+
+        let sortedParticipants: Student[];
+        if (settings.hybridMode === 'rank') {
+            sortedParticipants = [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
+        } else {
+            sortedParticipants = [...participants].sort(() => 0.5 - Math.random());
+        }
+
+        const numGroups = settings.hybridGroupCount || Math.ceil(participants.length / 5);
+        const groups: Student[][] = Array.from({ length: numGroups }, () => []);
+
+        sortedParticipants.forEach((player, index) => {
+            const groupIndex = index % numGroups;
+            const reverseGroupIndex = numGroups - 1 - groupIndex;
+            if (Math.floor(index / numGroups) % 2 === 0) {
+                groups[groupIndex].push(player);
+            } else {
+                groups[reverseGroupIndex].push(player);
+            }
+        });
+
+        const swissPlayers: SwissPlayer[] = participants.map(p => ({
+            studentId: p.id,
+            name: p.name,
+            score: 0,
+            opponents: [],
+            sos: 0,
+            sosos: 0,
+        }));
+
+        const preliminaryGroups: SwissMatch[][] = groups.map(group => {
+            const matches: SwissMatch[] = [];
+            for (let i = 0; i < group.length; i++) {
+                for (let j = i + 1; j < group.length; j++) {
+                    matches.push({
+                        id: generateId(),
+                        players: [group[i].id, group[j].id],
+                        winnerId: null,
+                    });
+                }
+            }
+            return matches;
+        });
+        
+        setData(prev => ({
+            ...prev,
+            hybridParticipantIds: participantIdsToUse,
+            hybrid: {
+                players: swissPlayers,
+                preliminaryGroups,
+                bracket: null,
+            }
+        }));
+        setIsPlayerManagementModalOpen(false);
+    };
+
     const handleInitMissionBaduk = (ids?: string[]) => {
-        const participantIdsToUse = ids || data.participantIds;
+        const participantIdsToUse = ids || getTabParticipantIds('mission');
 
         if (participantIdsToUse.length === 0) {
              alert('참가 선수가 없습니다.');
@@ -179,7 +270,7 @@ export const TournamentView = (props: TournamentViewProps) => {
 
             return {
                 ...prev,
-                participantIds: participantIdsToUse,
+                missionParticipantIds: participantIdsToUse,
                 missionBaduk: {
                     players: newPlayers
                 }
@@ -188,7 +279,6 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    // Swiss League Logic Helpers
     const handleSetSwissWinner = (roundIndex: number, matchId: string, winnerId: string | null) => {
          setData(prev => {
             if (!prev.swiss) return prev;
@@ -212,7 +302,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const generatePairings = (players: SwissPlayer[], existingRounds: any[][]) => {
          const sorted = [...players].sort((a, b) => {
              if (b.score !== a.score) return b.score - a.score;
-             return 0.5 - Math.random(); // Randomness for rematch
+             return 0.5 - Math.random(); 
          });
 
          const pairedIds = new Set<string>();
@@ -301,7 +391,6 @@ export const TournamentView = (props: TournamentViewProps) => {
         setData(prev => {
              if (!prev.swiss || prev.swiss.rounds.length <= 1) return prev;
              const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
-             
              const lastRound = newSwiss.rounds.pop();
              
              lastRound.forEach((m: any) => {
@@ -330,8 +419,6 @@ export const TournamentView = (props: TournamentViewProps) => {
         setData(prev => {
              if (!prev.swiss || prev.swiss.rounds.length === 0) return prev;
              const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
-             
-             // 1. Revert stats from the current last round
              const lastRound = newSwiss.rounds.pop();
              lastRound.forEach((m: any) => {
                  const [id1, id2] = m.players;
@@ -351,7 +438,6 @@ export const TournamentView = (props: TournamentViewProps) => {
                  }
              });
 
-             // 2. Generate new pairings
              const nextRoundMatches = generatePairings(newSwiss.players, newSwiss.rounds);
              newSwiss.rounds.push(nextRoundMatches);
              
@@ -413,7 +499,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                  {activeTab === 'swiss' && (
                     <TournamentSwissView
                         swissData={data.swiss}
-                        onStartSwiss={handleStartSwiss}
+                        onStartSwiss={(mode) => handleStartSwiss(mode, getTabParticipantIds('swiss'))}
                         onSetWinner={handleSetSwissWinner}
                         onGenerateNextRound={handleGenerateNextRoundSwiss}
                         onCancelLastRound={handleCancelLastRoundSwiss}
@@ -450,12 +536,13 @@ export const TournamentView = (props: TournamentViewProps) => {
                     isOpen={isPlayerManagementModalOpen}
                     onClose={() => setIsPlayerManagementModalOpen(false)}
                     allStudents={students}
-                    participantIds={data.participantIds}
+                    participantIds={getTabParticipantIds(activeTab)}
                     onUpdateParticipants={handleUpdateParticipants}
                     onAssignTeams={handleAssignTeams}
                     currentView={activeTab}
                     onStartSwiss={handleStartSwiss}
                     onInitMission={handleInitMissionBaduk}
+                    onInitHybrid={handleInitHybrid}
                 />
             )}
             

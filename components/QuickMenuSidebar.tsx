@@ -48,6 +48,9 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     // Penalty State
     const [penaltyAmount, setPenaltyAmount] = useState('');
 
+    // Special Mission Reveal State
+    const [isSpecialRevealed, setIsSpecialRevealed] = useState(false);
+
     // Shop state
     const [cart, setCart] = useState<Map<string, number>>(new Map());
     const [shopCategory, setShopCategory] = useState<ShopCategory | '전체'>('전체');
@@ -85,6 +88,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setPartialMission(null);
             setPartialAmount('');
             setPenaltyAmount('');
+            setIsSpecialRevealed(false);
         }
     }, [isOpen, student]);
 
@@ -206,6 +210,22 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         );
     };
 
+    const handleAttendanceToday = () => {
+        if (!student) return;
+        onAddTransaction(student.id, 'attendance', '출석', generalSettings.attendanceStoneValue);
+    };
+
+    const isAttendedToday = useMemo(() => {
+        if (!student) return false;
+        const todayStrInKST = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
+        return transactions.some(t => 
+            t.studentId === student.id && 
+            t.type === 'attendance' && 
+            new Date(t.timestamp).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).startsWith(todayStrInKST) && 
+            t.status === 'active'
+        );
+    }, [student, transactions]);
+
     // --- Shop Logic ---
     const filteredAndSortedShopItems = useMemo(() => {
         let items = [...shopItems];
@@ -293,26 +313,10 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         setEditingTransaction(null);
     };
 
-    const studentMissions = useMemo(() => {
+    const groupMissions = useMemo(() => {
         if (!student) return [];
-        const attendanceMission: Mission = { id: 'attendance_mission', description: '출석', stones: generalSettings.attendanceStoneValue, group: student.group, type: 'attendance' };
-        
-        // Add special mission to the list if available
-        const list: any[] = [attendanceMission];
-        
-        if (dailySpecialMission) {
-            list.push({
-                id: 'daily_special_mission',
-                description: dailySpecialMission.content,
-                stones: dailySpecialMission.stones,
-                stars: dailySpecialMission.stars,
-                isSpecial: true
-            });
-        }
-
-        const groupMissions = missions.filter(m => m.group === student.group);
-        return [...list, ...groupMissions];
-    }, [student, missions, generalSettings.attendanceStoneValue, dailySpecialMission]);
+        return missions.filter(m => m.group === student.group && m.type !== 'attendance');
+    }, [student, missions]);
 
     const missionCompletionCounts = useMemo(() => {
         if (!student) return new Map<string, number>();
@@ -353,6 +357,54 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                     <div className={`sidebar-content ${activeTab === 'shop' ? 'shop-mode' : ''}`}>
                         {activeTab === 'missions' && (
                            <>
+                                <div className="mission-top-container">
+                                    <div className="mission-top-box attendance-box">
+                                        <h4>📅 오늘 출석</h4>
+                                        <div className="attendance-content">
+                                            {isAttendedToday ? (
+                                                <div className="status-badge success">출석 완료</div>
+                                            ) : (
+                                                <button className="btn primary attendance-btn" onClick={handleAttendanceToday}>출석 체크 (+{generalSettings.attendanceStoneValue})</button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className={`mission-top-box special-box ${isSpecialRevealed ? 'revealed' : ''}`}>
+                                        <h4>✨ 오늘의 특별 미션</h4>
+                                        <div className="special-content">
+                                            {isSpecialRevealed ? (
+                                                dailySpecialMission ? (
+                                                    <div className="special-mission-display">
+                                                        <div className="special-mission-text">
+                                                            <strong>{dailySpecialMission.content}</strong>
+                                                            <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
+                                                        </div>
+                                                        <div className="special-actions">
+                                                            <span className="mission-stones">+{dailySpecialMission.stones}</span>
+                                                            <button 
+                                                                className={`btn-sm ${isSpecialMissionCompletedToday ? 'success' : 'primary'}`} 
+                                                                onClick={handleCompleteSpecialMission} 
+                                                                disabled={isSpecialMissionCompletedToday || student.stones >= student.maxStones}
+                                                            >
+                                                                {isSpecialMissionCompletedToday ? '완료됨' : '완료'}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="no-mission">특별 미션이 없습니다.</p>
+                                                )
+                                            ) : (
+                                                <div className="special-draw-zone">
+                                                    <span className="draw-placeholder">?</span>
+                                                    <button className="btn draw-btn" onClick={() => setIsSpecialRevealed(true)} disabled={!dailySpecialMission}>
+                                                        미션 뽑기 🎲
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem', marginBottom: '1.5rem'}}>
                                     <div>
                                         <h3 style={{ fontSize: '1.1rem', color: 'var(--primary-color)', marginBottom: '0.8rem' }}>개인 연속 미션</h3>
@@ -372,47 +424,25 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     </div>
                                 </div>
 
-                                <h3 style={{fontSize: '1.2rem', marginBottom: '1rem'}}>오늘의 미션</h3>
+                                <h3 style={{fontSize: '1.2rem', marginBottom: '1rem'}}>단체 미션</h3>
                                 <ul className="mission-list">
-                                    {studentMissions.map((mission: any) => {
-                                        const isSpecial = mission.isSpecial;
+                                    {groupMissions.map((mission: any) => {
                                         const completionsToday = missionCompletionCounts.get(mission.description) || 0;
-                                        const isCompleted = isSpecial ? isSpecialMissionCompletedToday : false;
 
                                         return (
-                                            <li key={mission.id} className={`mission-item ${isSpecial ? 'special-item' : ''}`}>
+                                            <li key={mission.id} className="mission-item">
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                                                    <span style={{ fontWeight: 500, color: isSpecial ? 'var(--accent-color)' : 'inherit' }}>
-                                                        {isSpecial ? `[특별] ${mission.description}` : mission.description}
+                                                    <span style={{ fontWeight: 500 }}>
+                                                        {mission.description}
                                                     </span>
-                                                    {isSpecial && (
-                                                        <span style={{ fontSize: '0.75rem', color: '#888', marginTop: '2px' }}>
-                                                            {'★'.repeat(mission.stars)}
-                                                        </span>
-                                                    )}
                                                 </div>
                                                 <div className="mission-actions">
-                                                    {!isSpecial && completionsToday > 0 && (
+                                                    {completionsToday > 0 && (
                                                         <span style={{ fontSize: '0.8rem', color: 'var(--text-color-secondary)' }}>({completionsToday}회)</span>
                                                     )}
                                                     <span className="mission-stones">+{mission.stones}</span>
-                                                    
-                                                    {isSpecial ? (
-                                                        <button 
-                                                            className={`btn-sm ${isCompleted ? 'success' : 'primary'}`} 
-                                                            onClick={handleCompleteSpecialMission} 
-                                                            disabled={isCompleted || student.stones >= student.maxStones}
-                                                        >
-                                                            {isCompleted ? '완료됨' : '완료'}
-                                                        </button>
-                                                    ) : (
-                                                        <>
-                                                            {mission.type !== 'attendance' && (
-                                                                <button className="btn-sm" onClick={() => handleOpenPartialMissionModal(mission)} disabled={student.stones >= student.maxStones}>부분</button>
-                                                            )}
-                                                            <button className="btn-sm primary" onClick={() => handleMissionComplete(mission)} disabled={student.stones >= student.maxStones}>완료</button>
-                                                        </>
-                                                    )}
+                                                    <button className="btn-sm" onClick={() => handleOpenPartialMissionModal(mission)} disabled={student.stones >= student.maxStones}>부분</button>
+                                                    <button className="btn-sm primary" onClick={() => handleMissionComplete(mission)} disabled={student.stones >= student.maxStones}>완료</button>
                                                 </div>
                                             </li>
                                         );

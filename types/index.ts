@@ -210,6 +210,11 @@ export interface MissionBadukData {
 
 export interface TournamentData {
     participantIds: string[];
+    relayParticipantIds: string[];
+    bracketParticipantIds: string[];
+    swissParticipantIds: string[];
+    hybridParticipantIds: string[];
+    missionParticipantIds: string[];
     teams: Team[];
     bracket: TournamentBracket | null;
     relay: any;

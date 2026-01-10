@@ -73,13 +73,13 @@ const TournamentWinnerDisplay = ({ bracketData, students }: { bracketData: Tourn
 
 export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     const { data, students, setData, settings, onBulkAddTransaction, onOpenPlayerManagement } = props;
-    const { bracket: bracketData, participantIds } = data;
+    const { bracket: bracketData, bracketParticipantIds } = data;
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
 
     const handleGenerateBracket = () => {
-        const participants = participantIds
+        const participants = (bracketParticipantIds || [])
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s)
             .sort((a, b) => parseRank(b.rank) - parseRank(a.rank)); 
@@ -293,7 +293,7 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
                 </div>
                 <p style={{ marginBottom: '1rem' }}>대진표가 없습니다. '선수 관리'에서 참가자를 선택하고 대진표를 생성해주세요.</p>
                 <div style={{display: 'flex', justifyContent: 'center', gap: '1rem'}}>
-                     <button className="btn primary" onClick={handleGenerateBracket} disabled={participantIds.length < 2}>대진표 생성</button>
+                     <button className="btn primary" onClick={handleGenerateBracket} disabled={(bracketParticipantIds || []).length < 2}>대진표 생성</button>
                 </div>
             </div>
         );

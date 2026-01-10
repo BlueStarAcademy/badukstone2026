@@ -11,7 +11,6 @@ import { calculateNewElo } from './utils/elo';
 import { StudentView } from './components/StudentView';
 import { AdminPanel } from './components/AdminPanel';
 import { QuickMenuSidebar } from './components/QuickMenuSidebar';
-// FIX: Corrected import path from './components/event/EventView' to './components/EventView'
 import { EventView } from './components/EventView';
 import { TournamentView } from './components/tournament/TournamentView';
 import { ChessPanel } from './components/chess/ChessPanel';
@@ -262,13 +261,11 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             if (!student) return prevState;
 
             const stoneBalanceBefore = student.stones;
+            // Capping stone count to maxStones
             const newStones = Math.max(0, Math.min(stoneBalanceBefore + amount, student.maxStones));
 
-            if (stoneBalanceBefore === newStones && amount !== 0) {
-                if (student.stones + amount > student.maxStones) alert('최대 스톤을 초과할 수 없습니다.');
-                return prevState;
-            }
-
+            // FIX: Even if stone count doesn't change (at cap), we must record the transaction 
+            // so completion counts and activity history are updated correctly.
             const newTransaction: Transaction = {
                 id: generateId(), studentId, type, description, amount,
                 timestamp: new Date().toISOString(), status: 'active',
@@ -383,14 +380,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 if (studentIds.includes(s.id)) {
                     const before = s.stones;
                     const after = Math.max(0, Math.min(before + amount, s.maxStones));
-                    if (before !== after || amount === 0) {
-                        newTxs.push({
-                            id: generateId(), studentId: s.id, type: 'adjustment', description, amount,
-                            timestamp: new Date().toISOString(), status: 'active',
-                            stoneBalanceBefore: before, stoneBalanceAfter: after
-                        });
-                        return { ...s, stones: after };
-                    }
+                    
+                    newTxs.push({
+                        id: generateId(), studentId: s.id, type: 'adjustment', description, amount,
+                        timestamp: new Date().toISOString(), status: 'active',
+                        stoneBalanceBefore: before, stoneBalanceAfter: after
+                    });
+                    return { ...s, stones: after };
                 }
                 return s;
             });
