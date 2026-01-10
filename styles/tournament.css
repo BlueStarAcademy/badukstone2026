@@ -1,0 +1,701 @@
+
+/* Tournament: Relay View */
+.tournament-relay-view {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.relay-view-body {
+    display: flex;
+    gap: 2rem;
+    height: 100%;
+    overflow: hidden;
+    align-items: flex-start;
+}
+
+.tournament-games-container {
+    flex: 1;
+    overflow-y: hidden;
+    padding-right: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    height: 100%;
+}
+
+.relay-summary-panel {
+    flex: 0 0 360px;
+    position: sticky;
+    top: 0;
+}
+
+.summary-box {
+    background: linear-gradient(135deg, #2c3e50, #4ca1af);
+    border-radius: 16px;
+    padding: 2rem;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.summary-team-score { text-align: center; z-index: 1; }
+
+.total-score {
+    font-size: 3.5rem;
+    font-weight: 900;
+    margin: 0.5rem 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* NEW RELAY GRID LAYOUT */
+.relay-board-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 1rem;
+    height: 100%;
+}
+
+.relay-grid {
+    display: grid;
+    /* Three rows: Blue Team, VS connector, Red Team */
+    grid-template-rows: auto 40px auto; 
+    gap: 0 1.5rem; /* Horizontal gap between matches */
+    padding: 0.5rem;
+}
+
+.relay-cell {
+    display: flex;
+    flex-direction: column;
+}
+
+.relay-cell.top { justify-content: flex-end; }
+.relay-cell.bottom { justify-content: flex-start; }
+
+.match-label {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* Relay Player Card */
+.relay-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    cursor: grab;
+}
+
+.relay-card.team-a { border-top: 4px solid var(--primary-color); }
+.relay-card.team-b { border-top: 4px solid var(--danger-color); }
+
+.relay-card.empty {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+    background: #f9f9f9;
+    border: 1px dashed #ddd;
+    cursor: default;
+}
+
+/* Dragging States */
+.relay-card.dragging {
+    opacity: 0.5;
+    transform: scale(0.95);
+    border: 2px dashed #999;
+}
+
+.relay-card.drag-over-indicator, .relay-card.empty.drag-over-indicator {
+    border: 2px dashed var(--primary-color);
+    background-color: rgba(74, 144, 226, 0.1);
+    transform: scale(1.02);
+}
+
+.relay-card-header {
+    padding: 0.8rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.player-identity {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.player-name {
+    font-weight: bold;
+    font-size: 1.05rem;
+    color: var(--secondary-color);
+}
+
+.player-rank {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.stone-indicator {
+    font-size: 1.5rem;
+    line-height: 1;
+    margin-left: auto;
+    margin-right: 0.5rem;
+}
+
+.stone-indicator.white { text-shadow: 0 0 2px rgba(0,0,0,0.2); color: white; -webkit-text-stroke: 1px #888; }
+.stone-indicator.black { color: black; }
+
+.swap-btn {
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+.relay-card:hover .swap-btn { opacity: 1; }
+
+.relay-card-body {
+    padding: 0.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.relay-input-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.relay-input-row label {
+    font-size: 0.85rem;
+    color: #555;
+}
+
+.sm-input {
+    width: 60px;
+    padding: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.sm-select {
+    width: 60px;
+    padding: 2px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.sm-input.highlight {
+    border-color: var(--accent-color);
+    font-weight: bold;
+    background: #fff8e1;
+}
+
+.relay-checkbox-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.85rem;
+    margin-top: 0.2rem;
+}
+
+/* VS Connector */
+.relay-vs-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.vs-line {
+    width: 2px;
+    height: 100%;
+    background: #e0e0e0;
+}
+
+.vs-badge {
+    background: #eee;
+    color: #999;
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 10px;
+    z-index: 1;
+}
+
+/* Summary Panel Styles */
+.summary-details {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+.score-bar-container {
+    display: flex;
+    height: 12px;
+    background: #eee;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.score-bar {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: white;
+    font-weight: bold;
+}
+
+.score-bar.team-a { background: var(--primary-color); }
+.score-bar.team-b { background: var(--danger-color); }
+
+/* Tournament: Bracket (New Compact Design) */
+.bracket-container {
+    display: flex;
+    padding: 2rem 1rem;
+    gap: 0;
+    overflow-x: auto;
+    min-height: 500px;
+    background: #fdfdfd;
+    border-radius: 16px;
+    border: 1px solid #eee;
+}
+
+.bracket-round {
+    display: flex;
+    flex-direction: column;
+    width: 180px; /* Reduced width */
+    flex-shrink: 0;
+    position: relative;
+    margin-right: 20px; /* Reduced margin */
+}
+
+.bracket-round:last-child {
+    margin-right: 0;
+}
+
+.bracket-round h4 {
+    text-align: center;
+    margin: 0 0 1rem 0;
+    padding: 0.4rem;
+    background: var(--secondary-color);
+    color: white;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    align-self: center;
+    width: 90%;
+    z-index: 5;
+}
+
+.bracket-match-list {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    flex: 1;
+}
+
+.bracket-match {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    margin: 4px 0; /* Tight spacing */
+    z-index: 2;
+}
+
+.bracket-match:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    border-color: var(--primary-color);
+}
+
+.bracket-round:not(:last-child) .bracket-match::after {
+    /* Optional connector lines can be hidden for cleaner compact view or reduced */
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -10px;
+    width: 10px;
+    height: 1px;
+    background-color: #ddd;
+    z-index: 0;
+}
+
+.bracket-player {
+    padding: 4px 8px; /* Very compact padding */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.8rem; /* Smaller font */
+    background: white;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background 0.2s;
+    min-height: 24px;
+}
+
+.bracket-player:last-child {
+    border-bottom: none;
+}
+
+.bracket-player:hover {
+    background-color: #f0f7ff;
+}
+
+.bracket-player.clickable {
+    cursor: pointer;
+}
+
+.bracket-player.winner {
+    background-color: #e8f5e9;
+    color: #1b5e20;
+    font-weight: 600;
+}
+
+.bracket-player.winner::after {
+    content: 'V'; /* Simpler indicator */
+    font-size: 0.6rem;
+    background: #4caf50;
+    color: white;
+    padding: 1px 4px;
+    border-radius: 4px;
+    margin-left: 4px;
+}
+
+.bracket-final-round {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 20px;
+    flex: 1;
+}
+
+.bracket-final-match-wrapper h5 {
+    text-align: center;
+    color: #999;
+    font-size: 0.8rem;
+    margin: 0 0 5px 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Tournament: Swiss */
+.swiss-layout {
+    display: flex;
+    gap: 1.5rem;
+    height: 100%;
+}
+
+.swiss-rounds-container {
+    flex: 2;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.swiss-round {
+    background: white;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+.swiss-match-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+}
+
+.swiss-match {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 0.8rem;
+    position: relative;
+}
+
+.match-warning {
+    position: absolute;
+    top: -8px;
+    left: 10px;
+    background: #ffecb3;
+    color: #e65100;
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: bold;
+    border: 1px solid #ffd54f;
+    z-index: 5;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.swiss-player {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.swiss-player.winner {
+    background: #d4edda;
+    color: var(--success-color);
+    font-weight: bold;
+}
+
+.swiss-standings-container {
+    flex: 1;
+    background: white;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+}
+
+.swiss-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.swiss-standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.swiss-standings-table thead th {
+    background: #f1f3f5;
+    padding: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-weight: 600;
+    color: var(--secondary-color);
+    border-bottom: 2px solid #ddd;
+}
+
+.swiss-standings-table tbody tr {
+    border-bottom: 1px solid #eee;
+}
+
+.swiss-standings-table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.swiss-standings-table td {
+    padding: 0.8rem 1rem;
+    text-align: center;
+}
+
+.swiss-standings-table tr.rank-1 { background-color: #fff8e1; }
+.swiss-standings-table tr.rank-2 { background-color: #f5f5f5; }
+.swiss-standings-table tr.rank-3 { background-color: #fff3e0; }
+
+.winner-label {
+    background: var(--success-color);
+    color: white;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    font-weight: bold;
+}
+
+/* Tournament Winner Display */
+.tournament-winner-display {
+    text-align: center;
+    background: white;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    margin: 2rem 0;
+    min-width: 300px;
+    flex-shrink: 0;
+}
+
+.winner-podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.podium-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    min-width: 100px;
+}
+
+.podium-step.rank-1 { background: linear-gradient(to top, #ffd700, #fff8e1); height: 220px; order: 2; z-index: 2; border: 2px solid #ffd700; }
+.podium-step.rank-2 { background: linear-gradient(to top, #c0c0c0, #f5f5f5); height: 180px; order: 1; border: 2px solid #c0c0c0; }
+.podium-step.rank-3 { background: linear-gradient(to top, #cd7f32, #fff3e0); height: 150px; order: 3; border: 2px solid #cd7f32; }
+
+.trophy-icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+.winner-name { margin: 0.5rem 0; font-size: 1.2rem; font-weight: bold; }
+.winner-rank { margin: 0; color: #666; font-size: 0.9rem; }
+
+/* Chess Panel (Uses tournament like structure) */
+.chess-panel-container {
+    display: grid;
+    grid-template-columns: 4.5fr 2fr 3fr;
+    gap: 1.5rem;
+    height: 100%;
+}
+
+.chess-roster-wrapper, .chess-mission-panel, .chess-history-panel {
+    background: white;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.new-match-recorder {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #eee;
+    text-align: center;
+}
+
+.player-selection-display {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    margin: 1.5rem 0;
+}
+
+.player-slot {
+    width: 140px;
+    height: 80px;
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #999;
+}
+
+.player-slot.filled {
+    border-style: solid;
+    border-color: var(--primary-color);
+    background: #e3f2fd;
+    color: var(--primary-color);
+}
+
+.vs-text { font-weight: 900; color: #ccc; font-size: 1.2rem; }
+
+@media (max-width: 768px) {
+    /* Relay View */
+    .relay-view-body {
+        flex-direction: column;
+    }
+    .relay-summary-panel {
+        width: 100%;
+        position: relative;
+        flex: none;
+        order: -1; /* Keep summary top? or default */
+    }
+    .tournament-games-container {
+        width: 100%;
+        overflow-x: auto;
+    }
+    
+    /* Bracket */
+    .bracket-container {
+        padding: 1rem;
+    }
+    
+    /* Swiss */
+    .swiss-layout {
+        flex-direction: column;
+    }
+    .swiss-rounds-container {
+        padding-right: 0;
+    }
+    .swiss-match-list {
+        grid-template-columns: 1fr;
+    }
+    
+    /* Chess */
+    .chess-panel-container {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .chess-roster-wrapper, 
+    .chess-mission-panel, 
+    .chess-history-panel {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    
+    .player-selection-display {
+        gap: 0.5rem;
+    }
+    .player-slot {
+        width: 100px;
+        height: 60px;
+        font-size: 0.9rem;
+    }
+    .result-options {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.8rem;
+    }
+    .match-history-info {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .match-players {
+        font-size: 0.9rem;
+        word-break: break-word;
+    }
+}

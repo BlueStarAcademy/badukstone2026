@@ -1,0 +1,376 @@
+
+/* Event View Layout */
+.event-view-container {
+    display: grid;
+    grid-template-columns: 1fr 350px; /* Let the board area take the most space */
+    gap: 2rem;
+    height: calc(100vh - var(--header-height) - 4rem); /* Fit to screen height */
+    align-items: start;
+}
+
+/* Gacha Board Layout - Flexible & Premium */
+.gacha-layout-row {
+    display: flex;
+    gap: 2rem;
+    background: #ffffff;
+    padding: 2rem;
+    border-radius: 24px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    width: 100%;
+    height: 100%; /* Fill container */
+    align-items: center; /* Center items vertically */
+}
+
+.gacha-board-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.gacha-board {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 6px;
+    background: #2c3e50;
+    padding: 12px;
+    border-radius: 16px;
+    border: 6px solid #1a252f;
+    aspect-ratio: 1 / 1;
+    box-shadow: inset 0 4px 15px rgba(0,0,0,0.6), 0 10px 20px rgba(0,0,0,0.2);
+    
+    /* Responsive sizing based on viewport height and container width */
+    width: 100%;
+    max-width: min(70vh, 100%); /* Ensure it doesn't exceed screen height */
+    margin: 0 auto;
+}
+
+.gacha-cell {
+    background: linear-gradient(145deg, #fffcf9, #f2e8dc);
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: clamp(0.7rem, 1.5vh, 1rem); /* Fluid font size */
+    color: #5d4037;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border-radius: 6px;
+    user-select: none;
+    border-bottom: 3px solid #d7ccc8;
+    box-shadow: 0 3px 5px rgba(0,0,0,0.2);
+}
+
+.gacha-cell:hover {
+    background: linear-gradient(145deg, #ffffff, #f7ede2);
+    color: #4a90e2;
+    transform: translateY(-4px) scale(1.1);
+    box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
+    z-index: 10;
+}
+
+.gacha-cell.picked {
+    background: #1a252f;
+    color: #34495e;
+    cursor: default;
+    font-size: 0.7rem;
+    border: none;
+    border-bottom: none;
+    box-shadow: inset 3px 3px 8px rgba(0,0,0,0.8);
+    transform: none;
+}
+
+.gacha-cell.result {
+    background: linear-gradient(145deg, #ffd54f, #ffb300);
+    border-color: #ff8f00;
+    color: #ffffff;
+    z-index: 20;
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+/* Prize Info Panel */
+.gacha-prize-info {
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 16px;
+    border: 1px solid #eee;
+}
+
+.gacha-prize-info h3 {
+    font-size: 1.2rem;
+    margin: 0;
+    text-align: center;
+}
+
+.prize-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.prize-item {
+    display: flex;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    background: #ffffff;
+    border: 1px solid #eee;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+}
+
+.prize-rank {
+    font-weight: 900;
+    font-size: 1.1rem;
+    width: 45px;
+}
+
+.prize-amount {
+    flex: 1;
+    color: #2c3e50;
+    font-weight: 800;
+    font-size: 1rem;
+}
+
+.prize-count {
+    font-size: 0.75rem;
+    color: #7f8c8d;
+    background: #f1f3f5;
+    padding: 4px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* Rank specific colors */
+.rank-1 { border-left: 6px solid #ffca28; background: #fffdf5; }
+.rank-2 { border-left: 6px solid #b0bec5; background: #f8f9fa; }
+.rank-3 { border-left: 6px solid #ffa726; background: #fffaf5; }
+.rank-4 { border-left: 6px solid #81c784; }
+.rank-5 { border-left: 6px solid #e0e0e0; }
+
+.gacha-instruction-message {
+    margin-top: auto;
+    padding: 1.2rem;
+    background: linear-gradient(135deg, #4a90e2, #357abd);
+    color: white;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1rem;
+    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+    animation: glow 1.5s infinite alternate;
+}
+
+@keyframes glow {
+    from { transform: scale(1); box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4); }
+    to { transform: scale(1.05); box-shadow: 0 6px 20px rgba(74, 144, 226, 0.6); }
+}
+
+/* Gacha Reveal Modal & Ticket Animation */
+.gacha-reveal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    perspective: 1200px;
+}
+
+.gacha-ticket-wrapper {
+    width: 320px;
+    height: 440px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-ticket {
+    background: #fffaf0;
+    background-image: radial-gradient(#ece0d1 1px, transparent 1px);
+    background-size: 20px 20px;
+    border: 8px solid #8b4513;
+    border-radius: 15px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gacha-ticket.folded {
+    width: 50px;
+    height: 50px;
+    transform: rotateX(90deg);
+    opacity: 0;
+}
+
+.gacha-ticket.unfolding-h {
+    width: 300px;
+    height: 50px;
+    transform: rotateX(0);
+    opacity: 1;
+}
+
+.gacha-ticket.open {
+    width: 300px;
+    height: 420px;
+}
+
+.gacha-content {
+    padding: 2rem;
+    text-align: center;
+    width: 100%;
+    opacity: 0;
+    transition: opacity 0.4s ease-out 0.2s;
+}
+
+.gacha-ticket.open .gacha-content {
+    opacity: 1;
+}
+
+.gacha-rank-stamp {
+    font-size: 4.5rem;
+    font-weight: 900;
+    color: rgba(211, 47, 47, 0.1);
+    border: 10px solid rgba(211, 47, 47, 0.1);
+    padding: 0.5rem 1.5rem;
+    display: inline-block;
+    margin: 1rem 0;
+    transform: scale(4) rotate(-30deg);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045);
+    text-transform: uppercase;
+    font-family: 'Georgia', serif;
+}
+
+.gacha-rank-stamp.stamped {
+    opacity: 1;
+    transform: scale(1) rotate(-15deg);
+    color: #d32f2f;
+    border-color: #d32f2f;
+    background: rgba(211, 47, 47, 0.05);
+}
+
+.gacha-prize-text {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin-top: 1.5rem;
+    color: #2c3e50;
+    line-height: 1.4;
+}
+
+.gacha-close-btn {
+    margin-top: 2rem;
+    padding: 0.8rem 2.5rem;
+    background: #8b4513;
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(139, 69, 19, 0.4);
+    transition: all 0.2s;
+}
+
+.gacha-close-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 15px rgba(139, 69, 19, 0.6);
+    background: #a0522d;
+}
+
+/* Eligible Student List */
+.event-student-list {
+    background: white;
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    border: 1px solid #f1f3f5;
+}
+
+.eligible-student-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.eligible-student-item {
+    padding: 1.2rem;
+    border-bottom: 1px solid #f8f9fa;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.eligible-student-item:hover {
+    background: #f0f7ff;
+}
+
+.spin-result {
+    font-weight: 900;
+    color: var(--success-color);
+    background: #e8f5e9;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.95rem;
+}
+
+@media (max-width: 1200px) {
+    .event-view-container {
+        grid-template-columns: 1fr;
+        height: auto;
+    }
+    .event-student-list {
+        max-height: 500px;
+        width: 100%;
+    }
+}
+
+@media (max-width: 850px) {
+    .gacha-layout-row {
+        flex-direction: column;
+        padding: 1.5rem;
+    }
+    .gacha-prize-info {
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    .prize-item {
+        width: calc(50% - 1rem);
+    }
+}
+
+@media (max-width: 600px) {
+    .gacha-board {
+        grid-template-columns: repeat(5, 1fr);
+        aspect-ratio: auto;
+    }
+    .prize-item {
+        width: 100%;
+    }
+}

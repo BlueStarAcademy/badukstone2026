@@ -1,0 +1,195 @@
+
+/* Student Grid */
+.student-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+.student-card {
+    background: var(--surface-color);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+    min-height: 160px; /* Ensure consistent height */
+}
+
+.student-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+}
+
+.student-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.student-card h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--secondary-color);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.student-header-rank {
+    font-size: 0.95rem;
+    color: #666;
+    background-color: #f1f3f5;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.student-card-stones {
+    margin-top: auto;
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+.current-stone-val {
+    font-size: 3rem;
+    font-weight: 800;
+    color: #ff6f00; /* Vibrant Orange */
+    line-height: 1;
+    letter-spacing: -1px;
+}
+
+.max-stone-separator {
+    font-size: 1.2rem;
+    color: #bbb;
+    font-weight: 300;
+    margin: 0 2px;
+}
+
+.max-stone-val {
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 500;
+}
+
+.student-card-coupons {
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    margin: 0.5rem 0 0 0;
+    font-weight: 500;
+}
+
+.event-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: white;
+}
+
+.event-badge.success {
+    background-color: var(--success-color);
+}
+
+/* Border colors for groups */
+.student-card--yudanja { border-top: 5px solid #9b59b6; }
+.student-card--gogeup { border-top: 5px solid #e74c3c; }
+.student-card--junggeup { border-top: 5px solid #f1c40f; }
+.student-card--chogeup2 { border-top: 5px solid #2ecc71; }
+.student-card--chogeup1 { border-top: 5px solid #3498db; }
+
+/* Player Management (Modal) */
+.player-mgmt-container {
+    display: flex;
+    gap: 1.5rem;
+    height: 500px;
+    margin-top: 1rem;
+}
+
+.player-mgmt-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fafafa;
+}
+
+.player-mgmt-header {
+    padding: 1rem;
+    background: #e9ecef;
+    font-weight: bold;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.player-mgmt-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background: white;
+}
+
+.player-mgmt-item {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid #f1f3f5;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.player-mgmt-item:hover {
+    background-color: #f8f9fa;
+}
+
+.player-mgmt-item.selected {
+    background-color: #e3f2fd;
+    color: var(--primary-color);
+    font-weight: 500;
+}
+
+@media (max-width: 768px) {
+    .student-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+    
+    .student-card {
+        padding: 1rem;
+        min-height: 140px;
+    }
+    
+    .student-card h3 {
+        font-size: 1.1rem;
+    }
+    
+    .current-stone-val {
+        font-size: 2.2rem;
+    }
+    
+    .player-mgmt-container {
+        flex-direction: column;
+        height: auto;
+        max-height: 60vh;
+    }
+    
+    .player-mgmt-col {
+        height: 250px;
+    }
+}

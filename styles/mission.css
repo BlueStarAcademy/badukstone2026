@@ -1,0 +1,323 @@
+
+/* Sidebar Missions */
+.mission-list {
+    list-style: none;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.mission-item {
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: border-color 0.2s;
+}
+
+.mission-item:hover { border-color: var(--primary-color); }
+
+.mission-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Chess Panel Specific Overrides */
+.chess-mission-panel .mission-list {
+    grid-template-columns: 1fr; /* Single column */
+}
+
+.chess-mission-panel .mission-item {
+    flex-direction: row; /* Horizontal layout */
+    justify-content: space-between;
+    text-align: left;
+    padding: 0.8rem 1rem;
+}
+
+.chess-mission-panel .mission-actions {
+    width: auto;
+    flex-shrink: 0;
+}
+
+/* Mission Baduk - SLIM Integrated View */
+.mission-baduk-view {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mission-integrated-view {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem; /* Tight gap */
+    padding-right: 0.5rem;
+    padding-bottom: 3rem;
+    min-height: 0;
+}
+
+/* Slim Card */
+.mission-row-card {
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    display: flex;
+    overflow: hidden;
+    min-height: 60px;
+    transition: box-shadow 0.2s;
+    flex-shrink: 0;
+}
+
+.mission-row-card.status-active { border-left: 5px solid var(--success-color); }
+.mission-row-card.status-finished { border-left: 5px solid #95a5a6; opacity: 0.8; filter: grayscale(0.5); }
+
+.mission-row-main {
+    flex: 1;
+    display: grid;
+    /* Name/Score | Missions | Actions */
+    grid-template-columns: 200px 1fr 200px;
+    gap: 0;
+}
+
+.mission-row-player-info {
+    padding: 0.6rem 1.4rem 0.6rem 0.8rem; /* 우측 패딩 확보 */
+    background: #f8f9fa;
+    border-right: 1px solid #eee;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.4rem;
+    position: relative;
+}
+
+.row-delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px; /* 왼쪽에서 오른쪽으로 이동하여 이름 가림 방지 */
+    background: #f1f3f5;
+    border: 1px solid #ddd;
+    color: #888;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    line-height: 1;
+    z-index: 10;
+    padding: 0;
+    transition: all 0.2s;
+}
+.row-delete-btn:hover { background: var(--danger-color); color: white; border-color: var(--danger-color); }
+
+.mission-row-name-group {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    justify-content: flex-start;
+    width: 100%;
+    padding-top: 2px;
+}
+
+.mission-row-name { 
+    font-size: 1.1rem; 
+    font-weight: bold; 
+    line-height: 1.2;
+    color: var(--secondary-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mission-row-score {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    background: rgba(74, 144, 226, 0.1);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+.mission-row-status-btns {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.mission-row-missions {
+    padding: 0.4rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem;
+    align-items: stretch;
+    background: white;
+}
+
+/* Slim Mini Card */
+.mission-mini-card {
+    background: #fafafa;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    position: relative;
+}
+
+.mission-mini-card.match { border-left: 3px solid #4a90e2; }
+.mission-mini-card.wearable { border-left: 3px solid #f1c40f; }
+
+.mission-mini-label {
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #888;
+    white-space: nowrap;
+    min-width: 40px;
+}
+
+.mission-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mission-text.spinning {
+    font-family: monospace;
+    color: #666;
+}
+
+.mission-card-actions {
+    display: flex;
+    gap: 0.3rem;
+}
+
+.mission-card-actions .btn-xs {
+    min-width: 55px;
+    padding: 0.3rem 0.6rem;
+    font-weight: 600;
+}
+
+.mission-row-controls {
+    padding: 0.4rem;
+    border-left: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    background: #fafafa;
+}
+
+.quick-action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0.2rem;
+    width: 100%;
+}
+
+.quick-action-grid .btn-xs { padding: 0.2rem; font-size: 0.75rem; }
+
+.timer-badge {
+    background: #2c3e50;
+    color: white;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+.timer-badge.status-expired { background: #e74c3c; animation: blink 1s infinite; }
+
+/* Finish Modal */
+.finish-modal-content { text-align: center; max-width: 500px; }
+
+.finish-score-display {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--secondary-color);
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #eee;
+    border-radius: 8px;
+}
+
+.finish-step-arrow { font-size: 2rem; margin: 0.5rem 0; }
+
+.bonus-slot-machine {
+    border: 4px solid gold;
+    border-radius: 12px;
+    padding: 1.5rem;
+    background: #2c3e50;
+    color: white;
+    margin-bottom: 1.5rem;
+    transition: transform 0.1s;
+}
+
+.bonus-slot-machine.shaking { animation: shake 0.1s infinite; }
+
+.bonus-slot-window {
+    background: white;
+    color: black;
+    font-size: 2.5rem;
+    font-weight: 900;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 8px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bonus-result-info {
+    font-size: 1.5rem;
+    color: #e65100;
+    font-weight: bold;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.total-reward-display {
+    margin-top: 1.5rem;
+    background: #dff0d8;
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 2px solid #d6e9c6;
+}
+
+.total-reward-amount {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #3c763d;
+    display: block;
+    margin-top: 0.5rem;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+@media (max-width: 1024px) {
+    .mission-row-main {
+        grid-template-columns: 180px 1fr 160px;
+    }
+    .mission-mini-card {
+        padding: 0.2rem 0.4rem;
+        gap: 0.3rem;
+    }
+}
