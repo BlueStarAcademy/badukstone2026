@@ -1,20 +1,29 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, isDemoMode } from '../firebase';
 import type { AppData } from '../types';
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T | 'error' | null>>;
 
+/**
+ * useFirestoreState Hook
+ * - 로컬 상태를 즉시 업데이트 (Optimistic Update)
+ * - Firestore와 비동기적으로 데이터 동기화
+ * - 스냅샷 충돌 방지 로직 포함
+ */
 export function useFirestoreState<T extends AppData>(
     userId: string | null,
     getInitialData: () => T
 ): [T | 'error' | null, SetState<T>] {
     const [state, setState] = useState<T | 'error' | null>(null);
-    const isWriting = useRef(false);
+    
+    // 로컬에서의 쓰기 작업 상태를 추적하는 Ref
+    const pendingWritesCount = useRef(0);
     const writeTimeout = useRef<number | null>(null);
-    const lastWriteCompleteTime = useRef<number>(0);
+    const latestStateRef = useRef<T | null>(null);
 
+    // 초기 데이터 로드 및 스냅샷 리스너 설정
     useEffect(() => {
         if (!userId) {
             setState(null);
@@ -22,95 +31,98 @@ export function useFirestoreState<T extends AppData>(
         }
 
         if (isDemoMode || !db) {
-            const initialData = getInitialData();
             const saved = localStorage.getItem(`demo_data_${userId}`);
             if (saved) {
                 try {
-                    setState(JSON.parse(saved));
+                    const parsed = JSON.parse(saved);
+                    setState(parsed);
+                    latestStateRef.current = parsed;
                 } catch (e) {
-                    setState(initialData);
+                    const initial = getInitialData();
+                    setState(initial);
+                    latestStateRef.current = initial;
                 }
             } else {
-                setState(initialData);
+                const initial = getInitialData();
+                setState(initial);
+                latestStateRef.current = initial;
             }
             return;
         }
 
         const docRef = doc(db, 'users', userId);
 
+        // 첫 로드 시 데이터가 없으면 초기 데이터 생성
+        const initLoad = async () => {
+            try {
+                const snap = await getDoc(docRef);
+                if (!snap.exists()) {
+                    const initial = getInitialData();
+                    await setDoc(docRef, initial);
+                    setState(initial);
+                    latestStateRef.current = initial;
+                }
+            } catch (e) {
+                console.error("Initial load failed:", e);
+            }
+        };
+        initLoad();
+
+        // 실시간 업데이트 구독
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            // 핵심 수정: 로컬 변경사항이 아직 서버로 전송 중(Pending)이라면 서버에서 오는 스냅샷(과거 데이터일 확률 높음)을 무시합니다.
-            if (docSnap.metadata.hasPendingWrites) return;
-            
-            // 쓰기 작업 직후 짧은 시간 동안 발생하는 스냅샷 플리커 방지
-            if (isWriting.current || (Date.now() - lastWriteCompleteTime.current < 2000)) return;
+            // 중요: 로컬에서 서버로 전송 중인 쓰기가 있다면 서버 스냅샷(구버전일 가능성 높음) 무시
+            if (docSnap.metadata.hasPendingWrites || pendingWritesCount.current > 0) {
+                return;
+            }
 
             if (docSnap.exists()) {
-                const cloudData = docSnap.data() as Partial<T>;
-                const initialState = getInitialData();
-                
-                // 얕은 병합 대신 주요 필드들을 보존하며 병합
-                const mergedData = {
-                    ...initialState,
-                    ...cloudData,
-                    generalSettings: { ...initialState.generalSettings, ...(cloudData.generalSettings || {}) },
-                    groupSettings: { ...initialState.groupSettings, ...(cloudData.groupSettings || {}) },
-                    eventSettings: { ...initialState.eventSettings, ...(cloudData.eventSettings || {}) },
-                    tournamentSettings: { ...initialState.tournamentSettings, ...(cloudData.tournamentSettings || {}) },
-                    // 배열 데이터 유실 방지
-                    students: cloudData.students || initialState.students || [],
-                    missions: cloudData.missions || initialState.missions || [],
-                    specialMissions: cloudData.specialMissions || initialState.specialMissions || [],
-                    transactions: cloudData.transactions || initialState.transactions || [],
-                };
-                setState(mergedData as T);
-            } else {
-                const initialData = getInitialData();
-                setDoc(docRef, initialData);
-                setState(initialData);
+                const cloudData = docSnap.data() as T;
+                setState(cloudData);
+                latestStateRef.current = cloudData;
             }
         }, (error) => {
-            console.error("Firestore snapshot error:", error);
-            // 에러 시 롤백하지 않고 기존 상태 유지 시도
+            console.error("Firestore sync error:", error);
         });
 
         return () => unsubscribe();
     }, [userId, getInitialData]);
 
+    // 상태 업데이트 함수 (Debounced Firestore Sync)
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
         setState(prevState => {
             const newState = typeof newStateOrFn === 'function'
-                ? newStateOrFn(prevState)
+                ? (newStateOrFn as any)(prevState)
                 : newStateOrFn;
 
-            if (newState && newState !== 'error' && userId) {
-                if (isDemoMode || !db) {
-                    localStorage.setItem(`demo_data_${userId}`, JSON.stringify(newState));
-                    return newState;
-                }
+            if (newState && newState !== 'error') {
+                latestStateRef.current = newState;
+                
+                if (userId) {
+                    if (isDemoMode || !db) {
+                        localStorage.setItem(`demo_data_${userId}`, JSON.stringify(newState));
+                    } else {
+                        // 쓰기 대기 카운트 증가
+                        pendingWritesCount.current++;
 
-                if (writeTimeout.current) {
-                    clearTimeout(writeTimeout.current);
-                }
-                
-                isWriting.current = true;
-                
-                writeTimeout.current = window.setTimeout(async () => {
-                    try {
-                        const docRef = doc(db, 'users', userId);
-                        // merge: true를 사용하여 변경된 필드만 안전하게 업데이트
-                        await setDoc(docRef, newState, { merge: true });
-                        lastWriteCompleteTime.current = Date.now();
-                    } catch (error) {
-                        console.error("Failed to save data to Firestore:", error);
-                    } finally {
-                        // 서버 응답 처리 대기 후 쓰기 상태 해제
-                        setTimeout(() => {
-                            isWriting.current = false;
-                        }, 500);
-                        writeTimeout.current = null;
+                        if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
+                        
+                        writeTimeout.current = window.setTimeout(async () => {
+                            try {
+                                const docRef = doc(db, 'users', userId);
+                                // 데이터 정합성을 위해 전체 문서를 덮어쓰기
+                                await setDoc(docRef, newState);
+                            } catch (error) {
+                                console.error("Firestore write failed:", error);
+                            } finally {
+                                // 쓰기 작업이 끝나면 카운트 감소 (지연 처리로 스냅샷 레이스 컨디션 방어)
+                                setTimeout(() => {
+                                    pendingWritesCount.current = Math.max(0, pendingWritesCount.current - 1);
+                                }, 1500);
+                                writeTimeout.current = null;
+                            }
+                        }, 500); // 0.5초 디바운스로 반응성 향상
                     }
-                }, 1000); 
+                }
             }
             return newState;
         });
