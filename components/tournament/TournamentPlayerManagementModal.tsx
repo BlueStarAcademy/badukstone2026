@@ -9,11 +9,11 @@ interface TournamentPlayerManagementModalProps {
     allStudents: Student[];
     participantIds: string[];
     onUpdateParticipants: (ids: string[]) => void;
-    onAssignTeams: (mode: 'random' | 'ranked', ids?: string[]) => void;
+    onAssignTeams: (mode: 'random' | 'ranked', ids: string[]) => void;
     currentView: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'mission';
-    onStartSwiss: (mode: 'random' | 'ranked', ids: string[]) => void; // IDs 매개변수 추가
-    onInitMission?: (ids?: string[]) => void;
-    onInitHybrid?: (ids: string[]) => void; // 하이브리드 초기화 추가
+    onStartSwiss: (mode: 'random' | 'ranked', ids: string[]) => void;
+    onInitMission?: (ids: string[]) => void;
+    onInitHybrid?: (ids: string[]) => void;
 }
 
 export const TournamentPlayerManagementModal = (props: TournamentPlayerManagementModalProps) => {
@@ -76,16 +76,21 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
 
     const handleFinalize = () => {
         const ids = Array.from(selectedIds) as string[];
-        onUpdateParticipants(ids);
         
+        // 중요: 각 모드별 전용 초기화 함수만 호출하도록 변경 (onUpdateParticipants 중복 호출 제거)
+        // 이는 여러 번의 setData 호출로 인한 상태 덮어쓰기(Race Condition)를 방지합니다.
         if (currentView === 'relay') {
             onAssignTeams(assignmentMode, ids);
         } else if (currentView === 'swiss') {
-            onStartSwiss(assignmentMode, ids); // 수정: ids 전달
+            onStartSwiss(assignmentMode, ids);
         } else if (currentView === 'mission' && onInitMission) {
             onInitMission(ids);
         } else if (currentView === 'hybrid' && onInitHybrid) {
-            onInitHybrid(ids); // 추가: 하이브리드 초기화
+            onInitHybrid(ids);
+        } else if (currentView === 'bracket') {
+            // 토너먼트는 별도 초기화 로직이 없으므로 목록만 저장
+            onUpdateParticipants(ids);
+            onClose();
         }
     };
 

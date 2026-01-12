@@ -53,8 +53,8 @@ export const TournamentView = (props: TournamentViewProps) => {
         });
     };
 
-    const handleAssignTeams = (mode: 'random' | 'ranked', ids?: string[]) => {
-        const participantIdsToUse = ids || getTabParticipantIds('relay');
+    const handleAssignTeams = (mode: 'random' | 'ranked', ids: string[]) => {
+        const participantIdsToUse = ids;
 
         const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
@@ -107,8 +107,8 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleStartSwiss = (mode: 'random' | 'ranked', ids?: string[]) => {
-        const participantIdsToUse = ids || getTabParticipantIds('swiss');
+    const handleStartSwiss = (mode: 'random' | 'ranked', ids: string[]) => {
+        const participantIdsToUse = ids;
         const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
@@ -172,8 +172,8 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleInitHybrid = (ids?: string[]) => {
-        const participantIdsToUse = ids || getTabParticipantIds('hybrid');
+    const handleInitHybrid = (ids: string[]) => {
+        const participantIdsToUse = ids;
         const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
@@ -238,8 +238,8 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleInitMissionBaduk = (ids?: string[]) => {
-        const participantIdsToUse = ids || getTabParticipantIds('mission');
+    const handleInitMissionBaduk = (ids: string[]) => {
+        const participantIdsToUse = ids;
 
         if (participantIdsToUse.length === 0) {
              alert('참가 선수가 없습니다.');
