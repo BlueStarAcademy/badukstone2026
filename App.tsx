@@ -41,8 +41,11 @@ const getInitialData = (): AppData => ({
 });
 
 const AppLoader = ({ message }: { message: string }) => (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem', background: 'var(--bg-color)' }}>
-        {message}
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', fontSize: '1.2rem', background: 'var(--bg-color)', color: 'var(--secondary-color)' }}>
+        <div style={{ textAlign: 'center' }}>
+            <div style={{ marginBottom: '1rem', fontSize: '2rem' }}>💎</div>
+            {message}
+        </div>
     </div>
 );
 
@@ -105,7 +108,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+    // FIX: Defined 'missions' constant to fix the "Cannot find name 'missions'" error and maintain consistency.
     const students = validAppState?.students || [];
+    const missions = validAppState?.missions || [];
     const transactions = validAppState?.transactions || [];
     const coupons = validAppState?.coupons || [];
     const groupSettings = validAppState?.groupSettings || INITIAL_GROUP_SETTINGS;
@@ -116,7 +121,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const shopCategories = validAppState?.shopCategories || INITIAL_SHOP_CATEGORIES;
     const specialMissions = validAppState?.specialMissions || [];
     const chessMissions = validAppState?.chessMissions || [];
-    const tournamentData = validAppState?.tournamentData || { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [] }, { name: 'B', players: [] }] };
+    const tournamentData = validAppState?.tournamentData || { ...INITIAL_TOURNAMENT_DATA, participantIds: [], teams: [{ name: 'A', players: [] }, { name: 'B', players: [] }] };
     const tournamentSettings = validAppState?.tournamentSettings || INITIAL_TOURNAMENT_SETTINGS;
     const chessMatches = validAppState?.chessMatches || [];
     const gachaState = validAppState?.gachaState || INITIAL_GACHA_STATES;
@@ -249,7 +254,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    // FIX: Implemented handleRecordChessMatch to calculate Elo ratings and update chess match history.
     const handleRecordChessMatch = useCallback((whitePlayerId: string, blackPlayerId: string, result: 'white' | 'black' | 'draw') => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
@@ -284,18 +288,10 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             const updatedStudents = prev.students.map(s => {
                 if (s.id === whitePlayerId && whitePlayerId !== 'non-chess-player') {
-                    return { 
-                        ...s, 
-                        chessRating: newWhiteRating, 
-                        chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 
-                    };
+                    return { ...s, chessRating: newWhiteRating, chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 };
                 }
                 if (s.id === blackPlayerId && blackPlayerId !== 'non-chess-player') {
-                    return { 
-                        ...s, 
-                        chessRating: newBlackRating, 
-                        chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 
-                    };
+                    return { ...s, chessRating: newBlackRating, chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 };
                 }
                 return s;
             });
@@ -316,17 +312,17 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 <div className="header-title-group">
                     <h1 onClick={() => setView('student')} style={{cursor: 'pointer'}}>
                         {generalSettings.academyName}
-                        {isDemo && <span className="demo-badge" style={{fontSize: '0.7rem', padding: '2px 6px', marginLeft: '8px'}}>DEMO</span>}
+                        {isDemo && <span className="demo-badge">DEMO</span>}
                     </h1>
                 </div>
                 
-                <div className="view-toggle">
+                <nav className="view-toggle">
                     <button className={`toggle-btn ${view === 'student' ? 'active' : ''}`} onClick={() => setView('student')}>👨‍🎓 바둑반</button>
                     <button className={`toggle-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => setView('chess')}>♟️ 체스반</button>
                     <button className={`toggle-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>🏆 대회</button>
                     <button className={`toggle-btn ${view === 'event' ? 'active' : ''}`} onClick={() => setView('event')}>🎁 이벤트</button>
                     <button className={`toggle-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>⚙️ 설정</button>
-                </div>
+                </nav>
 
                 <div className="header-controls">
                     {user.uid === 'master' && <button className="btn-sm" onClick={() => setView('master')} style={{marginRight: '10px'}}>MASTER</button>}
@@ -335,89 +331,101 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             </header>
 
             <main className="main-content">
-                {view === 'student' && (
-                    <StudentView 
-                        students={students} coupons={coupons} transactions={transactions}
-                        groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings}
-                        setView={setView}
-                        onStudentClick={(s) => { setSelectedStudent(s); setIsSidebarOpen(true); }}
-                        onNavigateToEvent={(s) => { setSelectedStudent(s); setView('event'); }}
-                    />
-                )}
-                {view === 'chess' && (
-                    <ChessPanel 
-                        students={students} matches={chessMatches} transactions={transactions} 
-                        generalSettings={generalSettings} missions={[]} chessMissions={chessMissions}
-                        onRecordMatch={handleRecordChessMatch} onCancelMatch={() => {}}
-                        onChessAttendance={(id) => handleAddTransaction(id, 'chess_attendance', '체스반 출석', generalSettings.chessAttendanceValue)}
-                        onAddTransaction={handleAddTransaction}
-                        onUpdateGeneralSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, generalSettings: s }))}
-                        onUpdateChessRating={() => {}} onChessAbsencePenalty={() => {}}
-                    />
-                )}
-                {view === 'tournament' && (
-                    <TournamentView 
-                        students={students} data={tournamentData} settings={tournamentSettings} 
-                        setData={(d) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentData: typeof d === 'function' ? d(prev!.tournamentData) : d }))}
-                        setSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentSettings: typeof s === 'function' ? s(prev!.tournamentSettings) : s }))}
-                        onBulkAddTransaction={(ids, desc, amt) => ids.forEach(id => handleAddTransaction(id, 'adjustment', desc, amt))}
-                    />
-                )}
-                {view === 'event' && (
-                    <EventView 
-                        students={students} transactions={transactions} eventSettings={eventSettings} 
-                        gachaStates={gachaState} targetStudent={selectedStudent}
-                        onClearTargetStudent={() => setSelectedStudent(null)}
-                        setEventSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, eventSettings: typeof s === 'function' ? s(prev!.eventSettings) : s }))}
-                        onAddTransaction={handleAddTransaction}
-                        onGachaPick={() => undefined} onCancelEventEntry={() => {}}
-                    />
-                )}
-                {view === 'admin' && (
-                    <AdminPanel 
-                        students={students} missions={validAppState.missions} chessMissions={chessMissions} specialMissions={specialMissions}
-                        shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} groupSettings={groupSettings} generalSettings={generalSettings}
-                        setMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, missions: typeof m === 'function' ? m(prev!.missions) : m }))}
-                        setChessMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, chessMissions: typeof m === 'function' ? m(prev!.chessMissions) : m }))}
-                        setSpecialMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, specialMissions: typeof m === 'function' ? m(prev!.specialMissions) : m }))}
-                        setShopItems={(i) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, shopItems: typeof i === 'function' ? i(prev!.shopItems) : i }))}
-                        setShopSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, shopSettings: typeof s === 'function' ? s(prev!.shopSettings) : s }))}
-                        setShopCategories={(c) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, shopCategories: typeof c === 'function' ? c(prev!.shopCategories) : c }))}
-                        onSaveStudent={(data, id) => {
-                            setAppState(prev => {
-                                if (prev === 'error' || !prev) return prev;
-                                if (id) return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, ...data } : s) };
-                                const newStudent: Student = { ...data, id: generateId(), stones: 0, maxStones: groupSettings[getGroupForRank(data.rank).group]?.maxStones || 50, group: getGroupForRank(data.rank).group };
-                                return { ...prev, students: [...prev.students, newStudent] };
-                            });
-                        }}
-                        onDeleteStudent={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.filter(s => s.id !== id) }))}
-                        onUpdateGroupSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, groupSettings: s }))}
-                        onUpdateGeneralSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, generalSettings: s }))}
-                        onBulkAddTransaction={(ids, desc, amt) => ids.forEach(id => handleAddTransaction(id, 'adjustment', desc, amt))}
-                        onBulkUpdateStudents={(ids, updates) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => ids.includes(s.id) ? { ...s, ...updates } : s) }))}
-                        onAddCoupon={(c) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, coupons: [...prev!.coupons, { ...c, id: generateId() }] }))}
-                        onImportStudents={(data, mode) => {
-                            setAppState(prev => {
-                                if (prev === 'error' || !prev) return prev;
-                                const studentsWithIds = data.map(s => ({ ...s, id: generateId(), group: getGroupForRank(s.rank).group, maxStones: prev.groupSettings[getGroupForRank(s.rank).group]?.maxStones || 50, stones: s.stones || 0 }));
-                                return { ...prev, students: mode === 'replace' ? studentsWithIds : [...prev.students, ...studentsWithIds] };
-                            });
-                        }}
-                        onImportMissions={() => {}} onImportShopItems={() => {}}
-                    />
-                )}
-                {view === 'master' && user.uid === 'master' && <MasterPanel user={user} />}
+                <div className="scroll-content-inner">
+                    {view === 'student' && (
+                        <StudentView 
+                            students={students} coupons={coupons} transactions={transactions}
+                            groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings}
+                            setView={setView}
+                            onStudentClick={(s) => { setSelectedStudent(s); setIsSidebarOpen(true); }}
+                            onNavigateToEvent={(s) => { setSelectedStudent(s); setView('event'); }}
+                        />
+                    )}
+                    {view === 'chess' && (
+                        <ChessPanel 
+                            students={students} matches={chessMatches} transactions={transactions} 
+                            generalSettings={generalSettings} missions={missions} chessMissions={chessMissions}
+                            onRecordMatch={handleRecordChessMatch} onCancelMatch={() => {}}
+                            onChessAttendance={(id) => handleAddTransaction(id, 'chess_attendance', '체스반 출석', generalSettings.chessAttendanceValue)}
+                            onAddTransaction={handleAddTransaction}
+                            onUpdateGeneralSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, generalSettings: s }))}
+                            onUpdateChessRating={(id, r) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? {...s, chessRating: r} : s) }))}
+                            onChessAbsencePenalty={(id) => handleAddTransaction(id, 'adjustment', '체스반 결석', -10)}
+                        />
+                    )}
+                    {view === 'tournament' && (
+                        <TournamentView 
+                            students={students} data={tournamentData} settings={tournamentSettings} 
+                            setData={(d) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentData: typeof d === 'function' ? d(prev!.tournamentData) : d }))}
+                            setSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentSettings: typeof s === 'function' ? s(prev!.tournamentSettings) : s }))}
+                            onBulkAddTransaction={(ids, desc, amt) => ids.forEach(id => handleAddTransaction(id, 'adjustment', desc, amt))}
+                        />
+                    )}
+                    {view === 'event' && (
+                        <EventView 
+                            students={students} transactions={transactions} eventSettings={eventSettings} 
+                            gachaStates={gachaState} targetStudent={selectedStudent}
+                            onClearTargetStudent={() => setSelectedStudent(null)}
+                            setEventSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, eventSettings: typeof s === 'function' ? s(prev!.eventSettings) : s }))}
+                            onAddTransaction={handleAddTransaction}
+                            onGachaPick={() => undefined} onCancelEventEntry={() => {}}
+                        />
+                    )}
+                    {view === 'admin' && (
+                        <AdminPanel 
+                            students={students} missions={missions} chessMissions={chessMissions} specialMissions={specialMissions}
+                            shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} groupSettings={groupSettings} generalSettings={generalSettings}
+                            setMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, missions: typeof m === 'function' ? m(prev!.missions) : m }))}
+                            setChessMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, chessMissions: typeof m === 'function' ? m(prev!.chessMissions) : m }))}
+                            setSpecialMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, specialMissions: typeof m === 'function' ? m(prev!.specialMissions) : m }))}
+                            setShopItems={(i) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, shopItems: typeof i === 'function' ? i(prev!.shopItems) : i }))}
+                            setShopSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, shopSettings: typeof s === 'function' ? s(prev!.shopSettings) : s }))}
+                            setShopCategories={(c) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, shopCategories: typeof c === 'function' ? c(prev!.shopCategories) : c }))}
+                            onSaveStudent={(data, id) => {
+                                setAppState(prev => {
+                                    if (prev === 'error' || !prev) return prev;
+                                    if (id) return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, ...data } : s) };
+                                    const newStudent: Student = { ...data, id: generateId(), stones: 0, maxStones: groupSettings[getGroupForRank(data.rank).group]?.maxStones || 50, group: getGroupForRank(data.rank).group };
+                                    return { ...prev, students: [...prev.students, newStudent] };
+                                });
+                            }}
+                            onDeleteStudent={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.filter(s => s.id !== id) }))}
+                            onUpdateGroupSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, groupSettings: s }))}
+                            onUpdateGeneralSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, generalSettings: s }))}
+                            onBulkAddTransaction={(ids, desc, amt) => ids.forEach(id => handleAddTransaction(id, 'adjustment', desc, amt))}
+                            onBulkUpdateStudents={(ids, updates) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => ids.includes(s.id) ? { ...s, ...updates } : s) }))}
+                            onAddCoupon={(c) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, coupons: [...prev!.coupons, { ...c, id: generateId() }] }))}
+                            onImportStudents={(data, mode) => {
+                                setAppState(prev => {
+                                    if (prev === 'error' || !prev) return prev;
+                                    const studentsWithIds = data.map(s => ({ ...s, id: generateId(), group: getGroupForRank(s.rank).group, maxStones: prev.groupSettings[getGroupForRank(s.rank).group]?.maxStones || 50, stones: s.stones || 0 }));
+                                    return { ...prev, students: mode === 'replace' ? studentsWithIds : [...prev.students, ...studentsWithIds] };
+                                });
+                            }}
+                            onImportMissions={() => {}} onImportShopItems={() => {}}
+                        />
+                    )}
+                    {view === 'master' && user.uid === 'master' && <MasterPanel user={user} />}
+                </div>
             </main>
 
             <QuickMenuSidebar 
-                isOpen={isSidebarOpen} student={selectedStudent} students={students} missions={validAppState.missions} specialMissions={specialMissions}
+                isOpen={isSidebarOpen} student={selectedStudent} students={students} missions={missions} specialMissions={specialMissions}
                 shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} coupons={coupons} transactions={transactions}
                 groupSettings={groupSettings} generalSettings={generalSettings}
                 onClose={() => setIsSidebarOpen(false)}
-                onAddTransaction={handleAddTransaction} onUpdateTransaction={() => {}} onDeleteCoupon={() => {}}
+                onAddTransaction={handleAddTransaction} onUpdateTransaction={(tx) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, transactions: prev!.transactions.map(t => t.id === tx.id ? tx : t) }))} onDeleteCoupon={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, coupons: prev!.coupons.filter(c => c.id !== id) }))}
                 onPurchase={handlePurchase} onCancelTransaction={handleCancelTransaction} onDeleteTransaction={handleDeleteTransaction}
-                onTransferStones={handleTransferStones} onUpdateJosekiProgress={() => {}} onCompleteJosekiMission={() => {}} onAssignSpecialMission={() => {}} onClearSpecialMission={() => {}}
+                onTransferStones={handleTransferStones} onUpdateJosekiProgress={(id, p) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? {...s, josekiProgress: p} : s) }))} onCompleteJosekiMission={(id) => handleAddTransaction(id, 'joseki_mission', '정석 미션 완료', generalSettings.josekiMissionValue)} onAssignSpecialMission={(id) => setAppState(prev => {
+                    if (!prev || prev === 'error') return prev;
+                    const student = prev.students.find(s => s.id === id);
+                    if (!student) return prev;
+                    const available = prev.specialMissions.filter(m => m.group === student.group);
+                    if (available.length === 0) return prev;
+                    const randomMission = available[Math.floor(Math.random() * available.length)];
+                    const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
+                    return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
+                })} onClearSpecialMission={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: undefined, specialMissionDate: undefined } : s) }))}
             />
 
             {isAccountModalOpen && (

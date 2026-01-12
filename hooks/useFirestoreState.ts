@@ -12,10 +12,10 @@ export function useFirestoreState<T extends AppData>(
 ): [T | 'error' | null, SetState<T>] {
     const [state, setState] = useState<T | 'error' | null>(null);
     
-    // 쓰기 작업 중인지 여부를 확인하는 플래그 (서버 스냅샷 무시용)
-    const isWriting = useRef(false);
+    // 핵심: 로컬에서 쓰기가 진행 중임을 알리는 레퍼런스
+    const isWritingLocked = useRef(false);
     const writeTimeout = useRef<number | null>(null);
-    const latestLocalData = useRef<T | null>(null);
+    const lockReleaseTimeout = useRef<number | null>(null);
 
     useEffect(() => {
         if (!userId) {
@@ -27,24 +27,19 @@ export function useFirestoreState<T extends AppData>(
             const saved = localStorage.getItem(`demo_data_${userId}`);
             if (saved) {
                 try {
-                    const parsed = JSON.parse(saved);
-                    setState(parsed);
-                    latestLocalData.current = parsed;
+                    setState(JSON.parse(saved));
                 } catch (e) {
-                    const initial = getInitialData();
-                    setState(initial);
-                    latestLocalData.current = initial;
+                    setState(getInitialData());
                 }
             } else {
-                const initial = getInitialData();
-                setState(initial);
-                latestLocalData.current = initial;
+                setState(getInitialData());
             }
             return;
         }
 
         const docRef = doc(db, 'users', userId);
 
+        // 초기 로드
         const initLoad = async () => {
             try {
                 const snap = await getDoc(docRef);
@@ -52,30 +47,33 @@ export function useFirestoreState<T extends AppData>(
                     const initial = getInitialData();
                     await setDoc(docRef, initial);
                     setState(initial);
-                    latestLocalData.current = initial;
                 }
             } catch (e) {
-                console.error("Initial load failed:", e);
+                console.error("Firestore 초기 로드 실패:", e);
             }
         };
         initLoad();
 
+        // 실시간 구독
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            // 로컬에서 쓰기가 진행 중이거나, 서버 응답 대기 중인 펜딩 쓰기가 있다면 스냅샷 무시
-            if (isWriting.current || docSnap.metadata.hasPendingWrites) {
+            // 로컬에서 쓰기 중이거나 서버에 펜딩된 쓰기가 있다면 스냅샷(서버 데이터) 무시
+            if (isWritingLocked.current || docSnap.metadata.hasPendingWrites) {
                 return;
             }
 
             if (docSnap.exists()) {
                 const cloudData = docSnap.data() as T;
                 setState(cloudData);
-                latestLocalData.current = cloudData;
             }
         }, (error) => {
-            console.error("Firestore snapshot error:", error);
+            console.error("Firestore 구독 에러:", error);
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
+            if (lockReleaseTimeout.current) window.clearTimeout(lockReleaseTimeout.current);
+        };
     }, [userId, getInitialData]);
 
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
@@ -84,35 +82,35 @@ export function useFirestoreState<T extends AppData>(
                 ? (newStateOrFn as any)(prevState)
                 : newStateOrFn;
 
-            if (newState && newState !== 'error') {
-                latestLocalData.current = newState;
-                
-                if (userId) {
-                    if (isDemoMode || !db) {
-                        localStorage.setItem(`demo_data_${userId}`, JSON.stringify(newState));
-                        return newState;
-                    }
-
-                    // 디바운스 처리: 마지막 입력 후 800ms 뒤에 서버 전송
-                    if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
-                    
-                    writeTimeout.current = window.setTimeout(async () => {
-                        isWriting.current = true;
-                        try {
-                            const docRef = doc(db, 'users', userId);
-                            // merge를 사용하지 않고 전체 상태를 덮어씌워 정합성 보장
-                            await setDoc(docRef, newState);
-                        } catch (error) {
-                            console.error("Failed to save to Firestore:", error);
-                        } finally {
-                            // 서버 전송 완료 후 스냅샷을 수용하기까지 약간의 유예 시간을 둠
-                            setTimeout(() => {
-                                isWriting.current = false;
-                            }, 1000);
-                            writeTimeout.current = null;
-                        }
-                    }, 800);
+            if (newState && newState !== 'error' && userId) {
+                if (isDemoMode || !db) {
+                    localStorage.setItem(`demo_data_${userId}`, JSON.stringify(newState));
+                    return newState;
                 }
+
+                // 1. 즉시 잠금 활성화 (서버 스냅샷 무시 시작)
+                isWritingLocked.current = true;
+
+                // 2. 기존 타이머 제거
+                if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
+                if (lockReleaseTimeout.current) window.clearTimeout(lockReleaseTimeout.current);
+                
+                // 3. 디바운스된 쓰기 작업 예약
+                writeTimeout.current = window.setTimeout(async () => {
+                    try {
+                        const docRef = doc(db, 'users', userId);
+                        // 데이터 유실 방지를 위해 merge가 아닌 전체 덮어쓰기 수행
+                        await setDoc(docRef, newState);
+                    } catch (error) {
+                        console.error("Firestore 저장 실패:", error);
+                    } finally {
+                        // 4. 저장 완료 후 즉시 잠금을 풀지 않고 1.5초 뒤에 해제 (서버 스냅샷 지연 보정)
+                        lockReleaseTimeout.current = window.setTimeout(() => {
+                            isWritingLocked.current = false;
+                        }, 1500);
+                        writeTimeout.current = null;
+                    }
+                }, 1000); // 1초 디바운스
             }
             return newState;
         });
