@@ -103,7 +103,7 @@ interface MainAppProps {
 }
 
 const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
-    const [appState, setAppState] = useFirestoreState<AppData>(user.uid, getInitialData);
+    const [appState, setAppState, isSaving] = useFirestoreState<AppData>(user.uid, getInitialData);
 
     const [view, setView] = useState<View>('student');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -329,6 +329,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                         {generalSettings.academyName}
                         {isDemo && <span className="demo-badge">DEMO</span>}
                     </h1>
+                    {isSaving && <div className="saving-indicator">💾 저장 중...</div>}
                 </div>
                 
                 <nav className="view-toggle">

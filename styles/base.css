@@ -43,6 +43,7 @@ body {
 .header-title-group {
     display: flex;
     align-items: center;
+    gap: 1rem;
 }
 
 .header h1 {
@@ -51,6 +52,22 @@ body {
     color: var(--secondary-color);
     font-weight: 800;
     white-space: nowrap;
+}
+
+.saving-indicator {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    background: #e3f2fd;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
 }
 
 .view-toggle {

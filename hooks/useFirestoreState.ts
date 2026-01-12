@@ -9,10 +9,12 @@ type SetState<T> = React.Dispatch<React.SetStateAction<T | 'error' | null>>;
 export function useFirestoreState<T extends AppData>(
     userId: string | null,
     getInitialData: () => T
-): [T | 'error' | null, SetState<T>] {
+): [T | 'error' | null, SetState<T>, boolean] {
     const [state, setState] = useState<T | 'error' | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
     
-    // 로컬 업데이트의 타임스탬프를 추적하여 stale한 스냅샷을 무시함
+    // 로컬의 가장 최신 상태를 참조하기 위한 Ref
+    const latestStateRef = useRef<T | null>(null);
     const lastLocalUpdateAt = useRef<number>(0);
     const writeTimeout = useRef<number | null>(null);
 
@@ -26,7 +28,9 @@ export function useFirestoreState<T extends AppData>(
         const init = async () => {
             if (isDemoMode || !db) {
                 const saved = localStorage.getItem(`demo_data_${userId}`);
-                setState(saved ? JSON.parse(saved) : getInitialData());
+                const data = saved ? JSON.parse(saved) : getInitialData();
+                latestStateRef.current = data;
+                setState(data);
                 return;
             }
 
@@ -34,10 +38,13 @@ export function useFirestoreState<T extends AppData>(
                 const docRef = doc(db, 'users', userId);
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
-                    setState(snap.data() as T);
+                    const data = snap.data() as T;
+                    latestStateRef.current = data;
+                    setState(data);
                 } else {
                     const initial = getInitialData();
                     await setDoc(docRef, initial);
+                    latestStateRef.current = initial;
                     setState(initial);
                 }
             } catch (e) {
@@ -56,18 +63,19 @@ export function useFirestoreState<T extends AppData>(
         const docRef = doc(db, 'users', userId);
         
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            // 1. 로컬에 아직 반영되지 않은 쓰기가 있다면 무시
+            // 로컬에 대기 중인 쓰기가 있다면 서버 데이터로 덮어쓰지 않음
             if (docSnap.metadata.hasPendingWrites) return;
 
             if (docSnap.exists()) {
                 const cloudData = docSnap.data() as T;
                 
-                // 2. 서버 데이터의 시간 정보가 로컬 업데이트보다 이전이라면 무시 (Race Condition 방지)
+                // 타임스탬프 비교로 Race Condition 방지
                 const cloudUpdatedAt = (cloudData as any)._lastSyncAt || 0;
                 if (cloudUpdatedAt < lastLocalUpdateAt.current) {
                     return;
                 }
 
+                latestStateRef.current = cloudData;
                 setState(cloudData);
             }
         }, (err) => {
@@ -85,15 +93,16 @@ export function useFirestoreState<T extends AppData>(
 
             if (!nextState || nextState === 'error' || !userId) return nextState;
 
-            // 로컬 타임스탬프 업데이트
+            // 로컬 타임스탬프 및 Ref 업데이트 (즉시 반영)
             const now = Date.now();
             lastLocalUpdateAt.current = now;
-
-            // 동기화용 필드 추가 (서버 스냅샷 거름종이 역할)
+            
             const stateToSave = {
                 ...nextState,
                 _lastSyncAt: now
             };
+            
+            latestStateRef.current = stateToSave;
 
             // 데모 모드 처리
             if (isDemoMode || !db) {
@@ -101,26 +110,28 @@ export function useFirestoreState<T extends AppData>(
                 return nextState;
             }
 
-            // Firestore 저장 디바운스 (500ms)
+            // Firestore 저장 디바운스
+            setIsSaving(true);
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
             
             writeTimeout.current = window.setTimeout(async () => {
                 try {
-                    if (db) {
+                    if (db && userId && latestStateRef.current) {
                         const docRef = doc(db, 'users', userId);
-                        // 전체 덮어쓰기로 데이터 일관성 유지
-                        await setDoc(docRef, stateToSave);
+                        // Ref에 담긴 '가장 마지막' 상태를 저장함 (여러번 호출 시 최종본만 저장되도록)
+                        await setDoc(docRef, latestStateRef.current);
                     }
                 } catch (error) {
                     console.error("Firestore 저장 실패:", error);
                 } finally {
+                    setIsSaving(false);
                     writeTimeout.current = null;
                 }
-            }, 500); 
+            }, 800); // 800ms 디바운스 (연속 클릭 대응)
 
             return nextState;
         });
     }, [userId]);
 
-    return [state, setDebouncedState];
+    return [state, setDebouncedState, isSaving];
 }
