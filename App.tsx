@@ -18,7 +18,6 @@ import { LoginPage } from './components/LoginPage';
 import { MasterPanel } from './components/MasterPanel';
 import { AccountSettingsModal } from './components/modals/SettingsModal';
 
-
 const getInitialData = (): AppData => ({
     groupSettings: INITIAL_GROUP_SETTINGS,
     generalSettings: INITIAL_GENERAL_SETTINGS,
@@ -132,15 +131,12 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleInputValue, setTitleInputValue] = useState('바둑학원 스톤 관리');
 
-    // Undo System
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const isUndoing = useRef(false);
 
-    // Wrap setAppState to record history with description
     const updateAppState = useCallback((newStateOrFn: React.SetStateAction<AppData | 'error' | null>, description: string = "작업 수행") => {
         setAppState(prev => {
             if (prev && prev !== 'error' && !isUndoing.current) {
-                // Store clone of current state before applying change
                 setHistory(h => [{ state: JSON.parse(JSON.stringify(prev)), description }, ...h].slice(0, 20));
             }
             return typeof newStateOrFn === 'function' ? (newStateOrFn as any)(prev) : newStateOrFn;
@@ -261,11 +257,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             if (!student) return prevState;
 
             const stoneBalanceBefore = student.stones;
-            // Capping stone count to maxStones
             const newStones = Math.max(0, Math.min(stoneBalanceBefore + amount, student.maxStones));
 
-            // FIX: Even if stone count doesn't change (at cap), we must record the transaction 
-            // so completion counts and activity history are updated correctly.
             const newTransaction: Transaction = {
                 id: generateId(), studentId, type, description, amount,
                 timestamp: new Date().toISOString(), status: 'active',
@@ -559,6 +552,48 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         }, "체스 대국 기록 취소");
     };
 
+    const handleAssignSpecialMission = (studentId: string, specificMissionId?: string) => {
+        updateAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const student = prev.students.find(s => s.id === studentId);
+            if (!student) return prev;
+
+            const available = prev.specialMissions.filter(m => m.group === student.group);
+            if (available.length === 0) return prev;
+
+            let missionId = specificMissionId;
+            if (!missionId) {
+                const currentId = student.dailySpecialMissionId;
+                const pool = available.length > 1 ? available.filter(m => m.id !== currentId) : available;
+                missionId = pool[Math.floor(Math.random() * pool.length)].id;
+            }
+
+            const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
+            return {
+                ...prev,
+                students: prev.students.map(s => s.id === studentId ? {
+                    ...s,
+                    dailySpecialMissionId: missionId,
+                    specialMissionDate: today
+                } : s)
+            };
+        }, "특별 미션 배정/변경");
+    };
+
+    const handleClearSpecialMission = (studentId: string) => {
+        updateAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            return {
+                ...prev,
+                students: prev.students.map(s => s.id === studentId ? {
+                    ...s,
+                    dailySpecialMissionId: undefined,
+                    specialMissionDate: undefined
+                } : s)
+            };
+        }, "특별 미션 초기화");
+    };
+
     return (
         <div className="app-container">
             <header className="header">
@@ -696,6 +731,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 }}
                 onUpdateJosekiProgress={(id, prog) => updateAppState(p => p && p!=='error' ? {...p, students: p.students.map(s => s.id === id ? {...s, josekiProgress: prog} : s)} : p, "정석 진도 변경")}
                 onCompleteJosekiMission={(id) => handleAddTransaction(id, 'joseki_mission', '정석 외우기 완료', generalSettings.josekiMissionValue)}
+                onAssignSpecialMission={handleAssignSpecialMission}
+                onClearSpecialMission={handleClearSpecialMission}
             />
             {isSettingsModalOpen && <AccountSettingsModal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} onLogout={onLogout} user={user} />}
         </div>

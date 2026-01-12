@@ -27,6 +27,8 @@ interface QuickMenuSidebarProps {
     onTransferStones: (fromStudentId: string, toStudentId: string, amount: number) => void;
     onUpdateJosekiProgress: (studentId: string, progress: number) => void;
     onCompleteJosekiMission: (studentId: string) => void;
+    onAssignSpecialMission: (studentId: string, specificMissionId?: string) => void;
+    onClearSpecialMission: (studentId: string) => void;
 }
 
 export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
@@ -34,7 +36,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         student, students, missions, specialMissions, shopItems, shopSettings, shopCategories, coupons, transactions, 
         isOpen, groupSettings, generalSettings, onClose, onAddTransaction, onUpdateTransaction, 
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
-        onUpdateJosekiProgress, onCompleteJosekiMission
+        onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission
     } = props;
 
     const [activeTab, setActiveTab] = useState<SidebarTab>('missions');
@@ -46,9 +48,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
 
     // Penalty State
     const [penaltyAmount, setPenaltyAmount] = useState('');
-
-    // Special Mission Reveal State
-    const [isSpecialRevealed, setIsSpecialRevealed] = useState(false);
 
     // Shop state
     const [cart, setCart] = useState<Map<string, number>>(new Map());
@@ -86,7 +85,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setPartialMission(null);
             setPartialAmount('');
             setPenaltyAmount('');
-            setIsSpecialRevealed(false);
         }
     }, [isOpen, student]);
 
@@ -105,7 +103,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             return;
         }
 
-        onAddTransaction(student.id, 'mission', `${partialMission.description} (부분 점수)`, amount);
+        const isSpecial = partialMission.description.startsWith('[특별]');
+        onAddTransaction(student.id, isSpecial ? 'special_mission' : 'mission', `${partialMission.description} (부분 점수)`, amount);
         
         setPartialMission(null);
         setPartialAmount('');
@@ -170,32 +169,22 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     };
 
     // --- Special Mission Logic ---
-    const dailySpecialMission = useMemo(() => {
-        if (!student) return null;
-        const available = specialMissions.filter(m => m.group === student.group);
-        if (available.length === 0) return null;
+    const todayStrInKST = useMemo(() => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0], []);
 
-        const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
-        const seed = student.id + today;
-        let hash = 0;
-        for (let i = 0; i < seed.length; i++) {
-            hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-            hash |= 0;
-        }
-        const index = Math.abs(hash) % available.length;
-        return available[index];
-    }, [student, specialMissions]);
+    const dailySpecialMission = useMemo(() => {
+        if (!student || !student.dailySpecialMissionId || student.specialMissionDate !== todayStrInKST) return null;
+        return specialMissions.find(m => m.id === student.dailySpecialMissionId) || null;
+    }, [student, specialMissions, todayStrInKST]);
 
     const isSpecialMissionCompletedToday = useMemo(() => {
         if (!student) return false;
-        const todayStrInKST = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
         return transactions.some(t => 
             t.studentId === student.id && 
             t.type === 'special_mission' && 
             new Date(t.timestamp).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).startsWith(todayStrInKST) && 
             t.status === 'active'
         );
-    }, [student, transactions]);
+    }, [student, transactions, todayStrInKST]);
 
     const handleCompleteSpecialMission = () => {
         if (!student || !dailySpecialMission || isSpecialMissionCompletedToday) return;
@@ -207,6 +196,15 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         );
     };
 
+    const handleOpenPartialSpecialMissionModal = (sm: SpecialMission) => {
+        const dummyMission: Mission = {
+            id: sm.id,
+            description: `[특별] ${sm.content}`,
+            stones: sm.stones
+        };
+        handleOpenPartialMissionModal(dummyMission);
+    };
+
     const handleAttendanceToday = () => {
         if (!student) return;
         onAddTransaction(student.id, 'attendance', '출석', generalSettings.attendanceStoneValue);
@@ -214,14 +212,13 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
 
     const attendanceTransactionToday = useMemo(() => {
         if (!student) return null;
-        const todayStrInKST = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
         return transactions.find(t => 
             t.studentId === student.id && 
             t.type === 'attendance' && 
             new Date(t.timestamp).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).startsWith(todayStrInKST) && 
             t.status === 'active'
         );
-    }, [student, transactions]);
+    }, [student, transactions, todayStrInKST]);
 
     const isAttendedToday = !!attendanceTransactionToday;
 
@@ -318,7 +315,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
 
     const missionCompletionCounts = useMemo(() => {
         if (!student) return new Map<string, number>();
-        const todayStrInKST = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
         const counts = new Map<string, number>();
         transactions.filter(t => t.studentId === student.id && new Date(t.timestamp).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).startsWith(todayStrInKST)).forEach(t => {
             if (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') {
@@ -327,7 +323,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             }
         });
         return counts;
-    }, [student, transactions]);
+    }, [student, transactions, todayStrInKST]);
 
     const sortedTransactions = useMemo(() => {
         if (!student) return [];
@@ -386,18 +382,26 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </div>
                                     </div>
 
-                                    <div className={`mission-top-box special-box ${isSpecialRevealed ? 'revealed' : ''}`}>
+                                    <div className={`mission-top-box special-box ${dailySpecialMission ? 'revealed' : ''}`}>
                                         <h4>✨ 오늘의 특별 미션</h4>
                                         <div className="special-content">
-                                            {isSpecialRevealed ? (
-                                                dailySpecialMission ? (
-                                                    <div className="special-mission-display">
-                                                        <div className="special-mission-text">
-                                                            <strong>{dailySpecialMission.content}</strong>
-                                                            <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
-                                                        </div>
-                                                        <div className="special-actions">
-                                                            <span className="mission-stones">+{dailySpecialMission.stones}</span>
+                                            {dailySpecialMission ? (
+                                                <div className="special-mission-display">
+                                                    <div className="special-mission-text">
+                                                        <strong>{dailySpecialMission.content}</strong>
+                                                        <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
+                                                    </div>
+                                                    <div className="special-actions">
+                                                        <span className="mission-stones">+{dailySpecialMission.stones}</span>
+                                                        <div style={{display: 'flex', gap: '4px'}}>
+                                                            <button 
+                                                                className="btn-sm"
+                                                                onClick={() => handleOpenPartialSpecialMissionModal(dailySpecialMission)}
+                                                                disabled={isSpecialMissionCompletedToday || student.stones >= student.maxStones}
+                                                                title="부분 점수 지급"
+                                                            >
+                                                                부분
+                                                            </button>
                                                             <button 
                                                                 className={`btn-sm ${isSpecialMissionCompletedToday ? 'success' : 'primary'}`} 
                                                                 onClick={handleCompleteSpecialMission} 
@@ -405,15 +409,23 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                             >
                                                                 {isSpecialMissionCompletedToday ? '완료됨' : '완료'}
                                                             </button>
+                                                            {!isSpecialMissionCompletedToday && (
+                                                                <button 
+                                                                    className="btn-sm" 
+                                                                    onClick={() => onAssignSpecialMission(student.id)} 
+                                                                    title="다른 미션으로 변경 (다시 뽑기)"
+                                                                    style={{ background: '#f8f9fa', border: '1px solid #ddd' }}
+                                                                >
+                                                                    🔄
+                                                                </button>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                ) : (
-                                                    <p className="no-mission">특별 미션이 없습니다.</p>
-                                                )
+                                                </div>
                                             ) : (
                                                 <div className="special-draw-zone">
                                                     <span className="draw-placeholder">?</span>
-                                                    <button className="btn draw-btn" onClick={() => setIsSpecialRevealed(true)} disabled={!dailySpecialMission}>
+                                                    <button className="btn draw-btn" onClick={() => onAssignSpecialMission(student.id)}>
                                                         미션 뽑기 🎲
                                                     </button>
                                                 </div>

@@ -14,6 +14,9 @@ export interface Student {
     chessRating?: number;
     chessGamesPlayed?: number;
     josekiProgress?: number;
+    // FIX: Added dailySpecialMissionId and specialMissionDate to support the daily special mission feature.
+    dailySpecialMissionId?: string;
+    specialMissionDate?: string;
 }
 
 export interface Mission {
