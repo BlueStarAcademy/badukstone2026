@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-// FIX: Corrected import path for type definitions.
 import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission } from '../types';
 import { ConfirmationModal, ActionButton } from './modals/ConfirmationModal';
 
@@ -74,7 +73,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setJosekiInput(String(student.josekiProgress || 1));
         }
         if (!isOpen) {
-            // Reset fields when sidebar closes
             setActiveTab('missions');
             setSendAmount('');
             setSendReason('');
@@ -177,13 +175,12 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         const available = specialMissions.filter(m => m.group === student.group);
         if (available.length === 0) return null;
 
-        // Seeded random based on student ID and today's date string
         const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
         const seed = student.id + today;
         let hash = 0;
         for (let i = 0; i < seed.length; i++) {
             hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-            hash |= 0; // Convert to 32bit integer
+            hash |= 0;
         }
         const index = Math.abs(hash) % available.length;
         return available[index];
@@ -215,16 +212,18 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         onAddTransaction(student.id, 'attendance', '출석', generalSettings.attendanceStoneValue);
     };
 
-    const isAttendedToday = useMemo(() => {
-        if (!student) return false;
+    const attendanceTransactionToday = useMemo(() => {
+        if (!student) return null;
         const todayStrInKST = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
-        return transactions.some(t => 
+        return transactions.find(t => 
             t.studentId === student.id && 
             t.type === 'attendance' && 
             new Date(t.timestamp).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).startsWith(todayStrInKST) && 
             t.status === 'active'
         );
     }, [student, transactions]);
+
+    const isAttendedToday = !!attendanceTransactionToday;
 
     // --- Shop Logic ---
     const filteredAndSortedShopItems = useMemo(() => {
@@ -297,7 +296,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         }
 
         const description = cartDetails.items.map(item => `${item.name} x${item.quantity}`).join(', ');
-        // NEW: Pass cost breakdown for coupon consumption
         onPurchase(student.id, description, cartDetails.total, cartDetails.couponDeduction, cartDetails.finalStoneCost);
         setCart(new Map());
         setTempDiscount(0);
@@ -361,8 +359,27 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     <div className="mission-top-box attendance-box">
                                         <h4>📅 오늘 출석</h4>
                                         <div className="attendance-content">
-                                            {isAttendedToday ? (
-                                                <div className="status-badge success">출석 완료</div>
+                                            {isAttendedToday && attendanceTransactionToday ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <div className="status-badge success">출석 완료</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', color: '#666' }}>
+                                                        {editingTransaction?.id === attendanceTransactionToday.id ? (
+                                                            <div className="timestamp-edit-inline">
+                                                                <input 
+                                                                    type="datetime-local" 
+                                                                    defaultValue={new Date(new Date(attendanceTransactionToday.timestamp).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16)} 
+                                                                    onBlur={(e) => handleSaveTimestamp(attendanceTransactionToday, e.target.value)} 
+                                                                    autoFocus 
+                                                                />
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <span>{new Date(attendanceTransactionToday.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+                                                                <button className="icon-btn-edit" onClick={() => setEditingTransaction({id: attendanceTransactionToday.id, timestamp: attendanceTransactionToday.timestamp})} title="시간 수정">✎</button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             ) : (
                                                 <button className="btn primary attendance-btn" onClick={handleAttendanceToday}>출석 체크 (+{generalSettings.attendanceStoneValue})</button>
                                             )}
