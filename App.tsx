@@ -40,11 +40,14 @@ const getInitialData = (): AppData => ({
     studentMissionProgress: {},
 });
 
-const AppLoader = ({ message }: { message: string }) => (
+const AppLoader = ({ message, showLogout, onLogout }: { message: string, showLogout?: boolean, onLogout?: () => void }) => (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', fontSize: '1.2rem', background: 'var(--bg-color)', color: 'var(--secondary-color)' }}>
-        <div style={{ textAlign: 'center' }}>
-            <div style={{ marginBottom: '1rem', fontSize: '2rem' }}>💎</div>
-            {message}
+        <div style={{ textAlign: 'center', padding: '2rem' }}>
+            <div style={{ marginBottom: '1rem', fontSize: '2.5rem' }}>💎</div>
+            <div style={{ marginBottom: '1.5rem' }}>{message}</div>
+            {showLogout && onLogout && (
+                <button className="btn primary" onClick={onLogout}>다시 로그인하기</button>
+            )}
         </div>
     </div>
 );
@@ -61,7 +64,7 @@ export const App = () => {
         }
         
         const unsubscribe = onAuthStateChanged(auth, user => {
-            setCurrentUser(user);
+            setCurrentUser(user ? { uid: user.uid, email: user.email } : null);
             setAuthLoading(false);
         });
         return () => unsubscribe();
@@ -101,32 +104,32 @@ interface MainAppProps {
 
 const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [appState, setAppState] = useFirestoreState<AppData>(user.uid, getInitialData);
-    const validAppState = appState === 'error' ? null : appState;
 
     const [view, setView] = useState<View>('student');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // FIX: Defined 'missions' constant to fix the "Cannot find name 'missions'" error and maintain consistency.
-    const students = validAppState?.students || [];
-    const missions = validAppState?.missions || [];
-    const transactions = validAppState?.transactions || [];
-    const coupons = validAppState?.coupons || [];
-    const groupSettings = validAppState?.groupSettings || INITIAL_GROUP_SETTINGS;
-    const generalSettings = validAppState?.generalSettings || INITIAL_GENERAL_SETTINGS;
-    const eventSettings = validAppState?.eventSettings || INITIAL_EVENT_SETTINGS;
-    const shopItems = validAppState?.shopItems || [];
-    const shopSettings = validAppState?.shopSettings || { bulkPurchaseDiscountRate: 0 };
-    const shopCategories = validAppState?.shopCategories || INITIAL_SHOP_CATEGORIES;
-    const specialMissions = validAppState?.specialMissions || [];
-    const chessMissions = validAppState?.chessMissions || [];
-    const tournamentData = validAppState?.tournamentData || { ...INITIAL_TOURNAMENT_DATA, participantIds: [], teams: [{ name: 'A', players: [] }, { name: 'B', players: [] }] };
-    const tournamentSettings = validAppState?.tournamentSettings || INITIAL_TOURNAMENT_SETTINGS;
-    const chessMatches = validAppState?.chessMatches || [];
-    const gachaState = validAppState?.gachaState || INITIAL_GACHA_STATES;
+    // Derived values for performance - Moved above early returns to comply with Rules of Hooks
+    const students = useMemo(() => (appState && appState !== 'error') ? appState.students || [] : [], [appState]);
+    const transactions = useMemo(() => (appState && appState !== 'error') ? appState.transactions || [] : [], [appState]);
+    const coupons = useMemo(() => (appState && appState !== 'error') ? appState.coupons || [] : [], [appState]);
+    const missions = useMemo(() => (appState && appState !== 'error') ? appState.missions || [] : [], [appState]);
+    const chessMissions = useMemo(() => (appState && appState !== 'error') ? appState.chessMissions || [] : [], [appState]);
+    const specialMissions = useMemo(() => (appState && appState !== 'error') ? appState.specialMissions || [] : [], [appState]);
+    const shopItems = useMemo(() => (appState && appState !== 'error') ? appState.shopItems || [] : [], [appState]);
+    const shopCategories = useMemo(() => (appState && appState !== 'error') ? appState.shopCategories || INITIAL_SHOP_CATEGORIES : INITIAL_SHOP_CATEGORIES, [appState]);
+    
+    const groupSettings = (appState && appState !== 'error') ? appState.groupSettings || INITIAL_GROUP_SETTINGS : INITIAL_GROUP_SETTINGS;
+    const generalSettings = (appState && appState !== 'error') ? appState.generalSettings || INITIAL_GENERAL_SETTINGS : INITIAL_GENERAL_SETTINGS;
+    const eventSettings = (appState && appState !== 'error') ? appState.eventSettings || INITIAL_EVENT_SETTINGS : INITIAL_EVENT_SETTINGS;
+    const shopSettings = (appState && appState !== 'error') ? appState.shopSettings || { bulkPurchaseDiscountRate: 0 } : { bulkPurchaseDiscountRate: 0 };
+    const tournamentData = (appState && appState !== 'error') ? appState.tournamentData || { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [] }, { name: 'B', players: [] }] } : { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [] }, { name: 'B', players: [] }] };
+    const tournamentSettings = (appState && appState !== 'error') ? appState.tournamentSettings || INITIAL_TOURNAMENT_SETTINGS : INITIAL_TOURNAMENT_SETTINGS;
+    const chessMatches = (appState && appState !== 'error') ? appState.chessMatches || [] : [];
+    const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
 
-    // 미션 완료 및 점수 합산 핵심 로직
+    // 미션 완료 및 점수 합산 핵심 로직 - Moved above early returns
     const handleAddTransaction = useCallback((studentId: string, type: Transaction['type'], description: string, amount: number, eventDetails?: { eventMonth: string }) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
@@ -304,7 +307,19 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    if (!validAppState) return <AppLoader message="데이터를 안전하게 불러오는 중..." />;
+    // 에러 상태 처리
+    if (appState === 'error') {
+        return <AppLoader 
+            message="데이터를 불러오는 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요." 
+            showLogout 
+            onLogout={onLogout} 
+        />;
+    }
+
+    // 로딩 상태 처리
+    if (appState === null) {
+        return <AppLoader message="데이터를 안전하게 불러오는 중..." />;
+    }
 
     return (
         <div className="app-container">
@@ -321,7 +336,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     <button className={`toggle-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => setView('chess')}>♟️ 체스반</button>
                     <button className={`toggle-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>🏆 대회</button>
                     <button className={`toggle-btn ${view === 'event' ? 'active' : ''}`} onClick={() => setView('event')}>🎁 이벤트</button>
-                    <button className={`toggle-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>⚙️ 설정</button>
+                    <button className={`toggle-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>⚙️ 관리자</button>
                 </nav>
 
                 <div className="header-controls">

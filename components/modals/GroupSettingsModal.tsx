@@ -57,7 +57,8 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
     const handleGeneralSettingChange = (field: keyof GeneralSettings, value: string) => {
         const newSettings = {
             ...generalSettings,
-            [field]: parseInt(value, 10) || 0,
+            // academyName은 문자열로 처리, 나머지는 숫자로 변환
+            [field]: field === 'academyName' ? value : (parseInt(value, 10) || 0),
         };
         onUpdateGeneralSettings(newSettings);
     };
@@ -65,7 +66,6 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
     const handleDragStart = (e: React.DragEvent, group: string) => {
         setDraggedGroup(group);
         e.dataTransfer.effectAllowed = 'move';
-        // (e.currentTarget as HTMLElement).classList.add('dragging'); // Optional: Table rows handle this via CSS usually
     };
 
     const handleDragEnter = (e: React.DragEvent, group: string) => {
@@ -112,6 +112,17 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
                     <div className="settings-section">
                         <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--secondary-color)' }}>일반 설정</h3>
                         <div className="general-settings-grid">
+                            <div className="general-setting-item" style={{ gridColumn: '1 / span 2' }}>
+                                <label htmlFor="academy-name">학원 이름</label>
+                                <input
+                                    type="text"
+                                    id="academy-name"
+                                    value={generalSettings.academyName}
+                                    onChange={(e) => handleGeneralSettingChange('academyName', e.target.value)}
+                                    placeholder="학원 이름을 입력하세요"
+                                />
+                                <p className="help-text">상단 바와 메인 화면에 표시될 이름입니다.</p>
+                            </div>
                             <div className="general-setting-item">
                                 <label htmlFor="attendance-stones">출석 보상</label>
                                 <div className="input-with-unit">

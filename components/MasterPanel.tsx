@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
-import { auth, db } from '../firebase'; // Firebase 인스턴스 가져오기
-// FIX: Added INITIAL_SPECIAL_MISSIONS to resolve property missing error in AppData.
+import { auth, db } from '../firebase'; 
 import { INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from '../data/initialData';
 import type { AppData, User, MasterData, ManagedUser } from '../types';
 import { ConfirmationModal } from './modals/ConfirmationModal';
@@ -17,11 +16,7 @@ const getInitialDataForNewUser = (): AppData => ({
     shopSettings: { bulkPurchaseDiscountRate: 0 },
     students: [],
     missions: INITIAL_MISSIONS,
-    // FIX: Added the 'chessMissions' property to match the 'AppData' type definition.
     chessMissions: INITIAL_CHESS_MISSIONS,
-    /**
-     * FIX: Added missing specialMissions property to match AppData requirements.
-     */
     specialMissions: INITIAL_SPECIAL_MISSIONS,
     shopItems: INITIAL_SHOP_ITEMS,
     transactions: [],
@@ -83,7 +78,7 @@ export const MasterPanel: React.FC<{ user: User }> = ({ user }) => {
         setLoading(true);
         try {
              if (!auth || !db) {
-                throw new Error("Firebase 서비스를 초기화할 수 없습니다.");
+                throw new Error("Firebase 서비스를 초기화할 수 없습니다. 환경 설정을 확인하세요.");
             }
             // 1. Firebase Authentication에 사용자 생성
             const userCredential = await createUserWithEmailAndPassword(auth, newUsername, newPassword);
@@ -109,7 +104,7 @@ export const MasterPanel: React.FC<{ user: User }> = ({ user }) => {
             } else if (error.code === 'auth/invalid-email') {
                 setError('유효하지 않은 이메일 형식입니다.');
             } else if (error.code === 'auth/configuration-not-found') {
-                setError('계정 생성 실패: Firebase 프로젝트에서 "이메일/비밀번호" 로그인 방식이 활성화되지 않았습니다. Firebase 콘솔의 [Authentication -> Sign-in method] 탭에서 활성화해주세요.');
+                setError('계정 생성 실패: Firebase 프로젝트에서 "이메일/비밀번호" 로그인 방식이 활성화되지 않았습니다.');
             } else {
                 setError(`계정 생성에 실패했습니다: ${error.message}`);
             }
@@ -134,7 +129,7 @@ export const MasterPanel: React.FC<{ user: User }> = ({ user }) => {
 
     const handleDeleteUser = (userToDelete: ManagedUser) => {
         setConfirmation({
-            message: `'${userToDelete.email}' 계정을 목록에서 삭제하시겠습니까?\n\n(주의: 이 작업은 마스터 목록에서만 제거하며, 실제 계정이나 데이터는 삭제되지 않습니다. 완전 삭제는 Firebase 콘솔에서 직접 해야 합니다.)`,
+            message: `'${userToDelete.email}' 계정을 목록에서 삭제하시겠습니까?`,
             actions: [
                 { text: '취소', onClick: () => setConfirmation(null) },
                 { text: '삭제', className: 'danger', onClick: async () => {

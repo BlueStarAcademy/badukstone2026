@@ -12,107 +12,113 @@ export function useFirestoreState<T extends AppData>(
 ): [T | 'error' | null, SetState<T>] {
     const [state, setState] = useState<T | 'error' | null>(null);
     
-    // 핵심: 로컬에서 쓰기가 진행 중임을 알리는 레퍼런스
-    const isWritingLocked = useRef(false);
+    // 로컬 업데이트의 타임스탬프를 추적하여 stale한 스냅샷을 무시함
+    const lastLocalUpdateAt = useRef<number>(0);
     const writeTimeout = useRef<number | null>(null);
-    const lockReleaseTimeout = useRef<number | null>(null);
 
+    // 초기 데이터 로드
     useEffect(() => {
         if (!userId) {
             setState(null);
             return;
         }
 
-        if (isDemoMode || !db) {
-            const saved = localStorage.getItem(`demo_data_${userId}`);
-            if (saved) {
-                try {
-                    setState(JSON.parse(saved));
-                } catch (e) {
-                    setState(getInitialData());
-                }
-            } else {
-                setState(getInitialData());
+        const init = async () => {
+            if (isDemoMode || !db) {
+                const saved = localStorage.getItem(`demo_data_${userId}`);
+                setState(saved ? JSON.parse(saved) : getInitialData());
+                return;
             }
-            return;
-        }
 
-        const docRef = doc(db, 'users', userId);
-
-        // 초기 로드
-        const initLoad = async () => {
             try {
+                const docRef = doc(db, 'users', userId);
                 const snap = await getDoc(docRef);
-                if (!snap.exists()) {
+                if (snap.exists()) {
+                    setState(snap.data() as T);
+                } else {
                     const initial = getInitialData();
                     await setDoc(docRef, initial);
                     setState(initial);
                 }
             } catch (e) {
-                console.error("Firestore 초기 로드 실패:", e);
+                console.error("Firestore 초기화 실패:", e);
+                setState('error');
             }
         };
-        initLoad();
 
-        // 실시간 구독
+        init();
+    }, [userId]);
+
+    // 실시간 구독 로직
+    useEffect(() => {
+        if (!userId || isDemoMode || !db || state === 'error' || state === null) return;
+
+        const docRef = doc(db, 'users', userId);
+        
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            // 로컬에서 쓰기 중이거나 서버에 펜딩된 쓰기가 있다면 스냅샷(서버 데이터) 무시
-            if (isWritingLocked.current || docSnap.metadata.hasPendingWrites) {
-                return;
-            }
+            // 1. 로컬에 아직 반영되지 않은 쓰기가 있다면 무시
+            if (docSnap.metadata.hasPendingWrites) return;
 
             if (docSnap.exists()) {
                 const cloudData = docSnap.data() as T;
+                
+                // 2. 서버 데이터의 시간 정보가 로컬 업데이트보다 이전이라면 무시 (Race Condition 방지)
+                const cloudUpdatedAt = (cloudData as any)._lastSyncAt || 0;
+                if (cloudUpdatedAt < lastLocalUpdateAt.current) {
+                    return;
+                }
+
                 setState(cloudData);
             }
-        }, (error) => {
-            console.error("Firestore 구독 에러:", error);
+        }, (err) => {
+            console.error("Firestore 구독 에러:", err);
         });
 
-        return () => {
-            unsubscribe();
-            if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
-            if (lockReleaseTimeout.current) window.clearTimeout(lockReleaseTimeout.current);
-        };
-    }, [userId, getInitialData]);
+        return () => unsubscribe();
+    }, [userId, state === null]);
 
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
         setState(prevState => {
-            const newState = typeof newStateOrFn === 'function'
+            const nextState = typeof newStateOrFn === 'function'
                 ? (newStateOrFn as any)(prevState)
                 : newStateOrFn;
 
-            if (newState && newState !== 'error' && userId) {
-                if (isDemoMode || !db) {
-                    localStorage.setItem(`demo_data_${userId}`, JSON.stringify(newState));
-                    return newState;
-                }
+            if (!nextState || nextState === 'error' || !userId) return nextState;
 
-                // 1. 즉시 잠금 활성화 (서버 스냅샷 무시 시작)
-                isWritingLocked.current = true;
+            // 로컬 타임스탬프 업데이트
+            const now = Date.now();
+            lastLocalUpdateAt.current = now;
 
-                // 2. 기존 타이머 제거
-                if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
-                if (lockReleaseTimeout.current) window.clearTimeout(lockReleaseTimeout.current);
-                
-                // 3. 디바운스된 쓰기 작업 예약
-                writeTimeout.current = window.setTimeout(async () => {
-                    try {
-                        const docRef = doc(db, 'users', userId);
-                        // 데이터 유실 방지를 위해 merge가 아닌 전체 덮어쓰기 수행
-                        await setDoc(docRef, newState);
-                    } catch (error) {
-                        console.error("Firestore 저장 실패:", error);
-                    } finally {
-                        // 4. 저장 완료 후 즉시 잠금을 풀지 않고 1.5초 뒤에 해제 (서버 스냅샷 지연 보정)
-                        lockReleaseTimeout.current = window.setTimeout(() => {
-                            isWritingLocked.current = false;
-                        }, 1500);
-                        writeTimeout.current = null;
-                    }
-                }, 1000); // 1초 디바운스
+            // 동기화용 필드 추가 (서버 스냅샷 거름종이 역할)
+            const stateToSave = {
+                ...nextState,
+                _lastSyncAt: now
+            };
+
+            // 데모 모드 처리
+            if (isDemoMode || !db) {
+                localStorage.setItem(`demo_data_${userId}`, JSON.stringify(stateToSave));
+                return nextState;
             }
-            return newState;
+
+            // Firestore 저장 디바운스 (500ms)
+            if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
+            
+            writeTimeout.current = window.setTimeout(async () => {
+                try {
+                    if (db) {
+                        const docRef = doc(db, 'users', userId);
+                        // 전체 덮어쓰기로 데이터 일관성 유지
+                        await setDoc(docRef, stateToSave);
+                    }
+                } catch (error) {
+                    console.error("Firestore 저장 실패:", error);
+                } finally {
+                    writeTimeout.current = null;
+                }
+            }, 500); 
+
+            return nextState;
         });
     }, [userId]);
 
