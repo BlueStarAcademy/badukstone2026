@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firebaseError, isDemoMode } from './firebase';
@@ -40,7 +41,7 @@ const getInitialData = (): AppData => ({
 });
 
 const AppLoader = ({ message }: { message: string }) => (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontSize: '1.2rem', background: 'var(--bg-color)' }}>
         {message}
     </div>
 );
@@ -64,9 +65,7 @@ export const App = () => {
     }, []);
 
     const handleLogout = () => {
-        if (auth && !isDemoMode) {
-            auth.signOut().catch(error => console.error('Sign out error', error));
-        }
+        if (auth && !isDemoMode) auth.signOut().catch(e => console.error(e));
         setCurrentUser(null);
         setUseDemo(false);
     };
@@ -76,18 +75,12 @@ export const App = () => {
         setCurrentUser({ uid: 'demo_user', email: 'demo@example.com' });
     };
 
-    if (authLoading) {
-        return <AppLoader message="로딩 중..." />;
-    }
+    if (authLoading) return <AppLoader message="로그인 정보 확인 중..." />;
 
     if (!currentUser && !useDemo) {
         return <LoginPage 
             onLoginSuccess={(role) => {
-                if (role === 'master') {
-                    setCurrentUser({ uid: 'master', email: 'Master Admin' });
-                } else if (isDemoMode) {
-                    handleDemoLogin();
-                }
+                if (role === 'master') setCurrentUser({ uid: 'master', email: 'Master Admin' });
             }} 
             isDemoMode={isDemoMode}
             onDemoClick={handleDemoLogin}
@@ -128,17 +121,17 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const chessMatches = validAppState?.chessMatches || [];
     const gachaState = validAppState?.gachaState || INITIAL_GACHA_STATES;
 
+    // 미션 완료 및 점수 합산 핵심 로직
     const handleAddTransaction = useCallback((studentId: string, type: Transaction['type'], description: string, amount: number, eventDetails?: { eventMonth: string }) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
             
-            const student = prev.students.find(s => s.id === studentId);
-            if (!student) return prev;
+            const studentIdx = prev.students.findIndex(s => s.id === studentId);
+            if (studentIdx === -1) return prev;
 
-            // FIX: Corrected stone calculation to avoid destructuring a number and using Student type as a value.
-            // Previously there was an error at line 127 involving destructuring a number and using Student type as value.
-            const currentStones = student.stones;
-            const maxStones = student.maxStones;
+            const student = prev.students[studentIdx];
+            const currentStones = student.stones || 0;
+            const maxStones = student.maxStones || 50;
             const newStones = Math.max(0, Math.min(maxStones, currentStones + amount));
 
             const transaction: Transaction = {
@@ -154,18 +147,26 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 ...eventDetails
             };
 
-            const updatedStudents = prev.students.map(s => s.id === studentId ? { ...s, stones: newStones } : s);
-            return { ...prev, students: updatedStudents, transactions: [transaction, ...prev.transactions] };
+            const updatedStudents = [...prev.students];
+            updatedStudents[studentIdx] = { ...student, stones: newStones };
+
+            return { 
+                ...prev, 
+                students: updatedStudents, 
+                transactions: [transaction, ...prev.transactions] 
+            };
         });
     }, [setAppState]);
 
     const handlePurchase = useCallback((studentId: string, description: string, totalCost: number, couponDeduction: number, finalStoneCost: number) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
-            const student = prev.students.find(s => s.id === studentId);
-            if (!student) return prev;
+            const studentIdx = prev.students.findIndex(s => s.id === studentId);
+            if (studentIdx === -1) return prev;
 
-            const newStones = student.stones - finalStoneCost;
+            const student = prev.students[studentIdx];
+            const newStones = Math.max(0, (student.stones || 0) - finalStoneCost);
+            
             const transaction: Transaction = {
                 id: generateId(),
                 studentId,
@@ -178,7 +179,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 stoneBalanceAfter: newStones
             };
 
-            const updatedStudents = prev.students.map(s => s.id === studentId ? { ...s, stones: newStones } : s);
+            const updatedStudents = [...prev.students];
+            updatedStudents[studentIdx] = { ...student, stones: newStones };
+
             return { ...prev, students: updatedStudents, transactions: [transaction, ...prev.transactions] };
         });
     }, [setAppState]);
@@ -186,17 +189,22 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const handleCancelTransaction = useCallback((transactionId: string) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
-            const transaction = prev.transactions.find(t => t.id === transactionId);
-            if (!transaction || transaction.status === 'cancelled') return prev;
+            const txIdx = prev.transactions.findIndex(t => t.id === transactionId);
+            if (txIdx === -1 || prev.transactions[txIdx].status === 'cancelled') return prev;
 
-            const student = prev.students.find(s => s.id === transaction.studentId);
-            if (!student) return prev;
+            const transaction = prev.transactions[txIdx];
+            const studentIdx = prev.students.findIndex(s => s.id === transaction.studentId);
+            if (studentIdx === -1) return prev;
 
+            const student = prev.students[studentIdx];
             const reversalAmount = -transaction.amount;
-            const newStones = Math.max(0, Math.min(student.maxStones, student.stones + reversalAmount));
+            const newStones = Math.max(0, Math.min(student.maxStones, (student.stones || 0) + reversalAmount));
 
-            const updatedTransactions = prev.transactions.map(t => t.id === transactionId ? { ...t, status: 'cancelled' as const } : t);
-            const updatedStudents = prev.students.map(s => s.id === student.id ? { ...s, stones: newStones } : s);
+            const updatedTransactions = [...prev.transactions];
+            updatedTransactions[txIdx] = { ...transaction, status: 'cancelled' };
+
+            const updatedStudents = [...prev.students];
+            updatedStudents[studentIdx] = { ...student, stones: newStones };
 
             return { ...prev, students: updatedStudents, transactions: updatedTransactions };
         });
@@ -214,33 +222,21 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             if (prev === 'error' || !prev) return prev;
             const from = prev.students.find(s => s.id === fromId);
             const to = prev.students.find(s => s.id === toId);
-            if (!from || !to || from.stones < amount) return prev;
+            if (!from || !to || (from.stones || 0) < amount) return prev;
 
-            const newFromStones = from.stones - amount;
-            const newToStones = Math.min(to.maxStones, to.stones + amount);
+            const newFromStones = (from.stones || 0) - amount;
+            const newToStones = Math.min(to.maxStones, (to.stones || 0) + amount);
 
+            const timestamp = new Date().toISOString();
             const t1: Transaction = {
-                id: generateId(),
-                studentId: fromId,
-                type: 'transfer',
-                description: `${to.name}에게 스톤 보냄`,
-                amount: -amount,
-                timestamp: new Date().toISOString(),
-                status: 'active',
-                stoneBalanceBefore: from.stones,
-                stoneBalanceAfter: newFromStones
+                id: generateId(), studentId: fromId, type: 'transfer', description: `${to.name}에게 스톤 보냄`,
+                amount: -amount, timestamp, status: 'active',
+                stoneBalanceBefore: from.stones, stoneBalanceAfter: newFromStones
             };
-
             const t2: Transaction = {
-                id: generateId(),
-                studentId: toId,
-                type: 'transfer',
-                description: `${from.name}에게서 스톤 받음`,
-                amount: amount,
-                timestamp: new Date().toISOString(),
-                status: 'active',
-                stoneBalanceBefore: to.stones,
-                stoneBalanceAfter: newToStones
+                id: generateId(), studentId: toId, type: 'transfer', description: `${from.name}에게서 스톤 받음`,
+                amount: amount, timestamp, status: 'active',
+                stoneBalanceBefore: to.stones, stoneBalanceAfter: newToStones
             };
 
             const updatedStudents = prev.students.map(s => {
@@ -253,31 +249,32 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    const handleChessAttendance = useCallback((studentId: string) => {
-        handleAddTransaction(studentId, 'chess_attendance', '체스반 출석', generalSettings.chessAttendanceValue);
-    }, [handleAddTransaction, generalSettings.chessAttendanceValue]);
-
-    const handleRecordChessMatch = useCallback((whiteId: string, blackId: string, result: 'white' | 'black' | 'draw') => {
+    // FIX: Implemented handleRecordChessMatch to calculate Elo ratings and update chess match history.
+    const handleRecordChessMatch = useCallback((whitePlayerId: string, blackPlayerId: string, result: 'white' | 'black' | 'draw') => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
-            const white = prev.students.find(s => s.id === whiteId);
-            const black = prev.students.find(s => s.id === blackId);
-            
-            const whiteRating = white?.chessRating || prev.generalSettings.nonChessPlayerRating;
-            const blackRating = black?.chessRating || prev.generalSettings.nonChessPlayerRating;
 
+            const getRating = (id: string) => {
+                if (id === 'non-chess-player') return prev.generalSettings.nonChessPlayerRating;
+                const s = prev.students.find(s => s.id === id);
+                return s?.chessRating || 1000;
+            };
+
+            const whiteRating = getRating(whitePlayerId);
+            const blackRating = getRating(blackPlayerId);
+            
             const { newWhiteRating, newBlackRating, ratingDeltaForWhite } = calculateNewElo(
-                whiteRating,
-                blackRating,
-                result,
+                whiteRating, 
+                blackRating, 
+                result, 
                 prev.generalSettings.eloKFactor
             );
 
-            const match: ChessMatch = {
+            const newMatch: ChessMatch = {
                 id: generateId(),
                 timestamp: new Date().toISOString(),
-                whitePlayerId: whiteId,
-                blackPlayerId: blackId,
+                whitePlayerId,
+                blackPlayerId,
                 result,
                 whitePlayerNewRating: newWhiteRating,
                 blackPlayerNewRating: newBlackRating,
@@ -286,45 +283,62 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             };
 
             const updatedStudents = prev.students.map(s => {
-                if (s.id === whiteId) return { ...s, chessRating: newWhiteRating, chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 };
-                if (s.id === blackId) return { ...s, chessRating: newBlackRating, chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 };
+                if (s.id === whitePlayerId && whitePlayerId !== 'non-chess-player') {
+                    return { 
+                        ...s, 
+                        chessRating: newWhiteRating, 
+                        chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 
+                    };
+                }
+                if (s.id === blackPlayerId && blackPlayerId !== 'non-chess-player') {
+                    return { 
+                        ...s, 
+                        chessRating: newBlackRating, 
+                        chessGamesPlayed: (s.chessGamesPlayed || 0) + 1 
+                    };
+                }
                 return s;
             });
 
-            return { ...prev, students: updatedStudents, chessMatches: [match, ...prev.chessMatches] };
+            return {
+                ...prev,
+                students: updatedStudents,
+                chessMatches: [newMatch, ...prev.chessMatches]
+            };
         });
     }, [setAppState]);
 
-    if (!validAppState) return <AppLoader message="데이터 로딩 중..." />;
+    if (!validAppState) return <AppLoader message="데이터를 안전하게 불러오는 중..." />;
 
     return (
         <div className="app-container">
-            <header className="app-header">
-                <div className="header-left">
-                    <h1 onClick={() => setView('student')} style={{cursor: 'pointer'}}>{generalSettings.academyName}</h1>
+            <header className="header">
+                <div className="header-title-group">
+                    <h1 onClick={() => setView('student')} style={{cursor: 'pointer'}}>
+                        {generalSettings.academyName}
+                        {isDemo && <span className="demo-badge" style={{fontSize: '0.7rem', padding: '2px 6px', marginLeft: '8px'}}>DEMO</span>}
+                    </h1>
                 </div>
-                <nav className="header-nav">
-                    <button className={`nav-btn ${view === 'student' ? 'active' : ''}`} onClick={() => setView('student')}>👨‍🎓 학생관리</button>
-                    <button className={`nav-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => setView('chess')}>♟️ 체스</button>
-                    <button className={`nav-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>🏆 대회</button>
-                    <button className={`nav-btn ${view === 'event' ? 'active' : ''}`} onClick={() => setView('event')}>🎁 이벤트</button>
-                    <button className={`nav-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>⚙️ 설정</button>
-                </nav>
-                <div className="header-right">
-                    {user.uid === 'master' && <button className="btn" onClick={() => setView('master')}>마스터</button>}
+                
+                <div className="view-toggle">
+                    <button className={`toggle-btn ${view === 'student' ? 'active' : ''}`} onClick={() => setView('student')}>👨‍🎓 바둑반</button>
+                    <button className={`toggle-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => setView('chess')}>♟️ 체스반</button>
+                    <button className={`toggle-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>🏆 대회</button>
+                    <button className={`toggle-btn ${view === 'event' ? 'active' : ''}`} onClick={() => setView('event')}>🎁 이벤트</button>
+                    <button className={`toggle-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>⚙️ 설정</button>
+                </div>
+
+                <div className="header-controls">
+                    {user.uid === 'master' && <button className="btn-sm" onClick={() => setView('master')} style={{marginRight: '10px'}}>MASTER</button>}
                     <button className="btn-icon" onClick={() => setIsAccountModalOpen(true)} title="계정 설정">👤</button>
                 </div>
             </header>
 
-            <main className="app-main">
+            <main className="main-content">
                 {view === 'student' && (
                     <StudentView 
-                        students={students} 
-                        coupons={coupons} 
-                        transactions={transactions}
-                        groupSettings={groupSettings}
-                        generalSettings={generalSettings}
-                        eventSettings={eventSettings}
+                        students={students} coupons={coupons} transactions={transactions}
+                        groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings}
                         setView={setView}
                         onStudentClick={(s) => { setSelectedStudent(s); setIsSidebarOpen(true); }}
                         onNavigateToEvent={(s) => { setSelectedStudent(s); setView('event'); }}
@@ -332,26 +346,18 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 )}
                 {view === 'chess' && (
                     <ChessPanel 
-                        students={students} 
-                        matches={chessMatches} 
-                        transactions={transactions} 
-                        generalSettings={generalSettings} 
-                        missions={[]} 
-                        chessMissions={chessMissions}
-                        onRecordMatch={handleRecordChessMatch}
-                        onCancelMatch={() => {}}
-                        onChessAttendance={handleChessAttendance}
+                        students={students} matches={chessMatches} transactions={transactions} 
+                        generalSettings={generalSettings} missions={[]} chessMissions={chessMissions}
+                        onRecordMatch={handleRecordChessMatch} onCancelMatch={() => {}}
+                        onChessAttendance={(id) => handleAddTransaction(id, 'chess_attendance', '체스반 출석', generalSettings.chessAttendanceValue)}
                         onAddTransaction={handleAddTransaction}
                         onUpdateGeneralSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, generalSettings: s }))}
-                        onUpdateChessRating={() => {}}
-                        onChessAbsencePenalty={() => {}}
+                        onUpdateChessRating={() => {}} onChessAbsencePenalty={() => {}}
                     />
                 )}
                 {view === 'tournament' && (
                     <TournamentView 
-                        students={students} 
-                        data={tournamentData} 
-                        settings={tournamentSettings} 
+                        students={students} data={tournamentData} settings={tournamentSettings} 
                         setData={(d) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentData: typeof d === 'function' ? d(prev!.tournamentData) : d }))}
                         setSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentSettings: typeof s === 'function' ? s(prev!.tournamentSettings) : s }))}
                         onBulkAddTransaction={(ids, desc, amt) => ids.forEach(id => handleAddTransaction(id, 'adjustment', desc, amt))}
@@ -359,29 +365,18 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 )}
                 {view === 'event' && (
                     <EventView 
-                        students={students} 
-                        transactions={transactions} 
-                        eventSettings={eventSettings} 
-                        gachaStates={gachaState} 
-                        targetStudent={selectedStudent}
+                        students={students} transactions={transactions} eventSettings={eventSettings} 
+                        gachaStates={gachaState} targetStudent={selectedStudent}
                         onClearTargetStudent={() => setSelectedStudent(null)}
                         setEventSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, eventSettings: typeof s === 'function' ? s(prev!.eventSettings) : s }))}
                         onAddTransaction={handleAddTransaction}
-                        onGachaPick={() => undefined}
-                        onCancelEventEntry={() => {}}
+                        onGachaPick={() => undefined} onCancelEventEntry={() => {}}
                     />
                 )}
                 {view === 'admin' && (
                     <AdminPanel 
-                        students={students} 
-                        missions={validAppState.missions} 
-                        chessMissions={chessMissions}
-                        specialMissions={specialMissions}
-                        shopItems={shopItems}
-                        shopSettings={shopSettings}
-                        shopCategories={shopCategories}
-                        groupSettings={groupSettings}
-                        generalSettings={generalSettings}
+                        students={students} missions={validAppState.missions} chessMissions={chessMissions} specialMissions={specialMissions}
+                        shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} groupSettings={groupSettings} generalSettings={generalSettings}
                         setMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, missions: typeof m === 'function' ? m(prev!.missions) : m }))}
                         setChessMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, chessMissions: typeof m === 'function' ? m(prev!.chessMissions) : m }))}
                         setSpecialMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, specialMissions: typeof m === 'function' ? m(prev!.specialMissions) : m }))}
@@ -391,18 +386,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                         onSaveStudent={(data, id) => {
                             setAppState(prev => {
                                 if (prev === 'error' || !prev) return prev;
-                                if (id) {
-                                    return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, ...data } : s) };
-                                } else {
-                                    const newStudent: Student = {
-                                        ...data,
-                                        id: generateId(),
-                                        stones: 0,
-                                        maxStones: groupSettings[getGroupForRank(data.rank).group]?.maxStones || 50,
-                                        group: getGroupForRank(data.rank).group
-                                    };
-                                    return { ...prev, students: [...prev.students, newStudent] };
-                                }
+                                if (id) return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, ...data } : s) };
+                                const newStudent: Student = { ...data, id: generateId(), stones: 0, maxStones: groupSettings[getGroupForRank(data.rank).group]?.maxStones || 50, group: getGroupForRank(data.rank).group };
+                                return { ...prev, students: [...prev.students, newStudent] };
                             });
                         }}
                         onDeleteStudent={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.filter(s => s.id !== id) }))}
@@ -414,57 +400,28 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                         onImportStudents={(data, mode) => {
                             setAppState(prev => {
                                 if (prev === 'error' || !prev) return prev;
-                                const studentsWithIds = data.map(s => ({
-                                    ...s,
-                                    id: generateId(),
-                                    group: getGroupForRank(s.rank).group,
-                                    maxStones: prev.groupSettings[getGroupForRank(s.rank).group]?.maxStones || 50,
-                                    stones: s.stones || 0
-                                }));
+                                const studentsWithIds = data.map(s => ({ ...s, id: generateId(), group: getGroupForRank(s.rank).group, maxStones: prev.groupSettings[getGroupForRank(s.rank).group]?.maxStones || 50, stones: s.stones || 0 }));
                                 return { ...prev, students: mode === 'replace' ? studentsWithIds : [...prev.students, ...studentsWithIds] };
                             });
                         }}
-                        onImportMissions={() => {}}
-                        onImportShopItems={() => {}}
+                        onImportMissions={() => {}} onImportShopItems={() => {}}
                     />
                 )}
                 {view === 'master' && user.uid === 'master' && <MasterPanel user={user} />}
             </main>
 
             <QuickMenuSidebar 
-                isOpen={isSidebarOpen} 
-                student={selectedStudent} 
-                students={students}
-                missions={validAppState.missions}
-                specialMissions={specialMissions}
-                shopItems={shopItems}
-                shopSettings={shopSettings}
-                shopCategories={shopCategories}
-                coupons={coupons}
-                transactions={transactions}
-                groupSettings={groupSettings}
-                generalSettings={generalSettings}
+                isOpen={isSidebarOpen} student={selectedStudent} students={students} missions={validAppState.missions} specialMissions={specialMissions}
+                shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} coupons={coupons} transactions={transactions}
+                groupSettings={groupSettings} generalSettings={generalSettings}
                 onClose={() => setIsSidebarOpen(false)}
-                onAddTransaction={handleAddTransaction}
-                onUpdateTransaction={() => {}}
-                onDeleteCoupon={() => {}}
-                onPurchase={handlePurchase}
-                onCancelTransaction={handleCancelTransaction}
-                onDeleteTransaction={handleDeleteTransaction}
-                onTransferStones={handleTransferStones}
-                onUpdateJosekiProgress={() => {}}
-                onCompleteJosekiMission={() => {}}
-                onAssignSpecialMission={() => {}}
-                onClearSpecialMission={() => {}}
+                onAddTransaction={handleAddTransaction} onUpdateTransaction={() => {}} onDeleteCoupon={() => {}}
+                onPurchase={handlePurchase} onCancelTransaction={handleCancelTransaction} onDeleteTransaction={handleDeleteTransaction}
+                onTransferStones={handleTransferStones} onUpdateJosekiProgress={() => {}} onCompleteJosekiMission={() => {}} onAssignSpecialMission={() => {}} onClearSpecialMission={() => {}}
             />
 
             {isAccountModalOpen && (
-                <AccountSettingsModal 
-                    isOpen={isAccountModalOpen} 
-                    onClose={() => setIsAccountModalOpen(false)} 
-                    onLogout={onLogout} 
-                    user={user} 
-                />
+                <AccountSettingsModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} onLogout={onLogout} user={user} />
             )}
         </div>
     );
