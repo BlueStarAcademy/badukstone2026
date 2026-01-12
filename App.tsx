@@ -110,7 +110,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // Derived values for performance - Moved above early returns to comply with Rules of Hooks
+    // Derived values for performance
     const students = useMemo(() => (appState && appState !== 'error') ? appState.students || [] : [], [appState]);
     const transactions = useMemo(() => (appState && appState !== 'error') ? appState.transactions || [] : [], [appState]);
     const coupons = useMemo(() => (appState && appState !== 'error') ? appState.coupons || [] : [], [appState]);
@@ -129,7 +129,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const chessMatches = (appState && appState !== 'error') ? appState.chessMatches || [] : [];
     const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
 
-    // 미션 완료 및 점수 합산 핵심 로직 - Moved above early returns
+    // [중요] 실시간으로 업데이트된 학생 정보를 리스트에서 다시 찾음 (사이드바 점수 즉시 반영용)
+    const freshSelectedStudent = useMemo(() => {
+        if (!selectedStudent) return null;
+        return students.find(s => s.id === selectedStudent.id) || null;
+    }, [students, selectedStudent]);
+
+    // 미션 완료 및 점수 합산 핵심 로직
     const handleAddTransaction = useCallback((studentId: string, type: Transaction['type'], description: string, amount: number, eventDetails?: { eventMonth: string }) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
@@ -380,7 +386,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     {view === 'event' && (
                         <EventView 
                             students={students} transactions={transactions} eventSettings={eventSettings} 
-                            gachaStates={gachaState} targetStudent={selectedStudent}
+                            gachaStates={gachaState} targetStudent={freshSelectedStudent}
                             onClearTargetStudent={() => setSelectedStudent(null)}
                             setEventSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, eventSettings: typeof s === 'function' ? s(prev!.eventSettings) : s }))}
                             onAddTransaction={handleAddTransaction}
@@ -426,7 +432,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             </main>
 
             <QuickMenuSidebar 
-                isOpen={isSidebarOpen} student={selectedStudent} students={students} missions={missions} specialMissions={specialMissions}
+                isOpen={isSidebarOpen} student={freshSelectedStudent} students={students} missions={missions} specialMissions={specialMissions}
                 shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} coupons={coupons} transactions={transactions}
                 groupSettings={groupSettings} generalSettings={generalSettings}
                 onClose={() => setIsSidebarOpen(false)}
