@@ -1,6 +1,6 @@
 
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore, enableIndexedDbPersistence, initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
+import { getFirestore, type Firestore, initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 
 // Safely access environment variables.
@@ -21,7 +21,6 @@ let auth: Auth | null = null;
 let firebaseError: string | null = null;
 let isDemoMode = false;
 
-// Check if critical config is missing
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     console.warn("Firebase config missing. Falling back to Demo Mode.");
     isDemoMode = true;
@@ -29,22 +28,11 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 } else {
     try {
         app = initializeApp(firebaseConfig);
-        // Firestore 초기화 - 캐시 설정을 기본값으로 두거나 명시적으로 관리
+        // 오프라인 캐시를 사용하지 않고 항상 서버와 직접 통신하도록 설정
         db = initializeFirestore(app, {
-            cacheSizeBytes: CACHE_SIZE_UNLIMITED
+            // Persistence를 활성화하지 않음으로써 캐시 롤백 문제를 원천 차단
         });
         auth = getAuth(app);
-
-        // 오프라인 지속성은 유지하되, 데이터 정합성은 훅에서 관리함
-        if (typeof window !== 'undefined') {
-            enableIndexedDbPersistence(db).catch((err) => {
-                if (err.code === 'failed-precondition') {
-                    console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
-                } else if (err.code === 'unimplemented') {
-                    console.warn("The current browser doesn't support all of the features required to enable persistence");
-                }
-            });
-        }
     } catch (e) {
         console.error("Firebase initialization failed:", e);
         firebaseError = e instanceof Error ? e.message : "Firebase 초기화 중 알 수 없는 오류가 발생했습니다.";
