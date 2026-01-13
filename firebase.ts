@@ -1,6 +1,11 @@
 
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore, initializeFirestore, terminate, clearIndexedDbPersistence } from "firebase/firestore";
+import { 
+    initializeFirestore, 
+    type Firestore, 
+    clearIndexedDbPersistence,
+    terminate
+} from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 
 const env = (import.meta.env || {}) as any;
@@ -26,16 +31,16 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 } else {
     try {
         app = initializeApp(firebaseConfig);
-        // 캐시를 사용하지 않도록 강제 설정 (Persistence: false)
+        // [근본 조치 1] 오프라인 캐시(IndexedDB) 기능을 아예 사용하지 않도록 설정
         db = initializeFirestore(app, {
-            localCache: undefined // v10+ 에서는 localCache를 명시적으로 해제
+            localCache: undefined // v10+ 명시적 캐시 비활성화
         });
         auth = getAuth(app);
         
-        // 기존에 남아있을 수 있는 브라우저 캐시 강제 삭제
-        clearIndexedDbPersistence(db).catch(err => console.error("Cache clear error:", err));
+        // [근본 조치 2] 혹시나 브라우저에 남아있을지 모르는 기존 캐시 데이터를 강제로 파괴
+        clearIndexedDbPersistence(db).catch(() => {});
     } catch (e) {
-        console.error("Firebase initialization failed:", e);
+        console.error("Firebase 초기화 실패:", e);
         firebaseError = e instanceof Error ? e.message : "Firebase 초기화 실패";
         isDemoMode = true;
     }

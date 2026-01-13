@@ -13,85 +13,54 @@ export function useFirestoreState<T extends AppData>(
     const [state, setState] = useState<T | 'error' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     
-    // 로컬에서의 마지막 수정 시간 추적
-    const lastLocalUpdateAt = useRef<number>(0);
-    // 서버 데이터 로드 완료 여부
-    const isInitialized = useRef<boolean>(false);
+    // 현재 서버와 통신 중인지 확인하는 플래그
+    const isWritingRef = useRef<boolean>(false);
     const writeTimeout = useRef<number | null>(null);
 
     const mergeData = useCallback((incoming: any): T => {
         const initial = getInitialData();
         if (!incoming || typeof incoming !== 'object' || !incoming.students) return initial;
-
-        return {
-            ...initial,
-            ...incoming,
-            groupSettings: { ...initial.groupSettings, ...(incoming.groupSettings || {}) },
-            generalSettings: { ...initial.generalSettings, ...(incoming.generalSettings || {}) },
-            eventSettings: { ...initial.eventSettings, ...(incoming.eventSettings || {}) },
-            tournamentSettings: { ...initial.tournamentSettings, ...(incoming.tournamentSettings || {}) },
-            tournamentData: { ...initial.tournamentData, ...(incoming.tournamentData || {}) },
-            shopSettings: { ...initial.shopSettings, ...(incoming.shopSettings || {}) },
-            students: incoming.students || initial.students,
-            missions: incoming.missions || initial.missions,
-            chessMissions: incoming.chessMissions || initial.chessMissions,
-            specialMissions: incoming.specialMissions || initial.specialMissions,
-            shopItems: incoming.shopItems || initial.shopItems,
-            transactions: incoming.transactions || initial.transactions,
-            coupons: incoming.coupons || initial.coupons,
-            chessMatches: incoming.chessMatches || initial.chessMatches,
-            shopCategories: incoming.shopCategories || initial.shopCategories,
-        };
+        return { ...initial, ...incoming };
     }, [getInitialData]);
 
-    // 1. 서버 데이터 실시간 리스너
+    // 1. 서버 리스너 (읽기 전 전용)
     useEffect(() => {
-        if (!userId) {
-            setState(null);
-            return;
-        }
-
-        if (isDemoMode || !db) {
-            const saved = localStorage.getItem(`demo_data_${userId}`);
-            setState(saved ? mergeData(JSON.parse(saved)) : getInitialData());
-            isInitialized.current = true;
+        if (!userId || isDemoMode || !db) {
+            if (userId) {
+                const saved = localStorage.getItem(`demo_data_${userId}`);
+                setState(saved ? mergeData(JSON.parse(saved)) : getInitialData());
+            }
             return;
         }
 
         const docRef = doc(db, 'users', userId);
         
+        // 실시간 리스너 연결
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            if (!docSnap.exists()) {
-                // 문서가 없으면 초기 데이터 생성 (최초 1회만)
-                if (!isInitialized.current) {
-                    const initial = getInitialData();
-                    setDoc(docRef, { ...initial, _updatedAt: Date.now() });
-                    setState(initial);
-                    isInitialized.current = true;
-                }
+            // [근본 조치 3] 내가 지금 서버에 쓰고 있는 중이라면, 서버에서 오는 데이터(내 쓰기 결과 포함)를 무시합니다.
+            // Firebase SDK가 내부적으로 UI를 먼저 업데이트하므로(Optimistic UI), 
+            // 굳이 서버 응답을 다시 받아서 화면을 갱신할 필요가 없습니다.
+            if (docSnap.metadata.hasPendingWrites || isWritingRef.current) {
                 return;
             }
 
-            const cloudData = docSnap.data();
-            const cloudUpdatedAt = cloudData._updatedAt || 0;
-
-            // [핵심] 서버에서 온 데이터가 내가 로컬에서 마지막으로 고친 시간보다 옛날 것이라면 무시
-            if (cloudUpdatedAt < lastLocalUpdateAt.current) {
-                console.log("Ignored stale server update (Rollback prevented)");
-                return;
+            if (docSnap.exists()) {
+                setState(mergeData(docSnap.data()));
+            } else {
+                // 문서가 아예 없는 최초 접근 시에만 생성
+                const initial = getInitialData();
+                setDoc(docRef, initial);
+                setState(initial);
             }
-
-            // 로컬 수정 중이 아닐 때만 상태 업데이트
-            if (!docSnap.metadata.hasPendingWrites) {
-                setState(mergeData(cloudData));
-                isInitialized.current = true;
-            }
+        }, (err) => {
+            console.error("Firestore Error:", err);
+            setState('error');
         });
 
         return () => unsubscribe();
     }, [userId, mergeData]);
 
-    // 2. 상태 변경 핸들러
+    // 2. 상태 변경 핸들러 (쓰기 전용)
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
         setState(prevState => {
             if (prevState === 'error' || prevState === null) return prevState;
@@ -102,37 +71,36 @@ export function useFirestoreState<T extends AppData>(
 
             if (!nextState || nextState === 'error') return nextState;
 
-            // 로컬 타임스탬프 갱신 (서버 데이터 차단 락 활성화)
-            const now = Date.now();
-            lastLocalUpdateAt.current = now;
-
+            // 로컬 UI는 즉시 갱신 (사용자 경험)
             if (isDemoMode || !db) {
                 if (userId) localStorage.setItem(`demo_data_${userId}`, JSON.stringify(nextState));
                 return nextState;
             }
 
-            // 초기 로드가 안 되었으면 쓰기 금지
-            if (!isInitialized.current) return nextState;
-
+            // [근본 조치 4] 쓰기 작업 시작 알림 및 디바운싱
+            isWritingRef.current = true;
             setIsSaving(true);
+
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
             
             writeTimeout.current = window.setTimeout(async () => {
                 if (!userId || !db) return;
                 try {
                     const docRef = doc(db, 'users', userId);
-                    // 타임스탬프를 포함하여 저장
+                    // 전체 데이터를 서버로 즉시 전송
                     await setDoc(docRef, {
                         ...nextState,
-                        _updatedAt: now // 상태 변경이 일어났던 바로 그 시간 기록
+                        _lastSync: Date.now() // 동기화 확인용 필드
                     });
                 } catch (e) {
                     console.error("Firestore Save Error:", e);
                 } finally {
+                    // 쓰기가 완전히 끝났을 때만 플래그 해제
+                    isWritingRef.current = false;
                     setIsSaving(false);
                 }
                 writeTimeout.current = null;
-            }, 800);
+            }, 500); // 0.5초 대기 후 즉시 서버 반영
 
             return nextState;
         });
