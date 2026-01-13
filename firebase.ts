@@ -4,7 +4,7 @@ import {
     initializeFirestore, 
     type Firestore, 
     clearIndexedDbPersistence,
-    terminate
+    memoryLocalCache
 } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 
@@ -31,13 +31,13 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 } else {
     try {
         app = initializeApp(firebaseConfig);
-        // 오프라인 기능을 완전히 끄고 메모리 캐시만 사용 (새로고침 시 증발하도록)
+        // [수정] v10+ 최신 방식으로 메모리 캐시 설정 (디스크 저장 안함)
         db = initializeFirestore(app, {
-            localCache: undefined 
+            localCache: memoryLocalCache()
         });
         auth = getAuth(app);
         
-        // 남아있을 수 있는 오프라인 데이터베이스 강제 파괴
+        // 브라우저에 남아있을 수 있는 모든 과거 유령 데이터 삭제
         clearIndexedDbPersistence(db).catch(() => {});
     } catch (e) {
         console.error("Firebase 초기화 실패:", e);

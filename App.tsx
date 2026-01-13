@@ -86,7 +86,10 @@ export const App = () => {
     if (!currentUser && !useDemo) {
         return <LoginPage 
             onLoginSuccess={(role) => {
-                if (role === 'master') setCurrentUser({ uid: 'master', email: 'Master Admin' });
+                if (role === 'master') {
+                    // [수정] bsbaduk으로 로그인 시 실제 데이터가 있는 UID로 강제 연결
+                    setCurrentUser({ uid: '4rin8Lks9jPmlHzk3sYwNfLvRWi1', email: 'bsbaduk (Legacy)' });
+                }
             }} 
             isDemoMode={isDemoMode}
             onDemoClick={handleDemoLogin}
