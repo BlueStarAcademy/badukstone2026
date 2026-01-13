@@ -29,13 +29,13 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
 } else {
     try {
         app = initializeApp(firebaseConfig);
-        // 최적화된 Firestore 초기화
+        // Firestore 초기화 - 캐시 설정을 기본값으로 두거나 명시적으로 관리
         db = initializeFirestore(app, {
             cacheSizeBytes: CACHE_SIZE_UNLIMITED
         });
         auth = getAuth(app);
 
-        // 오프라인 지속성 활성화
+        // 오프라인 지속성은 유지하되, 데이터 정합성은 훅에서 관리함
         if (typeof window !== 'undefined') {
             enableIndexedDbPersistence(db).catch((err) => {
                 if (err.code === 'failed-precondition') {
