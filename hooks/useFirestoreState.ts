@@ -37,24 +37,31 @@ export function useFirestoreState<T extends AppData>(
         }
 
         try {
+            isPendingWrite.current = true;
+            setIsSaving(true);
             const docRef = doc(db, 'users', userId);
+            
+            // [중요] 비동기 쓰기가 완료될 때까지 await 하여 성공 여부 확인
             await setDoc(docRef, {
                 ...data,
                 _lastUpdatedAt: Date.now()
             });
+            
             lastSavedJson.current = currentJson;
-            console.log("Firestore Save Success:", userId);
-        } catch (e) {
-            console.error("Firestore Save Failure:", e);
+            console.log(`[Firestore Success] Saved to users/${userId}`);
+        } catch (e: any) {
+            console.error(`[Firestore Error] Save failed for users/${userId}:`, e);
+            if (e.code === 'permission-denied') {
+                alert("서버 저장 권한이 없습니다. Firebase Rules 설정을 확인하세요.");
+            }
         } finally {
-            // 저장 완료 후 플래그 해제
             isPendingWrite.current = false;
             setIsSaving(false);
         }
     }, [userId, isDemoMode]);
 
     useEffect(() => {
-        const handleBeforeUnload = () => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (isPendingWrite.current && localTruthRef.current) {
                 saveToServer(localTruthRef.current);
             }
@@ -77,12 +84,15 @@ export function useFirestoreState<T extends AppData>(
 
             try {
                 const docRef = doc(db, 'users', userId);
+                // 캐시가 아닌 서버에서 직접 가져오도록 유도
                 const snap = await getDoc(docRef);
                 let initialData: T;
 
                 if (snap.exists()) {
                     initialData = mergeData(snap.data());
+                    console.log(`[Firestore Load] Found data for users/${userId}`);
                 } else {
+                    console.log(`[Firestore Load] No data found for users/${userId}, creating initial...`);
                     initialData = getInitialData();
                     await setDoc(docRef, initialData);
                 }
@@ -108,7 +118,7 @@ export function useFirestoreState<T extends AppData>(
 
                 return unsubscribe;
             } catch (err) {
-                console.error("Fetch Error:", err);
+                console.error("[Firestore Error] Load failed:", err);
                 setState('error');
             }
         };
@@ -130,16 +140,13 @@ export function useFirestoreState<T extends AppData>(
             if (!nextState || nextState === 'error') return nextState;
 
             localTruthRef.current = nextState;
-            
-            // [수정] 쓰기 대기 시작 알림 및 저장 중 표시 활성화
-            isPendingWrite.current = true;
             setIsSaving(true);
 
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
             writeTimeout.current = window.setTimeout(() => {
                 saveToServer(nextState);
                 writeTimeout.current = null;
-            }, 500); // 0.5초 후 저장 시작
+            }, 400); // 0.4초 디바운스
 
             return nextState;
         });

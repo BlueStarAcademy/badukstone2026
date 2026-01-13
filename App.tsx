@@ -87,8 +87,8 @@ export const App = () => {
         return <LoginPage 
             onLoginSuccess={(role) => {
                 if (role === 'master') {
-                    // [수정] bsbaduk으로 로그인 시 실제 데이터가 있는 UID로 강제 연결
-                    setCurrentUser({ uid: '4rin8Lks9jPmlHzk3sYwNfLvRWi1', email: 'bsbaduk (Legacy)' });
+                    // [수정] bsbaduk으로 로그인 시 다시 'master' UID로 매핑 (Firestore의 /users/master 경로 사용)
+                    setCurrentUser({ uid: 'master', email: 'bsbaduk' });
                 }
             }} 
             isDemoMode={isDemoMode}
