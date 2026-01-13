@@ -110,7 +110,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // 가독성과 성능을 위해 useMemo 활용
+    // 안전한 데이터 접근을 위한 Memo
     const students = useMemo(() => (appState && appState !== 'error') ? appState.students || [] : [], [appState]);
     const transactions = useMemo(() => (appState && appState !== 'error') ? appState.transactions || [] : [], [appState]);
     const coupons = useMemo(() => (appState && appState !== 'error') ? appState.coupons || [] : [], [appState]);
@@ -182,7 +182,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             
             const transaction: Transaction = {
                 id: generateId(),
-                studentId,
+                studentId: student.id,
                 type: 'purchase',
                 description,
                 amount: -finalStoneCost,
@@ -233,9 +233,15 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const handleTransferStones = useCallback((fromId: string, toId: string, amount: number) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
-            const from = prev.students.find(s => s.id === fromId);
-            const to = prev.students.find(s => s.id === toId);
-            if (!from || !to || (from.stones || 0) < amount) return prev;
+            const fromIdx = prev.students.findIndex(s => s.id === fromId);
+            const toIdx = prev.students.findIndex(s => s.id === toId);
+            
+            if (fromIdx === -1 || toIdx === -1) return prev;
+            
+            const from = prev.students[fromIdx];
+            const to = prev.students[toIdx];
+            
+            if ((from.stones || 0) < amount) return prev;
 
             const newFromStones = (from.stones || 0) - amount;
             const newToStones = Math.min(to.maxStones, (to.stones || 0) + amount);
@@ -252,11 +258,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 stoneBalanceBefore: to.stones, stoneBalanceAfter: newToStones
             };
 
-            const updatedStudents = prev.students.map(s => {
-                if (s.id === fromId) return { ...s, stones: newFromStones };
-                if (s.id === toId) return { ...s, stones: newToStones };
-                return s;
-            });
+            const updatedStudents = [...prev.students];
+            updatedStudents[fromIdx] = { ...from, stones: newFromStones };
+            updatedStudents[toIdx] = { ...to, stones: newToStones };
 
             return { ...prev, students: updatedStudents, transactions: [t1, t2, ...prev.transactions] };
         });
