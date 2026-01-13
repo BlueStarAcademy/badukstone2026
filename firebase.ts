@@ -1,9 +1,8 @@
 
 import { initializeApp, type FirebaseApp } from "firebase/app";
-import { getFirestore, type Firestore, initializeFirestore, CACHE_SIZE_UNLIMITED } from "firebase/firestore";
+import { getFirestore, type Firestore, initializeFirestore, terminate, clearIndexedDbPersistence } from "firebase/firestore";
 import { getAuth, type Auth } from "firebase/auth";
 
-// Safely access environment variables.
 const env = (import.meta.env || {}) as any;
 
 const firebaseConfig = {
@@ -22,20 +21,22 @@ let firebaseError: string | null = null;
 let isDemoMode = false;
 
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
-    console.warn("Firebase config missing. Falling back to Demo Mode.");
     isDemoMode = true;
     firebaseError = "환경 변수가 설정되지 않았습니다. 데모 모드로 실행됩니다.";
 } else {
     try {
         app = initializeApp(firebaseConfig);
-        // 오프라인 캐시를 사용하지 않고 항상 서버와 직접 통신하도록 설정
+        // 캐시를 사용하지 않도록 강제 설정 (Persistence: false)
         db = initializeFirestore(app, {
-            // Persistence를 활성화하지 않음으로써 캐시 롤백 문제를 원천 차단
+            localCache: undefined // v10+ 에서는 localCache를 명시적으로 해제
         });
         auth = getAuth(app);
+        
+        // 기존에 남아있을 수 있는 브라우저 캐시 강제 삭제
+        clearIndexedDbPersistence(db).catch(err => console.error("Cache clear error:", err));
     } catch (e) {
         console.error("Firebase initialization failed:", e);
-        firebaseError = e instanceof Error ? e.message : "Firebase 초기화 중 알 수 없는 오류가 발생했습니다.";
+        firebaseError = e instanceof Error ? e.message : "Firebase 초기화 실패";
         isDemoMode = true;
     }
 }

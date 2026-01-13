@@ -13,15 +13,15 @@ export function useFirestoreState<T extends AppData>(
     const [state, setState] = useState<T | 'error' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     
-    const latestStateRef = useRef<T | null>(null);
+    // 로컬에서의 마지막 수정 시간 추적
+    const lastLocalUpdateAt = useRef<number>(0);
+    // 서버 데이터 로드 완료 여부
+    const isInitialized = useRef<boolean>(false);
     const writeTimeout = useRef<number | null>(null);
-    const isFirstLoadRef = useRef<boolean>(true);
 
     const mergeData = useCallback((incoming: any): T => {
         const initial = getInitialData();
-        if (!incoming || typeof incoming !== 'object' || !incoming.students) {
-            return initial;
-        }
+        if (!incoming || typeof incoming !== 'object' || !incoming.students) return initial;
 
         return {
             ...initial,
@@ -44,7 +44,7 @@ export function useFirestoreState<T extends AppData>(
         };
     }, [getInitialData]);
 
-    // 1. 초기 로드 및 실시간 구독
+    // 1. 서버 데이터 실시간 리스너
     useEffect(() => {
         if (!userId) {
             setState(null);
@@ -53,63 +53,45 @@ export function useFirestoreState<T extends AppData>(
 
         if (isDemoMode || !db) {
             const saved = localStorage.getItem(`demo_data_${userId}`);
-            const data = saved ? mergeData(JSON.parse(saved)) : getInitialData();
-            latestStateRef.current = data;
-            setState(data);
-            isFirstLoadRef.current = false;
+            setState(saved ? mergeData(JSON.parse(saved)) : getInitialData());
+            isInitialized.current = true;
             return;
         }
 
         const docRef = doc(db, 'users', userId);
-
-        const initAndSubscribe = async () => {
-            try {
-                // [중요] 캐시가 아닌 서버에서 직접 Authoritative 데이터를 먼저 가져옵니다.
-                const snap = await getDoc(docRef);
-                let initialTruth: T;
-                
-                if (snap.exists()) {
-                    initialTruth = mergeData(snap.data());
-                } else {
-                    initialTruth = getInitialData();
-                    await setDoc(docRef, { ...initialTruth, _updatedAt: Date.now() });
+        
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (!docSnap.exists()) {
+                // 문서가 없으면 초기 데이터 생성 (최초 1회만)
+                if (!isInitialized.current) {
+                    const initial = getInitialData();
+                    setDoc(docRef, { ...initial, _updatedAt: Date.now() });
+                    setState(initial);
+                    isInitialized.current = true;
                 }
-
-                latestStateRef.current = initialTruth;
-                setState(initialTruth);
-                isFirstLoadRef.current = false;
-
-                // 이후 실시간 변경사항 구독 시작
-                const unsubscribe = onSnapshot(docRef, (docSnap) => {
-                    // 로컬에서 저장 중인 경우 서버 스냅샷 무시 (레이스 컨디션 방지)
-                    if (docSnap.metadata.hasPendingWrites || isSaving) return;
-
-                    if (docSnap.exists()) {
-                        const cloudData = docSnap.data();
-                        const merged = mergeData(cloudData);
-                        
-                        // 데이터가 실제로 다를 때만 업데이트
-                        if (JSON.stringify(latestStateRef.current) !== JSON.stringify(merged)) {
-                            latestStateRef.current = merged;
-                            setState(merged);
-                        }
-                    }
-                });
-
-                return unsubscribe;
-            } catch (err) {
-                console.error("Firestore Init Error:", err);
-                setState('error');
+                return;
             }
-        };
 
-        const subPromise = initAndSubscribe();
-        return () => {
-            subPromise.then(unsub => unsub?.());
-        };
+            const cloudData = docSnap.data();
+            const cloudUpdatedAt = cloudData._updatedAt || 0;
+
+            // [핵심] 서버에서 온 데이터가 내가 로컬에서 마지막으로 고친 시간보다 옛날 것이라면 무시
+            if (cloudUpdatedAt < lastLocalUpdateAt.current) {
+                console.log("Ignored stale server update (Rollback prevented)");
+                return;
+            }
+
+            // 로컬 수정 중이 아닐 때만 상태 업데이트
+            if (!docSnap.metadata.hasPendingWrites) {
+                setState(mergeData(cloudData));
+                isInitialized.current = true;
+            }
+        });
+
+        return () => unsubscribe();
     }, [userId, mergeData]);
 
-    // 2. 상태 변경 및 디바운스 저장
+    // 2. 상태 변경 핸들러
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
         setState(prevState => {
             if (prevState === 'error' || prevState === null) return prevState;
@@ -120,15 +102,17 @@ export function useFirestoreState<T extends AppData>(
 
             if (!nextState || nextState === 'error') return nextState;
 
-            latestStateRef.current = nextState;
+            // 로컬 타임스탬프 갱신 (서버 데이터 차단 락 활성화)
+            const now = Date.now();
+            lastLocalUpdateAt.current = now;
 
             if (isDemoMode || !db) {
                 if (userId) localStorage.setItem(`demo_data_${userId}`, JSON.stringify(nextState));
                 return nextState;
             }
 
-            // 초기 로드가 끝나기 전에는 쓰기를 시도하지 않음 (덮어쓰기 방지)
-            if (isFirstLoadRef.current) return nextState;
+            // 초기 로드가 안 되었으면 쓰기 금지
+            if (!isInitialized.current) return nextState;
 
             setIsSaving(true);
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
@@ -137,16 +121,15 @@ export function useFirestoreState<T extends AppData>(
                 if (!userId || !db) return;
                 try {
                     const docRef = doc(db, 'users', userId);
-                    // 타임스탬프를 함께 저장하여 최신성 보장
+                    // 타임스탬프를 포함하여 저장
                     await setDoc(docRef, {
                         ...nextState,
-                        _updatedAt: Date.now()
+                        _updatedAt: now // 상태 변경이 일어났던 바로 그 시간 기록
                     });
                 } catch (e) {
                     console.error("Firestore Save Error:", e);
                 } finally {
-                    // 저장 완료 후 약간의 유예 시간을 두어 서버 잔상이 UI를 덮지 않게 함
-                    setTimeout(() => setIsSaving(false), 500);
+                    setIsSaving(false);
                 }
                 writeTimeout.current = null;
             }, 800);
