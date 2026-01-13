@@ -27,21 +27,20 @@ let isDemoMode = false;
 
 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     isDemoMode = true;
-    firebaseError = "환경 변수가 설정되지 않았습니다. 데모 모드로 실행됩니다.";
+    firebaseError = "환경 변수 설정 미비";
 } else {
     try {
         app = initializeApp(firebaseConfig);
-        // [근본 조치 1] 오프라인 캐시(IndexedDB) 기능을 아예 사용하지 않도록 설정
+        // 오프라인 기능을 완전히 끄고 메모리 캐시만 사용 (새로고침 시 증발하도록)
         db = initializeFirestore(app, {
-            localCache: undefined // v10+ 명시적 캐시 비활성화
+            localCache: undefined 
         });
         auth = getAuth(app);
         
-        // [근본 조치 2] 혹시나 브라우저에 남아있을지 모르는 기존 캐시 데이터를 강제로 파괴
+        // 남아있을 수 있는 오프라인 데이터베이스 강제 파괴
         clearIndexedDbPersistence(db).catch(() => {});
     } catch (e) {
         console.error("Firebase 초기화 실패:", e);
-        firebaseError = e instanceof Error ? e.message : "Firebase 초기화 실패";
         isDemoMode = true;
     }
 }

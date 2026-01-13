@@ -13,8 +13,10 @@ export function useFirestoreState<T extends AppData>(
     const [state, setState] = useState<T | 'error' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     
-    // 현재 서버와 통신 중인지 확인하는 플래그
-    const isWritingRef = useRef<boolean>(false);
+    // 로컬의 '진실'을 담고 있는 Ref (서버 데이터보다 우선함)
+    const localTruthRef = useRef<T | null>(null);
+    // 현재 서버에 쓰는 중임을 알리는 플래그
+    const isPendingWrite = useRef<boolean>(false);
     const writeTimeout = useRef<number | null>(null);
 
     const mergeData = useCallback((incoming: any): T => {
@@ -23,44 +25,65 @@ export function useFirestoreState<T extends AppData>(
         return { ...initial, ...incoming };
     }, [getInitialData]);
 
-    // 1. 서버 리스너 (읽기 전 전용)
+    // 1. 초기 데이터 로드 (딱 한 번만)
     useEffect(() => {
-        if (!userId || isDemoMode || !db) {
-            if (userId) {
-                const saved = localStorage.getItem(`demo_data_${userId}`);
-                setState(saved ? mergeData(JSON.parse(saved)) : getInitialData());
-            }
-            return;
-        }
+        if (!userId) return;
 
-        const docRef = doc(db, 'users', userId);
-        
-        // 실시간 리스너 연결
-        const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            // [근본 조치 3] 내가 지금 서버에 쓰고 있는 중이라면, 서버에서 오는 데이터(내 쓰기 결과 포함)를 무시합니다.
-            // Firebase SDK가 내부적으로 UI를 먼저 업데이트하므로(Optimistic UI), 
-            // 굳이 서버 응답을 다시 받아서 화면을 갱신할 필요가 없습니다.
-            if (docSnap.metadata.hasPendingWrites || isWritingRef.current) {
+        const loadInitial = async () => {
+            if (isDemoMode || !db) {
+                const saved = localStorage.getItem(`demo_data_${userId}`);
+                const data = saved ? mergeData(JSON.parse(saved)) : getInitialData();
+                localTruthRef.current = data;
+                setState(data);
                 return;
             }
 
-            if (docSnap.exists()) {
-                setState(mergeData(docSnap.data()));
-            } else {
-                // 문서가 아예 없는 최초 접근 시에만 생성
-                const initial = getInitialData();
-                setDoc(docRef, initial);
-                setState(initial);
-            }
-        }, (err) => {
-            console.error("Firestore Error:", err);
-            setState('error');
-        });
+            try {
+                const docRef = doc(db, 'users', userId);
+                const snap = await getDoc(docRef);
+                let initialData: T;
 
-        return () => unsubscribe();
+                if (snap.exists()) {
+                    initialData = mergeData(snap.data());
+                } else {
+                    initialData = getInitialData();
+                    await setDoc(docRef, initialData);
+                }
+
+                localTruthRef.current = initialData;
+                setState(initialData);
+
+                // 실시간 리스너 시작 (다른 기기에서 수정한 경우를 위해)
+                const unsubscribe = onSnapshot(docRef, (docSnap) => {
+                    // [핵심] 내가 지금 쓰고 있는 중이라면 서버에서 오는 데이터는 무조건 쓰레기(옛날 것)로 간주하고 무시
+                    if (isPendingWrite.current || docSnap.metadata.hasPendingWrites) {
+                        return;
+                    }
+
+                    if (docSnap.exists()) {
+                        const serverData = mergeData(docSnap.data());
+                        // 로컬 데이터와 서버 데이터가 다를 때만 업데이트
+                        if (JSON.stringify(localTruthRef.current) !== JSON.stringify(serverData)) {
+                            localTruthRef.current = serverData;
+                            setState(serverData);
+                        }
+                    }
+                });
+
+                return unsubscribe;
+            } catch (err) {
+                console.error("Fetch Error:", err);
+                setState('error');
+            }
+        };
+
+        const subPromise = loadInitial();
+        return () => {
+            subPromise.then(unsub => unsub?.());
+        };
     }, [userId, mergeData]);
 
-    // 2. 상태 변경 핸들러 (쓰기 전용)
+    // 2. 데이터 수정 핸들러
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
         setState(prevState => {
             if (prevState === 'error' || prevState === null) return prevState;
@@ -71,14 +94,16 @@ export function useFirestoreState<T extends AppData>(
 
             if (!nextState || nextState === 'error') return nextState;
 
-            // 로컬 UI는 즉시 갱신 (사용자 경험)
+            // 로컬 Ref를 즉시 갱신 (이게 진실임)
+            localTruthRef.current = nextState;
+
             if (isDemoMode || !db) {
                 if (userId) localStorage.setItem(`demo_data_${userId}`, JSON.stringify(nextState));
                 return nextState;
             }
 
-            // [근본 조치 4] 쓰기 작업 시작 알림 및 디바운싱
-            isWritingRef.current = true;
+            // 쓰기 잠금 활성화
+            isPendingWrite.current = true;
             setIsSaving(true);
 
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
@@ -87,20 +112,22 @@ export function useFirestoreState<T extends AppData>(
                 if (!userId || !db) return;
                 try {
                     const docRef = doc(db, 'users', userId);
-                    // 전체 데이터를 서버로 즉시 전송
+                    // 데이터를 서버로 밀어넣음
                     await setDoc(docRef, {
                         ...nextState,
-                        _lastSync: Date.now() // 동기화 확인용 필드
+                        _lastUpdatedAt: Date.now()
                     });
                 } catch (e) {
-                    console.error("Firestore Save Error:", e);
+                    console.error("Firestore Save Failure:", e);
                 } finally {
-                    // 쓰기가 완전히 끝났을 때만 플래그 해제
-                    isWritingRef.current = false;
-                    setIsSaving(false);
+                    // 서버 저장이 완전히 끝난 후 약간의 딜레이를 주어 리스너 안정화
+                    setTimeout(() => {
+                        isPendingWrite.current = false;
+                        setIsSaving(false);
+                    }, 500);
                 }
                 writeTimeout.current = null;
-            }, 500); // 0.5초 대기 후 즉시 서버 반영
+            }, 600);
 
             return nextState;
         });
