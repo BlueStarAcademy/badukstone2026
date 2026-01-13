@@ -110,7 +110,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // Derived values for performance
+    // 가독성과 성능을 위해 useMemo 활용
     const students = useMemo(() => (appState && appState !== 'error') ? appState.students || [] : [], [appState]);
     const transactions = useMemo(() => (appState && appState !== 'error') ? appState.transactions || [] : [], [appState]);
     const coupons = useMemo(() => (appState && appState !== 'error') ? appState.coupons || [] : [], [appState]);
@@ -129,13 +129,12 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const chessMatches = (appState && appState !== 'error') ? appState.chessMatches || [] : [];
     const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
 
-    // [중요] 실시간으로 업데이트된 학생 정보를 리스트에서 다시 찾음 (사이드바 점수 즉시 반영용)
     const freshSelectedStudent = useMemo(() => {
         if (!selectedStudent) return null;
         return students.find(s => s.id === selectedStudent.id) || null;
     }, [students, selectedStudent]);
 
-    // 미션 완료 및 점수 합산 핵심 로직
+    // 핵심 데이터 업데이트 핸들러 - functional update 패턴을 사용하여 데이터 유실 방지
     const handleAddTransaction = useCallback((studentId: string, type: Transaction['type'], description: string, amount: number, eventDetails?: { eventMonth: string }) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
@@ -313,7 +312,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    // 에러 상태 처리
     if (appState === 'error') {
         return <AppLoader 
             message="데이터를 불러오는 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요." 
@@ -322,7 +320,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         />;
     }
 
-    // 로딩 상태 처리
     if (appState === null) {
         return <AppLoader message="데이터를 안전하게 불러오는 중..." />;
     }

@@ -13,11 +13,36 @@ export function useFirestoreState<T extends AppData>(
     const [state, setState] = useState<T | 'error' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     
-    // 로컬의 최신 상태를 추적하기 위한 Ref
+    // 로컬의 최신 상태를 추적하기 위한 Ref (클로저 문제 방지)
     const latestStateRef = useRef<T | null>(null);
-    // 마지막 로컬 업데이트 시간을 추적 (서버 덮어쓰기 방지용)
+    // 마지막 로컬 업데이트 시간을 추적 (서버의 낡은 데이터가 덮어쓰는 것 방지)
     const lastLocalUpdateAt = useRef<number>(0);
     const writeTimeout = useRef<number | null>(null);
+
+    // 데이터 병합 헬퍼 함수
+    const mergeWithInitial = useCallback((cloudData: any): T => {
+        const initial = getInitialData();
+        return {
+            ...initial,
+            ...cloudData,
+            // 중첩된 객체/배열들에 대한 보장 (필요한 경우 더 깊은 병합 수행)
+            groupSettings: { ...initial.groupSettings, ...(cloudData.groupSettings || {}) },
+            generalSettings: { ...initial.generalSettings, ...(cloudData.generalSettings || {}) },
+            eventSettings: { ...initial.eventSettings, ...(cloudData.eventSettings || {}) },
+            tournamentSettings: { ...initial.tournamentSettings, ...(cloudData.tournamentSettings || {}) },
+            tournamentData: { ...initial.tournamentData, ...(cloudData.tournamentData || {}) },
+            // 배열 데이터들은 데이터가 있을 때만 덮어쓰고, 없으면 초기값([]) 유지
+            students: cloudData.students || initial.students,
+            missions: cloudData.missions || initial.missions,
+            chessMissions: cloudData.chessMissions || initial.chessMissions,
+            specialMissions: cloudData.specialMissions || initial.specialMissions,
+            shopItems: cloudData.shopItems || initial.shopItems,
+            transactions: cloudData.transactions || initial.transactions,
+            coupons: cloudData.coupons || initial.coupons,
+            chessMatches: cloudData.chessMatches || initial.chessMatches,
+            shopCategories: cloudData.shopCategories || initial.shopCategories,
+        };
+    }, [getInitialData]);
 
     // 초기 데이터 로드
     useEffect(() => {
@@ -29,7 +54,7 @@ export function useFirestoreState<T extends AppData>(
         const init = async () => {
             if (isDemoMode || !db) {
                 const saved = localStorage.getItem(`demo_data_${userId}`);
-                const data = saved ? JSON.parse(saved) : getInitialData();
+                const data = saved ? mergeWithInitial(JSON.parse(saved)) : getInitialData();
                 latestStateRef.current = data;
                 setState(data);
                 return;
@@ -39,7 +64,7 @@ export function useFirestoreState<T extends AppData>(
                 const docRef = doc(db, 'users', userId);
                 const snap = await getDoc(docRef);
                 if (snap.exists()) {
-                    const data = snap.data() as T;
+                    const data = mergeWithInitial(snap.data());
                     latestStateRef.current = data;
                     setState(data);
                 } else {
@@ -49,47 +74,47 @@ export function useFirestoreState<T extends AppData>(
                     setState(initial);
                 }
             } catch (e) {
-                console.error("Firestore 초기화 실패:", e);
+                console.error("Firestore 로드 실패:", e);
                 setState('error');
             }
         };
 
         init();
-    }, [userId]);
+    }, [userId, mergeWithInitial]);
 
-    // [중요] 실시간 구독 로직: 타임스탬프 비교로 과거 데이터가 현재 데이터를 덮어쓰지 못하게 함
+    // 실시간 구독 및 서버-클라이언트 동기화
     useEffect(() => {
         if (!userId || isDemoMode || !db || state === 'error' || state === null) return;
 
         const docRef = doc(db, 'users', userId);
         const unsubscribe = onSnapshot(docRef, (docSnap) => {
-            // 로컬에 대기 중인 쓰기가 있다면 SDK가 자동으로 병합하므로 처리를 맡김
+            // 본인이 쓰고 있는 중이면 SDK 내부 처리에 맡김
             if (docSnap.metadata.hasPendingWrites) return;
 
             if (docSnap.exists()) {
-                const cloudData = docSnap.data() as T;
-                const cloudUpdatedAt = (cloudData as any)._updatedAt || 0;
+                const rawCloudData = docSnap.data();
+                const cloudUpdatedAt = (rawCloudData as any)._updatedAt || 0;
 
-                // 서버 데이터가 내가 마지막으로 수정한 것보다 과거라면 업데이트 무시
+                // 서버 데이터가 로컬의 최근 수정보다 이전의 것이라면 무시
                 if (cloudUpdatedAt <= lastLocalUpdateAt.current) {
                     return;
                 }
 
-                latestStateRef.current = cloudData;
-                setState(cloudData);
+                const mergedCloudData = mergeWithInitial(rawCloudData);
+                latestStateRef.current = mergedCloudData;
+                setState(mergedCloudData);
             }
         });
 
         return () => unsubscribe();
-    }, [userId, state === null]);
+    }, [userId, state === null, mergeWithInitial]);
 
-    // 저장 실행 함수
+    // Firestore에 실제로 데이터를 쓰는 함수
     const flushToFirestore = useCallback(async () => {
         if (!userId || isDemoMode || !db || !latestStateRef.current) return;
         
         try {
             const docRef = doc(db, 'users', userId);
-            // 저장 시점에 현재 시간을 기록 (서버 충돌 방지용)
             const now = Date.now();
             lastLocalUpdateAt.current = now;
             
@@ -104,7 +129,7 @@ export function useFirestoreState<T extends AppData>(
         }
     }, [userId]);
 
-    // 페이지를 떠날 때 미처 저장 못한 데이터 처리
+    // 화면 종료 전 미저장 데이터 강제 저장
     useEffect(() => {
         const handleBeforeUnload = () => {
             if (isSaving) flushToFirestore();
@@ -113,6 +138,7 @@ export function useFirestoreState<T extends AppData>(
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
     }, [isSaving, flushToFirestore]);
 
+    // 상태 변경 및 디바운스 저장 로직
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
         setState(prevState => {
             const nextState = typeof newStateOrFn === 'function'
@@ -121,18 +147,17 @@ export function useFirestoreState<T extends AppData>(
 
             if (!nextState || nextState === 'error' || !userId) return nextState;
 
-            // 1. Ref 즉시 업데이트 (항상 최신본 유지)
+            // 1. 즉시 최신 상태 반영 (UI 응답성)
             latestStateRef.current = nextState;
-            // 2. 로컬 업데이트 시간 기록
             lastLocalUpdateAt.current = Date.now();
 
-            // 데모 모드 처리
+            // 데모 모드 저장
             if (isDemoMode || !db) {
                 localStorage.setItem(`demo_data_${userId}`, JSON.stringify(nextState));
                 return nextState;
             }
 
-            // 3. Firestore 저장 예약
+            // 2. 디바운스 저장 예약 (네트워크 부하 감소)
             setIsSaving(true);
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
             
@@ -140,7 +165,7 @@ export function useFirestoreState<T extends AppData>(
                 await flushToFirestore();
                 setIsSaving(false);
                 writeTimeout.current = null;
-            }, 500); // 0.5초 디바운스
+            }, 800); // 0.8초 대기 후 저장
 
             return nextState;
         });
