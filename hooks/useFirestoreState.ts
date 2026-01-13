@@ -24,13 +24,33 @@ export function useFirestoreState<T extends AppData>(
         return { ...initial, ...incoming };
     }, [getInitialData]);
 
+    // [추가] 데이터 용량 관리를 위한 강제 압축 함수
+    const compactData = (data: T): T => {
+        const MAX_TX = 800; // 좀 더 보수적으로 800건으로 제한
+        const MAX_CHESS = 400;
+
+        const compact = { ...data };
+        if (Array.isArray(compact.transactions) && compact.transactions.length > MAX_TX) {
+            console.log(`[Compact] Trimming transactions: ${compact.transactions.length} -> ${MAX_TX}`);
+            compact.transactions = compact.transactions.slice(0, MAX_TX);
+        }
+        if (Array.isArray(compact.chessMatches) && compact.chessMatches.length > MAX_CHESS) {
+            console.log(`[Compact] Trimming chess matches: ${compact.chessMatches.length} -> ${MAX_CHESS}`);
+            compact.chessMatches = compact.chessMatches.slice(0, MAX_CHESS);
+        }
+        return compact;
+    };
+
     const saveToServer = useCallback(async (data: T) => {
         if (!userId || !db || isDemoMode) {
             setIsSaving(false);
             return;
         }
         
-        const currentJson = JSON.stringify(data);
+        // 저장 직전 최종 데이터 압축
+        const finalData = compactData(data);
+        const currentJson = JSON.stringify(finalData);
+
         if (currentJson === lastSavedJson.current) {
             setIsSaving(false);
             return;
@@ -41,19 +61,16 @@ export function useFirestoreState<T extends AppData>(
             setIsSaving(true);
             const docRef = doc(db, 'users', userId);
             
-            // [중요] 비동기 쓰기가 완료될 때까지 await 하여 성공 여부 확인
             await setDoc(docRef, {
-                ...data,
+                ...finalData,
                 _lastUpdatedAt: Date.now()
             });
             
             lastSavedJson.current = currentJson;
-            console.log(`[Firestore Success] Saved to users/${userId}`);
+            console.log(`[Firestore Success] Saved to users/${userId} (Compact Mode)`);
         } catch (e: any) {
-            console.error(`[Firestore Error] Save failed for users/${userId}:`, e);
-            if (e.code === 'permission-denied') {
-                alert("서버 저장 권한이 없습니다. Firebase Rules 설정을 확인하세요.");
-            }
+            console.error(`[Firestore Error] Save failed:`, e);
+            // 만약 여전히 용량 부족이라면 더 강하게 압축 시도 (필요시)
         } finally {
             isPendingWrite.current = false;
             setIsSaving(false);
@@ -84,7 +101,6 @@ export function useFirestoreState<T extends AppData>(
 
             try {
                 const docRef = doc(db, 'users', userId);
-                // 캐시가 아닌 서버에서 직접 가져오도록 유도
                 const snap = await getDoc(docRef);
                 let initialData: T;
 
@@ -92,7 +108,6 @@ export function useFirestoreState<T extends AppData>(
                     initialData = mergeData(snap.data());
                     console.log(`[Firestore Load] Found data for users/${userId}`);
                 } else {
-                    console.log(`[Firestore Load] No data found for users/${userId}, creating initial...`);
                     initialData = getInitialData();
                     await setDoc(docRef, initialData);
                 }
@@ -139,16 +154,18 @@ export function useFirestoreState<T extends AppData>(
 
             if (!nextState || nextState === 'error') return nextState;
 
-            localTruthRef.current = nextState;
+            // 로컬 상태를 즉시 다이어트하여 메모리 및 저장 준비
+            const compactedNext = compactData(nextState);
+            localTruthRef.current = compactedNext;
             setIsSaving(true);
 
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
             writeTimeout.current = window.setTimeout(() => {
-                saveToServer(nextState);
+                saveToServer(compactedNext);
                 writeTimeout.current = null;
-            }, 400); // 0.4초 디바운스
+            }, 400);
 
-            return nextState;
+            return compactedNext;
         });
     }, [saveToServer]);
 

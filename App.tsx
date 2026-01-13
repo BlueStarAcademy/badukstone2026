@@ -18,6 +18,10 @@ import { LoginPage } from './components/LoginPage';
 import { MasterPanel } from './components/MasterPanel';
 import { AccountSettingsModal } from './components/modals/SettingsModal';
 
+// [상수 추가] 데이터 무결성 및 용량 관리를 위한 제한값
+const MAX_TRANSACTIONS = 1000; // 활동 기록 최대 1000건 유지
+const MAX_CHESS_MATCHES = 500; // 체스 기록 최대 500건 유지
+
 const getInitialData = (): AppData => ({
     groupSettings: INITIAL_GROUP_SETTINGS,
     generalSettings: INITIAL_GENERAL_SETTINGS,
@@ -87,7 +91,6 @@ export const App = () => {
         return <LoginPage 
             onLoginSuccess={(role) => {
                 if (role === 'master') {
-                    // [수정] bsbaduk으로 로그인 시 다시 'master' UID로 매핑 (Firestore의 /users/master 경로 사용)
                     setCurrentUser({ uid: 'master', email: 'bsbaduk' });
                 }
             }} 
@@ -166,10 +169,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
 
+            // [다이어트 로직] 최근 건수만 유지
+            const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
+
             return { 
                 ...prev, 
                 students: updatedStudents, 
-                transactions: [transaction, ...prev.transactions] 
+                transactions: updatedTransactions 
             };
         });
     }, [setAppState]);
@@ -197,8 +203,11 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
+            
+            // [다이어트 로직]
+            const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
 
-            return { ...prev, students: updatedStudents, transactions: [transaction, ...prev.transactions] };
+            return { ...prev, students: updatedStudents, transactions: updatedTransactions };
         });
     }, [setAppState]);
 
@@ -264,8 +273,11 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const updatedStudents = [...prev.students];
             updatedStudents[fromIdx] = { ...from, stones: newFromStones };
             updatedStudents[toIdx] = { ...to, stones: newToStones };
+            
+            // [다이어트 로직]
+            const updatedTransactions = [t1, t2, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
 
-            return { ...prev, students: updatedStudents, transactions: [t1, t2, ...prev.transactions] };
+            return { ...prev, students: updatedStudents, transactions: updatedTransactions };
         });
     }, [setAppState]);
 
@@ -311,10 +323,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 return s;
             });
 
+            // [다이어트 로직] 체스 기록도 제한
+            const updatedMatches = [newMatch, ...prev.chessMatches].slice(0, MAX_CHESS_MATCHES);
+
             return {
                 ...prev,
                 students: updatedStudents,
-                chessMatches: [newMatch, ...prev.chessMatches]
+                chessMatches: updatedMatches
             };
         });
     }, [setAppState]);
