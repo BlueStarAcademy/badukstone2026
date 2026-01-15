@@ -278,16 +278,24 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         const totalAfterBulk = subtotal - bulkDiscount;
         const tempDiscountRate = (tempDiscount || 0) / 100;
         const temporaryDiscount = Math.floor(totalAfterBulk * tempDiscountRate);
-        const total = totalAfterBulk - temporaryDiscount;
+        
+        // [수정된 계산 로직]
+        const total = Math.max(0, totalAfterBulk - temporaryDiscount);
         const couponDeduction = Math.min(total, availableCouponValue);
         const finalStoneCost = total - couponDeduction;
+        
+        // 잔액 부족 판별: 보유 쿠폰을 다 써도 남은 금액이 보유 스톤보다 클 때
+        const isInsufficient = finalStoneCost > (student?.stones || 0);
 
-        return { items, subtotal, totalQuantity, bulkDiscount, temporaryDiscount, total, couponDeduction, finalStoneCost };
-    }, [cart, shopItems, shopSettings, availableCouponValue, tempDiscount]);
+        return { 
+            items, subtotal, totalQuantity, bulkDiscount, temporaryDiscount, 
+            total, couponDeduction, finalStoneCost, isInsufficient 
+        };
+    }, [cart, shopItems, shopSettings, availableCouponValue, tempDiscount, student?.stones]);
     
     const handleCheckout = () => {
         if (!student || cartDetails.items.length === 0) return;
-        if (student.stones < cartDetails.finalStoneCost) {
+        if (cartDetails.isInsufficient) {
             alert('스톤이 부족합니다!');
             return;
         }
@@ -535,9 +543,22 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             </div>
                                             {cartDetails.temporaryDiscount > 0 && <div className="personal-discount"><span>할인 적용 금액</span><span>-{cartDetails.temporaryDiscount}</span></div>}
                                             {cartDetails.couponDeduction > 0 && <div className="coupon-deduction"><span>쿠폰 사용</span><span>-{cartDetails.couponDeduction}</span></div>}
-                                            <div className="final-total"><span>최종 결제</span><span>{cartDetails.finalStoneCost} 스톤</span></div>
+                                            <div className="final-total">
+                                                <span>{cartDetails.couponDeduction > 0 ? '추가 스톤 결제' : '최종 결제'}</span>
+                                                <span style={{ color: cartDetails.isInsufficient ? 'var(--danger-color)' : 'inherit' }}>
+                                                    {cartDetails.finalStoneCost} 스톤
+                                                </span>
+                                            </div>
                                         </div>
-                                        <button className="btn primary cart-checkout-btn" onClick={handleCheckout} disabled={student.stones < cartDetails.finalStoneCost || cartDetails.items.length === 0}>{cartDetails.finalStoneCost} 스톤으로 결제</button>
+                                        <button 
+                                            className={`btn ${cartDetails.isInsufficient ? 'danger' : 'primary'} cart-checkout-btn`} 
+                                            onClick={handleCheckout} 
+                                            disabled={cartDetails.isInsufficient || cartDetails.items.length === 0}
+                                        >
+                                            {cartDetails.isInsufficient 
+                                                ? `금액 부족 (보유: ${student.stones} 스톤)` 
+                                                : `${cartDetails.finalStoneCost} 스톤으로 결제`}
+                                        </button>
                                     </div>
                                 </div>
                            </>

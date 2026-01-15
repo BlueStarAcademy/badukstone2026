@@ -138,15 +138,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         return students.find(s => s.id === selectedStudent.id) || null;
     }, [students, selectedStudent]);
 
-    // [생일 쿠폰 자동 발급 엔진]
     useEffect(() => {
         if (!appState || appState === 'error') return;
 
         const now = new Date();
         const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth() + 1; // 1-12
+        const currentMonth = now.getMonth() + 1; 
 
-        // 이번 달에 이미 발급했다면 스킵
         if (appState.lastBirthdayCouponMonth === currentMonth) return;
 
         const birthdayStudents = appState.students.filter(s => {
@@ -156,7 +154,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
 
         if (birthdayStudents.length > 0) {
-            // 이번 달 마지막 날 23:59:59.999 계산
             const lastDay = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
             const expiresAt = lastDay.toISOString();
             
@@ -168,8 +165,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 expiresAt
             }));
 
-            console.log(`[Birthday Engine] Issued ${newCoupons.length} coupons for Month ${currentMonth}`);
-            
             setAppState(prev => {
                 if (!prev || prev === 'error') return prev;
                 return {
@@ -179,7 +174,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 };
             });
         } else {
-            // 생일자가 없더라도 발급 체크는 완료함
             setAppState(prev => {
                 if (!prev || prev === 'error') return prev;
                 return { ...prev, lastBirthdayCouponMonth: currentMonth };
@@ -253,37 +247,39 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
             
-            let updatedCoupons = prev.coupons.map(c => ({ ...c }));
+            // 쿠폰 차감 로직 - ID 기반으로 안전하게 재작성
+            let updatedCoupons = [...prev.coupons];
             if (couponDeduction > 0) {
-                const now = new Date();
-                const studentCouponIndices: number[] = [];
-                updatedCoupons.forEach((c, idx) => {
-                    if (c.studentId === studentId && new Date(c.expiresAt) > now) {
-                        studentCouponIndices.push(idx);
-                    }
-                });
+                // 해당 학생의 쿠폰만 추출하여 만료일순 정렬
+                const studentCoupons = updatedCoupons
+                    .filter(c => c.studentId === studentId)
+                    .sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime());
 
-                studentCouponIndices.sort((a, b) => 
-                    new Date(updatedCoupons[a].expiresAt).getTime() - new Date(updatedCoupons[b].expiresAt).getTime()
-                );
+                let remainingToDeduct = couponDeduction;
+                const couponIdsToRemove = new Set<string>();
+                const couponValuesToUpdate = new Map<string, number>();
 
-                let remainingDeduction = couponDeduction;
-                const indicesToRemove = new Set<number>();
-
-                for (const idx of studentCouponIndices) {
-                    if (remainingDeduction <= 0) break;
-                    const coupon = updatedCoupons[idx];
+                for (const coupon of studentCoupons) {
+                    if (remainingToDeduct <= 0) break;
                     
-                    if (coupon.value <= remainingDeduction) {
-                        remainingDeduction -= coupon.value;
-                        indicesToRemove.add(idx);
+                    if (coupon.value <= remainingToDeduct) {
+                        // 쿠폰 전액 사용 및 삭제 대상 등록
+                        remainingToDeduct -= coupon.value;
+                        couponIdsToRemove.add(coupon.id);
                     } else {
-                        updatedCoupons[idx].value -= remainingDeduction;
-                        remainingDeduction = 0;
+                        // 쿠폰 일부 사용 및 잔액 업데이트 등록
+                        couponValuesToUpdate.set(coupon.id, coupon.value - remainingToDeduct);
+                        remainingToDeduct = 0;
                     }
                 }
-                
-                updatedCoupons = updatedCoupons.filter((_, idx) => !indicesToRemove.has(idx));
+
+                // 전체 쿠폰 목록에서 대상 반영
+                updatedCoupons = updatedCoupons
+                    .filter(c => !couponIdsToRemove.has(c.id)) // 삭제 대상 필터링
+                    .map(c => couponValuesToUpdate.has(c.id) 
+                        ? { ...c, value: couponValuesToUpdate.get(c.id)! } 
+                        : c
+                    ); // 잔액 업데이트 반영
             }
 
             const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
