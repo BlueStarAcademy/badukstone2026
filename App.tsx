@@ -18,9 +18,8 @@ import { LoginPage } from './components/LoginPage';
 import { MasterPanel } from './components/MasterPanel';
 import { AccountSettingsModal } from './components/modals/SettingsModal';
 
-// [상수 추가] 데이터 무결성 및 용량 관리를 위한 제한값
-const MAX_TRANSACTIONS = 1000; // 활동 기록 최대 1000건 유지
-const MAX_CHESS_MATCHES = 500; // 체스 기록 최대 500건 유지
+const MAX_TRANSACTIONS = 1000;
+const MAX_CHESS_MATCHES = 500;
 
 const getInitialData = (): AppData => ({
     groupSettings: INITIAL_GROUP_SETTINGS,
@@ -116,7 +115,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    // 안전한 데이터 접근을 위한 Memo
     const students = useMemo(() => (appState && appState !== 'error') ? appState.students || [] : [], [appState]);
     const transactions = useMemo(() => (appState && appState !== 'error') ? appState.transactions || [] : [], [appState]);
     const coupons = useMemo(() => (appState && appState !== 'error') ? appState.coupons || [] : [], [appState]);
@@ -140,7 +138,55 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         return students.find(s => s.id === selectedStudent.id) || null;
     }, [students, selectedStudent]);
 
-    // 핵심 데이터 업데이트 핸들러 - functional update 패턴을 사용하여 데이터 유실 방지
+    // [생일 쿠폰 자동 발급 엔진]
+    useEffect(() => {
+        if (!appState || appState === 'error') return;
+
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1; // 1-12
+
+        // 이번 달에 이미 발급했다면 스킵
+        if (appState.lastBirthdayCouponMonth === currentMonth) return;
+
+        const birthdayStudents = appState.students.filter(s => {
+            if (!s.birthday || s.status !== '재원') return false;
+            const bMonth = parseInt(s.birthday.split('-')[0], 10);
+            return bMonth === currentMonth;
+        });
+
+        if (birthdayStudents.length > 0) {
+            // 이번 달 마지막 날 23:59:59.999 계산
+            const lastDay = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
+            const expiresAt = lastDay.toISOString();
+            
+            const newCoupons: Coupon[] = birthdayStudents.map(s => ({
+                id: generateId(),
+                studentId: s.id,
+                description: `${currentMonth}월 생일 축하 쿠폰 🎂`,
+                value: generalSettings.birthdayCouponValue || 300,
+                expiresAt
+            }));
+
+            console.log(`[Birthday Engine] Issued ${newCoupons.length} coupons for Month ${currentMonth}`);
+            
+            setAppState(prev => {
+                if (!prev || prev === 'error') return prev;
+                return {
+                    ...prev,
+                    coupons: [...prev.coupons, ...newCoupons],
+                    lastBirthdayCouponMonth: currentMonth
+                };
+            });
+        } else {
+            // 생일자가 없더라도 발급 체크는 완료함
+            setAppState(prev => {
+                if (!prev || prev === 'error') return prev;
+                return { ...prev, lastBirthdayCouponMonth: currentMonth };
+            });
+        }
+    }, [appState, setAppState, generalSettings.birthdayCouponValue]);
+
     const handleAddTransaction = useCallback((studentId: string, type: Transaction['type'], description: string, amount: number, eventDetails?: { eventMonth: string }) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
@@ -169,7 +215,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
 
-            // [다이어트 로직] 최근 건수만 유지
             const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
 
             return { 
@@ -189,11 +234,15 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const student = prev.students[studentIdx];
             const newStones = Math.max(0, (student.stones || 0) - finalStoneCost);
             
+            const finalDesc = couponDeduction > 0 
+                ? `${description} (쿠폰 ${couponDeduction} 사용)` 
+                : description;
+
             const transaction: Transaction = {
                 id: generateId(),
                 studentId: student.id,
                 type: 'purchase',
-                description,
+                description: finalDesc,
                 amount: -finalStoneCost,
                 timestamp: new Date().toISOString(),
                 status: 'active',
@@ -204,10 +253,47 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
             
-            // [다이어트 로직]
+            let updatedCoupons = prev.coupons.map(c => ({ ...c }));
+            if (couponDeduction > 0) {
+                const now = new Date();
+                const studentCouponIndices: number[] = [];
+                updatedCoupons.forEach((c, idx) => {
+                    if (c.studentId === studentId && new Date(c.expiresAt) > now) {
+                        studentCouponIndices.push(idx);
+                    }
+                });
+
+                studentCouponIndices.sort((a, b) => 
+                    new Date(updatedCoupons[a].expiresAt).getTime() - new Date(updatedCoupons[b].expiresAt).getTime()
+                );
+
+                let remainingDeduction = couponDeduction;
+                const indicesToRemove = new Set<number>();
+
+                for (const idx of studentCouponIndices) {
+                    if (remainingDeduction <= 0) break;
+                    const coupon = updatedCoupons[idx];
+                    
+                    if (coupon.value <= remainingDeduction) {
+                        remainingDeduction -= coupon.value;
+                        indicesToRemove.add(idx);
+                    } else {
+                        updatedCoupons[idx].value -= remainingDeduction;
+                        remainingDeduction = 0;
+                    }
+                }
+                
+                updatedCoupons = updatedCoupons.filter((_, idx) => !indicesToRemove.has(idx));
+            }
+
             const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
 
-            return { ...prev, students: updatedStudents, transactions: updatedTransactions };
+            return { 
+                ...prev, 
+                students: updatedStudents, 
+                transactions: updatedTransactions,
+                coupons: updatedCoupons
+            };
         });
     }, [setAppState]);
 
@@ -222,7 +308,10 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             if (studentIdx === -1) return prev;
 
             const student = prev.students[studentIdx];
-            const reversalAmount = -transaction.amount;
+            
+            const actualDelta = (transaction.stoneBalanceAfter || 0) - (transaction.stoneBalanceBefore || 0);
+            const reversalAmount = -actualDelta;
+            
             const newStones = Math.max(0, Math.min(student.maxStones, (student.stones || 0) + reversalAmount));
 
             const updatedTransactions = [...prev.transactions];
@@ -238,7 +327,29 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const handleDeleteTransaction = useCallback((transactionId: string) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
-            return { ...prev, transactions: prev.transactions.filter(t => t.id !== transactionId) };
+            
+            const transaction = prev.transactions.find(t => t.id === transactionId);
+            if (!transaction) return prev;
+
+            let updatedStudents = [...prev.students];
+
+            if (transaction.status === 'active') {
+                const studentIdx = updatedStudents.findIndex(s => s.id === transaction.studentId);
+                if (studentIdx !== -1) {
+                    const student = updatedStudents[studentIdx];
+                    const actualDelta = (transaction.stoneBalanceAfter || 0) - (transaction.stoneBalanceBefore || 0);
+                    const reversalAmount = -actualDelta;
+                    const newStones = Math.max(0, Math.min(student.maxStones, (student.stones || 0) + reversalAmount));
+                    
+                    updatedStudents[studentIdx] = { ...student, stones: newStones };
+                }
+            }
+
+            return { 
+                ...prev, 
+                students: updatedStudents,
+                transactions: prev.transactions.filter(t => t.id !== transactionId) 
+            };
         });
     }, [setAppState]);
 
@@ -274,7 +385,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             updatedStudents[fromIdx] = { ...from, stones: newFromStones };
             updatedStudents[toIdx] = { ...to, stones: newToStones };
             
-            // [다이어트 로직]
             const updatedTransactions = [t1, t2, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
 
             return { ...prev, students: updatedStudents, transactions: updatedTransactions };
@@ -323,7 +433,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 return s;
             });
 
-            // [다이어트 로직] 체스 기록도 제한
             const updatedMatches = [newMatch, ...prev.chessMatches].slice(0, MAX_CHESS_MATCHES);
 
             return {
@@ -359,7 +468,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 
                 <nav className="view-toggle">
                     <button className={`toggle-btn ${view === 'student' ? 'active' : ''}`} onClick={() => setView('student')}>👨‍🎓 바둑반</button>
-                    <button className={`toggle-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => setView('chess')}>♟️ 체스반</button>
+                    <button className={`toggle-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => view !== 'chess' && setView('chess')}>♟️ 체스반</button>
                     <button className={`toggle-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>🏆 대회</button>
                     <button className={`toggle-btn ${view === 'event' ? 'active' : ''}`} onClick={() => setView('event')}>🎁 이벤트</button>
                     <button className={`toggle-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>⚙️ 관리자</button>
