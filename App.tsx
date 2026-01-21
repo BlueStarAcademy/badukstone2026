@@ -4,7 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firebaseError, isDemoMode } from './firebase';
 import { useFirestoreState } from './hooks/useFirestoreState';
 import { INITIAL_STUDENTS, INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from './data/initialData';
-import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, SpecialMission } from './types';
+import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, SpecialMission, EventSettings } from './types';
 import { generateId, getGroupForRank } from './utils';
 import { calculateNewElo } from './utils/elo';
 
@@ -247,10 +247,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
             
-            // 쿠폰 차감 로직 - ID 기반으로 안전하게 재작성
             let updatedCoupons = [...prev.coupons];
             if (couponDeduction > 0) {
-                // 해당 학생의 쿠폰만 추출하여 만료일순 정렬
                 const studentCoupons = updatedCoupons
                     .filter(c => c.studentId === studentId)
                     .sort((a, b) => new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime());
@@ -263,23 +261,20 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     if (remainingToDeduct <= 0) break;
                     
                     if (coupon.value <= remainingToDeduct) {
-                        // 쿠폰 전액 사용 및 삭제 대상 등록
                         remainingToDeduct -= coupon.value;
                         couponIdsToRemove.add(coupon.id);
                     } else {
-                        // 쿠폰 일부 사용 및 잔액 업데이트 등록
                         couponValuesToUpdate.set(coupon.id, coupon.value - remainingToDeduct);
                         remainingToDeduct = 0;
                     }
                 }
 
-                // 전체 쿠폰 목록에서 대상 반영
                 updatedCoupons = updatedCoupons
-                    .filter(c => !couponIdsToRemove.has(c.id)) // 삭제 대상 필터링
+                    .filter(c => !couponIdsToRemove.has(c.id)) 
                     .map(c => couponValuesToUpdate.has(c.id) 
                         ? { ...c, value: couponValuesToUpdate.get(c.id)! } 
                         : c
-                    ); // 잔액 업데이트 반영
+                    );
             }
 
             const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
@@ -289,6 +284,142 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 students: updatedStudents, 
                 transactions: updatedTransactions,
                 coupons: updatedCoupons
+            };
+        });
+    }, [setAppState]);
+
+    // [추가] 이벤트 뽑기 실제 로직
+    const handleGachaPick = useCallback((studentId: string, pickedNumber: number, monthIdentifier: string) => {
+        if (!appState || appState === 'error') return undefined;
+
+        // 결과값을 미리 계산하여 UI 반환 준비
+        let gachaResult: { pickedNumber: number, prizeTier: number, prizeAmount: number } | undefined = undefined;
+
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            
+            // 1. 해당 월 뽑기판 데이터 가져오기 (없으면 초기화)
+            let currentGacha = prev.gachaState[monthIdentifier] || { prizeMap: [], pickedNumbers: {} };
+            
+            // 2. 만약 해당 월 뽑기판이 처음 열렸다면 prizeMap(100개) 생성 및 셔플
+            if (currentGacha.prizeMap.length === 0) {
+                const arr: number[] = [];
+                const counts = prev.eventSettings.gachaPrizeCounts;
+                // 각 등수별 개수만큼 등수 번호 삽입
+                for (let i = 0; i < (counts.first || 0); i++) arr.push(1);
+                for (let i = 0; i < (counts.second || 0); i++) arr.push(2);
+                for (let i = 0; i < (counts.third || 0); i++) arr.push(3);
+                for (let i = 0; i < (counts.fourth || 0); i++) arr.push(4);
+                while (arr.length < 100) arr.push(5);
+                
+                // Fisher-Yates Shuffle
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                currentGacha.prizeMap = arr;
+            }
+
+            // 중복 방지 체크
+            if (currentGacha.pickedNumbers[studentId] !== undefined) return prev;
+
+            // 3. 당첨 확인
+            const prizeTier = currentGacha.prizeMap[pickedNumber - 1];
+            const tierMap: (keyof EventSettings['gachaPrizes'])[] = ['first', 'second', 'third', 'fourth', 'fifth'];
+            const prizeAmount = prev.eventSettings.gachaPrizes[tierMap[prizeTier - 1]];
+
+            // UI 모달에 넘겨줄 결과 객체 생성
+            gachaResult = { pickedNumber, prizeTier, prizeAmount };
+
+            // 4. 학생 스톤 업데이트 및 트랜잭션 기록
+            const studentIdx = prev.students.findIndex(s => s.id === studentId);
+            if (studentIdx === -1) return prev;
+            const student = prev.students[studentIdx];
+            const newStones = Math.min(student.maxStones, (student.stones || 0) + prizeAmount);
+
+            const tx: Transaction = {
+                id: generateId(),
+                studentId,
+                type: 'gacha',
+                description: `스톤 뽑기 (${prizeTier}등)`,
+                amount: prizeAmount,
+                timestamp: new Date().toISOString(),
+                status: 'active',
+                stoneBalanceBefore: student.stones,
+                stoneBalanceAfter: newStones,
+                eventMonth: monthIdentifier
+            };
+
+            const updatedStudents = [...prev.students];
+            updatedStudents[studentIdx] = { ...student, stones: newStones };
+
+            return {
+                ...prev,
+                students: updatedStudents,
+                transactions: [tx, ...prev.transactions].slice(0, MAX_TRANSACTIONS),
+                gachaState: {
+                    ...prev.gachaState,
+                    [monthIdentifier]: {
+                        ...currentGacha,
+                        pickedNumbers: {
+                            ...currentGacha.pickedNumbers,
+                            [studentId]: pickedNumber
+                        }
+                    }
+                }
+            };
+        });
+
+        return gachaResult;
+    }, [appState, setAppState]);
+
+    // [추가] 이벤트 참여 취소 로직
+    const handleCancelEventEntry = useCallback((studentId: string, monthIdentifier: string) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            
+            const gachaData = prev.gachaState[monthIdentifier];
+            if (!gachaData || gachaData.pickedNumbers[studentId] === undefined) return prev;
+
+            const studentIdx = prev.students.findIndex(s => s.id === studentId);
+            if (studentIdx === -1) return prev;
+
+            // 취소할 트랜잭션 찾기
+            const txIdx = prev.transactions.findIndex(t => 
+                t.studentId === studentId && 
+                t.type === 'gacha' && 
+                t.eventMonth === monthIdentifier && 
+                t.status === 'active'
+            );
+            
+            if (txIdx === -1) return prev;
+            const tx = prev.transactions[txIdx];
+
+            // 스톤 복구
+            const updatedStudents = [...prev.students];
+            const student = updatedStudents[studentIdx];
+            const newStones = Math.max(0, student.stones - tx.amount);
+            updatedStudents[studentIdx] = { ...student, stones: newStones };
+
+            // 트랜잭션 무효화
+            const updatedTransactions = [...prev.transactions];
+            updatedTransactions[txIdx] = { ...tx, status: 'cancelled' };
+
+            // 참여 기록 삭제
+            const newPickedNumbers = { ...gachaData.pickedNumbers };
+            delete newPickedNumbers[studentId];
+
+            return {
+                ...prev,
+                students: updatedStudents,
+                transactions: updatedTransactions,
+                gachaState: {
+                    ...prev.gachaState,
+                    [monthIdentifier]: {
+                        ...gachaData,
+                        pickedNumbers: newPickedNumbers
+                    }
+                }
             };
         });
     }, [setAppState]);
@@ -514,7 +645,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             onClearTargetStudent={() => setSelectedStudent(null)}
                             setEventSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, eventSettings: typeof s === 'function' ? s(prev!.eventSettings) : s }))}
                             onAddTransaction={handleAddTransaction}
-                            onGachaPick={() => undefined} onCancelEventEntry={() => {}}
+                            onGachaPick={handleGachaPick} 
+                            onCancelEventEntry={handleCancelEventEntry}
                         />
                     )}
                     {view === 'admin' && (
