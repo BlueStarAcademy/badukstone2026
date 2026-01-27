@@ -32,7 +32,8 @@ export interface SpecialMission {
     group: string;
     stars: number;
     stones: number;
-    answer?: string; // 정답 필드 추가
+    answer?: string;
+    isExclusive?: boolean; // 해당 급수에서만 나오도록 제한 (상위 그룹 노출 방지)
 }
 
 export interface UsedCouponInfo {

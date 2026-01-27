@@ -684,11 +684,21 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     const student = prev.students.find(s => s.id === id);
                     if (!student) return prev;
                     
-                    // 하위 그룹 포함 로직: 현재 그룹 인덱스부터 끝까지의 그룹들 추출
                     const studentGroupIdx = prev.generalSettings.groupOrder.indexOf(student.group);
                     const allowedGroups = prev.generalSettings.groupOrder.slice(studentGroupIdx === -1 ? 0 : studentGroupIdx);
                     
-                    const available = prev.specialMissions.filter(m => allowedGroups.includes(m.group));
+                    // [필터링 업데이트] 
+                    // 1. 하위 그룹 미션들을 가져오되
+                    // 2. 만약 해당 미션이 다른 그룹(하위 그룹)의 미션이고 isExclusive가 true라면 제외함
+                    const available = prev.specialMissions.filter(m => {
+                        const isInCategory = allowedGroups.includes(m.group);
+                        if (!isInCategory) return false;
+                        
+                        // 급수 전용 체크: 미션 그룹이 학생 그룹과 다르고 isExclusive가 체크되어 있다면 제외
+                        if (m.isExclusive && m.group !== student.group) return false;
+                        
+                        return true;
+                    });
                     
                     if (available.length === 0) return prev;
                     const randomMission = available[Math.floor(Math.random() * available.length)];

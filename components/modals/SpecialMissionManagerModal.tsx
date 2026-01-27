@@ -24,7 +24,8 @@ export const SpecialMissionManagerModal = ({
         group: groupOrder[0] || '',
         stars: 3,
         stones: 10,
-        answer: ''
+        answer: '',
+        isExclusive: false
     });
 
     const filteredMissions = useMemo(() => {
@@ -34,7 +35,7 @@ export const SpecialMissionManagerModal = ({
     if (!isOpen) return null;
 
     const resetForm = (group: string) => {
-        setFormData({ content: '', group, stars: 3, stones: 10, answer: '' });
+        setFormData({ content: '', group, stars: 3, stones: 10, answer: '', isExclusive: false });
         setIsAdding(false);
         setEditingMissionId(null);
     };
@@ -54,7 +55,14 @@ export const SpecialMissionManagerModal = ({
     };
 
     const handleEdit = (mission: SpecialMission) => {
-        setFormData({ content: mission.content, group: mission.group, stars: mission.stars, stones: mission.stones, answer: mission.answer || '' });
+        setFormData({ 
+            content: mission.content, 
+            group: mission.group, 
+            stars: mission.stars, 
+            stones: mission.stones, 
+            answer: mission.answer || '',
+            isExclusive: !!mission.isExclusive
+        });
         setEditingMissionId(mission.id);
         setIsAdding(true);
     };
@@ -124,6 +132,17 @@ export const SpecialMissionManagerModal = ({
                                 />
                             </div>
                         </div>
+                        <div className="form-group-checkbox" style={{ marginBottom: '1.5rem' }}>
+                            <input 
+                                type="checkbox" 
+                                id="is-exclusive" 
+                                checked={formData.isExclusive} 
+                                onChange={e => setFormData({ ...formData, isExclusive: e.target.checked })} 
+                            />
+                            <label htmlFor="is-exclusive">
+                                <strong>급수 전용 미션</strong> (상위 그룹 학생이 뽑을 수 없게 제한)
+                            </label>
+                        </div>
                         <div className="modal-actions" style={{ marginTop: '1rem', borderTop: 'none', padding: 0 }}>
                             <button type="button" className="btn" onClick={() => resetForm(activeGroup)}>취소</button>
                             <button type="submit" className="btn primary">저장</button>
@@ -139,7 +158,10 @@ export const SpecialMissionManagerModal = ({
                     {filteredMissions.map(m => (
                         <div key={m.id} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem' }}>
                             <div style={{ flex: 1 }}>
-                                <p style={{ fontWeight: 'bold', margin: '0 0 0.3rem 0' }}>{m.content}</p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.3rem' }}>
+                                    <p style={{ fontWeight: 'bold', margin: 0 }}>{m.content}</p>
+                                    {m.isExclusive && <span className="status-badge" style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#e3f2fd', color: '#1976d2', border: '1px solid #bbdefb' }}>전용</span>}
+                                </div>
                                 {m.answer && <p style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic', margin: '0 0 0.3rem 0' }}>답: {m.answer}</p>}
                                 <p style={{ fontSize: '0.9rem', color: 'var(--accent-color)', margin: 0 }}>
                                     {'★'.repeat(m.stars)} <span style={{ color: '#888', marginLeft: '0.5rem' }}>{m.stones} 스톤</span>
