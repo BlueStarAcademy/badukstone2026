@@ -148,6 +148,31 @@
     margin-bottom: 4px;
 }
 
+.special-mission-answer {
+    margin-top: 0.8rem;
+    padding: 0.6rem;
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 8px;
+    border-left: 4px solid #fbc02d;
+    text-align: left;
+    animation: slideDown 0.3s ease-out;
+}
+
+.answer-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #f9a825;
+    display: block;
+    margin-bottom: 2px;
+}
+
+.answer-text {
+    font-size: 0.9rem;
+    color: #444;
+    margin: 0;
+    white-space: pre-wrap;
+}
+
 .stars {
     color: #fbc02d;
     font-size: 1.2rem;
@@ -177,6 +202,11 @@
 @keyframes fadeIn {
     from { opacity: 0; transform: scale(0.9); }
     to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Chess Panel Specific Overrides */

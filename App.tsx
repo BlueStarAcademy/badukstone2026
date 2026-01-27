@@ -288,31 +288,25 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    // [추가] 이벤트 뽑기 실제 로직
     const handleGachaPick = useCallback((studentId: string, pickedNumber: number, monthIdentifier: string) => {
         if (!appState || appState === 'error') return undefined;
 
-        // 결과값을 미리 계산하여 UI 반환 준비
         let gachaResult: { pickedNumber: number, prizeTier: number, prizeAmount: number } | undefined = undefined;
 
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
             
-            // 1. 해당 월 뽑기판 데이터 가져오기 (없으면 초기화)
             let currentGacha = prev.gachaState[monthIdentifier] || { prizeMap: [], pickedNumbers: {} };
             
-            // 2. 만약 해당 월 뽑기판이 처음 열렸다면 prizeMap(100개) 생성 및 셔플
             if (currentGacha.prizeMap.length === 0) {
                 const arr: number[] = [];
                 const counts = prev.eventSettings.gachaPrizeCounts;
-                // 각 등수별 개수만큼 등수 번호 삽입
                 for (let i = 0; i < (counts.first || 0); i++) arr.push(1);
                 for (let i = 0; i < (counts.second || 0); i++) arr.push(2);
                 for (let i = 0; i < (counts.third || 0); i++) arr.push(3);
                 for (let i = 0; i < (counts.fourth || 0); i++) arr.push(4);
                 while (arr.length < 100) arr.push(5);
                 
-                // Fisher-Yates Shuffle
                 for (let i = arr.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -320,18 +314,14 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 currentGacha.prizeMap = arr;
             }
 
-            // 중복 방지 체크
             if (currentGacha.pickedNumbers[studentId] !== undefined) return prev;
 
-            // 3. 당첨 확인
             const prizeTier = currentGacha.prizeMap[pickedNumber - 1];
             const tierMap: (keyof EventSettings['gachaPrizes'])[] = ['first', 'second', 'third', 'fourth', 'fifth'];
             const prizeAmount = prev.eventSettings.gachaPrizes[tierMap[prizeTier - 1]];
 
-            // UI 모달에 넘겨줄 결과 객체 생성
             gachaResult = { pickedNumber, prizeTier, prizeAmount };
 
-            // 4. 학생 스톤 업데이트 및 트랜잭션 기록
             const studentIdx = prev.students.findIndex(s => s.id === studentId);
             if (studentIdx === -1) return prev;
             const student = prev.students[studentIdx];
@@ -373,7 +363,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         return gachaResult;
     }, [appState, setAppState]);
 
-    // [추가] 이벤트 참여 취소 로직
     const handleCancelEventEntry = useCallback((studentId: string, monthIdentifier: string) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
@@ -384,7 +373,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const studentIdx = prev.students.findIndex(s => s.id === studentId);
             if (studentIdx === -1) return prev;
 
-            // 취소할 트랜잭션 찾기
             const txIdx = prev.transactions.findIndex(t => 
                 t.studentId === studentId && 
                 t.type === 'gacha' && 
@@ -395,17 +383,14 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             if (txIdx === -1) return prev;
             const tx = prev.transactions[txIdx];
 
-            // 스톤 복구
             const updatedStudents = [...prev.students];
             const student = updatedStudents[studentIdx];
             const newStones = Math.max(0, student.stones - tx.amount);
             updatedStudents[studentIdx] = { ...student, stones: newStones };
 
-            // 트랜잭션 무효화
             const updatedTransactions = [...prev.transactions];
             updatedTransactions[txIdx] = { ...tx, status: 'cancelled' };
 
-            // 참여 기록 삭제
             const newPickedNumbers = { ...gachaData.pickedNumbers };
             delete newPickedNumbers[studentId];
 
@@ -698,7 +683,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     if (!prev || prev === 'error') return prev;
                     const student = prev.students.find(s => s.id === id);
                     if (!student) return prev;
-                    const available = prev.specialMissions.filter(m => m.group === student.group);
+                    
+                    // 하위 그룹 포함 로직: 현재 그룹 인덱스부터 끝까지의 그룹들 추출
+                    const studentGroupIdx = prev.generalSettings.groupOrder.indexOf(student.group);
+                    const allowedGroups = prev.generalSettings.groupOrder.slice(studentGroupIdx === -1 ? 0 : studentGroupIdx);
+                    
+                    const available = prev.specialMissions.filter(m => allowedGroups.includes(m.group));
+                    
                     if (available.length === 0) return prev;
                     const randomMission = available[Math.floor(Math.random() * available.length)];
                     const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];

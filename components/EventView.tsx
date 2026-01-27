@@ -189,11 +189,13 @@ export const EventView = (props: EventViewProps) => {
 
     const studentStats: StudentWithStats[] = useMemo(() => {
         return students.map(student => {
+            // 미션 수행 횟수에 'mission', 'attendance', 'special_mission' 모두 합산
             const missionsThisMonth = transactions.filter(t => 
                 t.studentId === student.id &&
-                (t.type === 'mission' || t.type === 'attendance') &&
+                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') &&
                 new Date(t.timestamp) >= startOfMonth &&
-                new Date(t.timestamp) <= endOfMonth
+                new Date(t.timestamp) <= endOfMonth &&
+                t.status === 'active'
             ).length;
 
             const penaltyCount = transactions.filter(t =>

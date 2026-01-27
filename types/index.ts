@@ -14,7 +14,6 @@ export interface Student {
     chessRating?: number;
     chessGamesPlayed?: number;
     josekiProgress?: number;
-    // FIX: Added dailySpecialMissionId and specialMissionDate to support the daily special mission feature.
     dailySpecialMissionId?: string;
     specialMissionDate?: string;
 }
@@ -33,6 +32,7 @@ export interface SpecialMission {
     group: string;
     stars: number;
     stones: number;
+    answer?: string; // 정답 필드 추가
 }
 
 export interface UsedCouponInfo {
@@ -306,10 +306,6 @@ export interface ShopSettings {
 
 export type ShopCategory = string;
 
-/**
- * FIX: Added missing ShopItem interface definition.
- * It was required by multiple components and data files.
- */
 export interface ShopItem {
     id: string;
     name: string;

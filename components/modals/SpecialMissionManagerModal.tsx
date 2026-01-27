@@ -23,7 +23,8 @@ export const SpecialMissionManagerModal = ({
         content: '',
         group: groupOrder[0] || '',
         stars: 3,
-        stones: 10
+        stones: 10,
+        answer: ''
     });
 
     const filteredMissions = useMemo(() => {
@@ -33,7 +34,7 @@ export const SpecialMissionManagerModal = ({
     if (!isOpen) return null;
 
     const resetForm = (group: string) => {
-        setFormData({ content: '', group, stars: 3, stones: 10 });
+        setFormData({ content: '', group, stars: 3, stones: 10, answer: '' });
         setIsAdding(false);
         setEditingMissionId(null);
     };
@@ -53,7 +54,7 @@ export const SpecialMissionManagerModal = ({
     };
 
     const handleEdit = (mission: SpecialMission) => {
-        setFormData({ content: mission.content, group: mission.group, stars: mission.stars, stones: mission.stones });
+        setFormData({ content: mission.content, group: mission.group, stars: mission.stars, stones: mission.stones, answer: mission.answer || '' });
         setEditingMissionId(mission.id);
         setIsAdding(true);
     };
@@ -93,6 +94,16 @@ export const SpecialMissionManagerModal = ({
                                 required 
                             />
                         </div>
+                        <div className="form-group">
+                            <label>정답 (선택)</label>
+                            <textarea 
+                                value={formData.answer} 
+                                onChange={e => setFormData({ ...formData, answer: e.target.value })} 
+                                placeholder="정답 또는 해설을 입력하세요" 
+                                rows={3}
+                                style={{ width: '100%', padding: '0.8rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}
+                            />
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                             <div className="form-group">
                                 <label>난이도 (별 개수)</label>
@@ -129,6 +140,7 @@ export const SpecialMissionManagerModal = ({
                         <div key={m.id} className="item-card" style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', marginBottom: '0.5rem' }}>
                             <div style={{ flex: 1 }}>
                                 <p style={{ fontWeight: 'bold', margin: '0 0 0.3rem 0' }}>{m.content}</p>
+                                {m.answer && <p style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic', margin: '0 0 0.3rem 0' }}>답: {m.answer}</p>}
                                 <p style={{ fontSize: '0.9rem', color: 'var(--accent-color)', margin: 0 }}>
                                     {'★'.repeat(m.stars)} <span style={{ color: '#888', marginLeft: '0.5rem' }}>{m.stones} 스톤</span>
                                 </p>

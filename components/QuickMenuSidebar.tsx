@@ -67,6 +67,9 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [partialMission, setPartialMission] = useState<Mission | null>(null);
     const [partialAmount, setPartialAmount] = useState('');
 
+    // Special Mission View Answer State
+    const [showSpecialAnswer, setShowSpecialAnswer] = useState(false);
+
     useEffect(() => {
         if (student) {
             setJosekiInput(String(student.josekiProgress || 1));
@@ -85,6 +88,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setPartialMission(null);
             setPartialAmount('');
             setPenaltyAmount('');
+            setShowSpecialAnswer(false);
         }
     }, [isOpen, student]);
 
@@ -194,6 +198,15 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             `[특별] ${dailySpecialMission.content}`, 
             dailySpecialMission.stones
         );
+        setShowSpecialAnswer(false);
+    };
+
+    const handleFailSpecialMission = () => {
+        if (!student || !dailySpecialMission) return;
+        if (confirm('미션 도전을 포기하시겠습니까? (미션이 초기화되어 다시 뽑을 수 있습니다)')) {
+            onClearSpecialMission(student.id);
+            setShowSpecialAnswer(false);
+        }
     };
 
     const handleOpenPartialSpecialMissionModal = (sm: SpecialMission) => {
@@ -279,12 +292,10 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         const tempDiscountRate = (tempDiscount || 0) / 100;
         const temporaryDiscount = Math.floor(totalAfterBulk * tempDiscountRate);
         
-        // [수정된 계산 로직]
         const total = Math.max(0, totalAfterBulk - temporaryDiscount);
         const couponDeduction = Math.min(total, availableCouponValue);
         const finalStoneCost = total - couponDeduction;
         
-        // 잔액 부족 판별: 보유 쿠폰을 다 써도 남은 금액이 보유 스톤보다 클 때
         const isInsufficient = finalStoneCost > (student?.stones || 0);
 
         return { 
@@ -398,34 +409,62 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                     <div className="special-mission-text">
                                                         <strong>{dailySpecialMission.content}</strong>
                                                         <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
+                                                        
+                                                        {showSpecialAnswer && dailySpecialMission.answer && (
+                                                            <div className="special-mission-answer">
+                                                                <span className="answer-label">💡 정답:</span>
+                                                                <p className="answer-text">{dailySpecialMission.answer}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div className="special-actions">
                                                         <span className="mission-stones">+{dailySpecialMission.stones}</span>
-                                                        <div style={{display: 'flex', gap: '4px'}}>
-                                                            <button 
-                                                                className="btn-sm"
-                                                                onClick={() => handleOpenPartialSpecialMissionModal(dailySpecialMission)}
-                                                                disabled={isSpecialMissionCompletedToday || student.stones >= student.maxStones}
-                                                                title="부분 점수 지급"
-                                                            >
-                                                                부분
-                                                            </button>
-                                                            <button 
-                                                                className={`btn-sm ${isSpecialMissionCompletedToday ? 'success' : 'primary'}`} 
-                                                                onClick={handleCompleteSpecialMission} 
-                                                                disabled={isSpecialMissionCompletedToday || student.stones >= student.maxStones}
-                                                            >
-                                                                {isSpecialMissionCompletedToday ? '완료됨' : '완료'}
-                                                            </button>
-                                                            {!isSpecialMissionCompletedToday && (
-                                                                <button 
-                                                                    className="btn-sm" 
-                                                                    onClick={() => onAssignSpecialMission(student.id)} 
-                                                                    title="다른 미션으로 변경 (다시 뽑기)"
-                                                                    style={{ background: '#f8f9fa', border: '1px solid #ddd' }}
-                                                                >
-                                                                    🔄
-                                                                </button>
+                                                        <div style={{display: 'flex', gap: '4px', flexWrap: 'wrap', justifyContent: 'center'}}>
+                                                            {isSpecialMissionCompletedToday ? (
+                                                                <div className="status-badge success" style={{padding: '0.4rem 1rem', fontSize: '0.9rem'}}>완료됨</div>
+                                                            ) : (
+                                                                <>
+                                                                    {!showSpecialAnswer ? (
+                                                                        <button 
+                                                                            className="btn-sm" 
+                                                                            style={{ background: '#fff', border: '2px solid #fbc02d', color: '#f9a825', fontWeight: '800' }}
+                                                                            onClick={() => setShowSpecialAnswer(true)}
+                                                                        >
+                                                                            정답 확인
+                                                                        </button>
+                                                                    ) : (
+                                                                        <>
+                                                                            <button 
+                                                                                className="btn-sm success" 
+                                                                                onClick={handleCompleteSpecialMission} 
+                                                                                disabled={student.stones >= student.maxStones}
+                                                                                style={{ fontWeight: '800' }}
+                                                                            >
+                                                                                성공 (지급)
+                                                                            </button>
+                                                                            <button 
+                                                                                className="btn-sm danger" 
+                                                                                onClick={handleFailSpecialMission}
+                                                                                style={{ fontWeight: '800' }}
+                                                                            >
+                                                                                실패 (취소)
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                    <button 
+                                                                        className="btn-sm" 
+                                                                        onClick={() => {
+                                                                            if(confirm('다른 미션으로 변경하시겠습니까?')) {
+                                                                                onAssignSpecialMission(student.id);
+                                                                                setShowSpecialAnswer(false);
+                                                                            }
+                                                                        }} 
+                                                                        title="다시 뽑기"
+                                                                        style={{ background: '#f8f9fa', border: '1px solid #ddd' }}
+                                                                    >
+                                                                        🔄
+                                                                    </button>
+                                                                </>
                                                             )}
                                                         </div>
                                                     </div>
