@@ -647,8 +647,24 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             onSaveStudent={(data, id) => {
                                 setAppState(prev => {
                                     if (prev === 'error' || !prev) return prev;
-                                    if (id) return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, ...data } : s) };
-                                    const newStudent: Student = { ...data, id: generateId(), stones: 0, maxStones: groupSettings[getGroupForRank(data.rank).group]?.maxStones || 50, group: getGroupForRank(data.rank).group };
+                                    
+                                    const { group } = getGroupForRank(data.rank);
+                                    const maxStones = prev.groupSettings[group]?.maxStones || 50;
+                                    const studentUpdates = { ...data, group, maxStones };
+
+                                    if (id) {
+                                        return { 
+                                            ...prev, 
+                                            students: prev.students.map(s => s.id === id ? { ...s, ...studentUpdates } : s) 
+                                        };
+                                    }
+                                    
+                                    const newStudent: Student = { 
+                                        ...studentUpdates, 
+                                        id: generateId(), 
+                                        stones: 0,
+                                        chessRating: prev.generalSettings.nonChessPlayerRating || 1000 
+                                    };
                                     return { ...prev, students: [...prev.students, newStudent] };
                                 });
                             }}
@@ -656,7 +672,26 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             onUpdateGroupSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, groupSettings: s }))}
                             onUpdateGeneralSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, generalSettings: s }))}
                             onBulkAddTransaction={(ids, desc, amt) => ids.forEach(id => handleAddTransaction(id, 'adjustment', desc, amt))}
-                            onBulkUpdateStudents={(ids, updates) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => ids.includes(s.id) ? { ...s, ...updates } : s) }))}
+                            onBulkUpdateStudents={(ids, updates) => setAppState(prev => {
+                                if (prev === 'error' || !prev) return prev;
+                                return {
+                                    ...prev,
+                                    students: prev.students.map(s => {
+                                        if (!ids.includes(s.id)) return s;
+                                        
+                                        const finalRank = updates.rank || s.rank;
+                                        const { group } = getGroupForRank(finalRank);
+                                        const maxStones = prev.groupSettings[group]?.maxStones || 50;
+                                        
+                                        return { 
+                                            ...s, 
+                                            ...updates, 
+                                            group, 
+                                            maxStones 
+                                        };
+                                    })
+                                };
+                            })}
                             onAddCoupon={(c) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, coupons: [...prev!.coupons, { ...c, id: generateId() }] }))}
                             onImportStudents={(data, mode) => {
                                 setAppState(prev => {
