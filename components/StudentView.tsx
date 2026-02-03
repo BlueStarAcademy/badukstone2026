@@ -193,22 +193,23 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                     const stats = eventParticipationStatus.get(student.id);
                     if (!stats) return null;
                     
-                    const maxPenalties = eventSettings.maxPenalties || 999;
+                    const minReq = eventSettings.minMissionsToSpin ?? 10;
+                    const maxPenalties = eventSettings.maxPenalties ?? 999;
 
-                    // Eligibility for THIS month
-                    const isEligibleThisMonth = 
-                        stats.missionsThisMonth >= eventSettings.minMissionsToSpin && 
-                        stats.penaltyCountThisMonth < maxPenalties;
+                    // Eligibility for THIS month: Met conditions AND not participated this month
+                    const canParticipateThisMonth = 
+                        stats.missionsThisMonth >= minReq && 
+                        stats.penaltyCountThisMonth < maxPenalties &&
+                        !stats.hasParticipatedThisMonth;
 
-                    // Eligibility for LAST month (make-up event)
-                    const wasEligibleLastMonth = 
-                        stats.missionsLastMonth >= eventSettings.minMissionsToSpin && 
-                        stats.penaltyCountLastMonth < maxPenalties;
+                    // Eligibility for LAST month: Met conditions THEN AND not participated THEN
+                    const canParticipateLastMonth = 
+                        stats.missionsLastMonth >= minReq && 
+                        stats.penaltyCountLastMonth < maxPenalties &&
+                        !stats.hasParticipatedLastMonth;
 
-                    // Show event button if eligible but haven't participated yet
-                    const showEventButton = 
-                        (isEligibleThisMonth && !stats.hasParticipatedThisMonth) || 
-                        (wasEligibleLastMonth && !stats.hasParticipatedLastMonth);
+                    // Show event button only if eligible for either current or previous month's missed turn
+                    const showEventButton = canParticipateThisMonth || canParticipateLastMonth;
 
                     return (
                         <StudentCard 

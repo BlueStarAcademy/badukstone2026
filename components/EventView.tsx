@@ -189,7 +189,6 @@ export const EventView = (props: EventViewProps) => {
 
     const studentStats: StudentWithStats[] = useMemo(() => {
         return students.map(student => {
-            // 미션 수행 횟수에 'mission', 'attendance', 'special_mission' 모두 합산
             const missionsThisMonth = transactions.filter(t => 
                 t.studentId === student.id &&
                 (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') &&
@@ -218,15 +217,18 @@ export const EventView = (props: EventViewProps) => {
 
             const eventParticipation = eventTx && (eventTx.type === 'roulette' || eventTx.type === 'gacha') ? { type: eventTx.type, amount: eventTx.amount } : null;
 
-            const missionsSufficient = missionsThisMonth >= eventSettings.minMissionsToSpin;
-            const penaltyLimitOk = penaltyCount < (eventSettings.maxPenalties || 999);
+            const minReq = eventSettings.minMissionsToSpin ?? 10;
+            const maxAllowedPenalties = eventSettings.maxPenalties ?? 999;
+
+            const missionsSufficient = missionsThisMonth >= minReq;
+            const penaltyLimitOk = penaltyCount < maxAllowedPenalties;
             const isEligible = missionsSufficient && penaltyLimitOk;
 
             let ineligibilityReason = '';
             if (!missionsSufficient) {
-                ineligibilityReason = `${eventSettings.minMissionsToSpin - missionsThisMonth}회 미션 부족`;
+                ineligibilityReason = `${minReq - missionsThisMonth}회 미션 부족`;
             } else if (!penaltyLimitOk) {
-                ineligibilityReason = `감점 ${penaltyCount}회 (최대 ${eventSettings.maxPenalties}회)`;
+                ineligibilityReason = `감점 ${penaltyCount}회 (최대 ${maxAllowedPenalties}회)`;
             }
 
             return {
@@ -344,7 +346,7 @@ export const EventView = (props: EventViewProps) => {
                         <button className="btn" style={{width: '100%'}} onClick={() => setIsSettingsModalOpen(true)}>이벤트 설정</button>
                     </div>
                      <p style={{textAlign: 'center', fontSize: '0.8rem', color: '#666', marginTop: '0.5rem'}}>
-                        조건: 미션 {eventSettings.minMissionsToSpin}회 / 감점 {eventSettings.maxPenalties}회 미만
+                        조건: 미션 {eventSettings.minMissionsToSpin ?? 10}회 / 감점 {eventSettings.maxPenalties ?? 3}회 미만
                     </p>
                 </div>
 
