@@ -193,7 +193,7 @@
 
 .gacha-ticket-wrapper {
     width: 320px;
-    height: 440px;
+    height: 540px; /* Increased from 440px to prevent clipping */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -230,7 +230,7 @@
 
 .gacha-ticket.open {
     width: 300px;
-    height: 420px;
+    height: 500px; /* Increased from 420px to prevent clipping */
 }
 
 .gacha-content {
@@ -239,6 +239,11 @@
     width: 100%;
     opacity: 0;
     transition: opacity 0.4s ease-out 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    height: 100%;
 }
 
 .gacha-ticket.open .gacha-content {
@@ -271,13 +276,14 @@
 .gacha-prize-text {
     font-size: 1.4rem;
     font-weight: 800;
-    margin-top: 1.5rem;
+    margin-top: 1rem;
     color: #2c3e50;
     line-height: 1.4;
 }
 
 .gacha-close-btn {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
     padding: 0.8rem 2.5rem;
     background: #8b4513;
     color: #fff;
@@ -288,6 +294,7 @@
     cursor: pointer;
     box-shadow: 0 4px 10px rgba(139, 69, 19, 0.4);
     transition: all 0.2s;
+    flex-shrink: 0;
 }
 
 .gacha-close-btn:hover {
