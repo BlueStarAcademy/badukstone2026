@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission } from '../types';
+import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission, EventSettings } from '../types';
 import { ConfirmationModal, ActionButton } from './modals/ConfirmationModal';
 
 
@@ -17,6 +17,7 @@ interface QuickMenuSidebarProps {
     isOpen: boolean;
     groupSettings: GroupSettings;
     generalSettings: GeneralSettings;
+    eventSettings: EventSettings;
     onClose: () => void;
     onAddTransaction: (studentId: string, type: Transaction['type'], description: string, amount: number, eventDetails?: { eventMonth: string }) => void;
     onUpdateTransaction: (transaction: Transaction) => void;
@@ -34,7 +35,7 @@ interface QuickMenuSidebarProps {
 export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const { 
         student, students, missions, specialMissions, shopItems, shopSettings, shopCategories, coupons, transactions, 
-        isOpen, groupSettings, generalSettings, onClose, onAddTransaction, onUpdateTransaction, 
+        isOpen, groupSettings, generalSettings, eventSettings, onClose, onAddTransaction, onUpdateTransaction, 
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
         onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission
     } = props;
@@ -91,6 +92,33 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setShowSpecialAnswer(false);
         }
     }, [isOpen, student]);
+
+    // Mission Stats Logic
+    const missionStats = useMemo(() => {
+        if (!student) return { lastMonth: 0, thisMonth: 0, remaining: 0 };
+        
+        const now = new Date();
+        const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+        const filterMissions = (start: Date, end: Date) => {
+            return transactions.filter(t => 
+                t.studentId === student.id &&
+                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') &&
+                t.status === 'active' &&
+                new Date(t.timestamp) >= start &&
+                new Date(t.timestamp) <= end
+            ).length;
+        };
+
+        const thisMonthCount = filterMissions(firstOfThisMonth, new Date());
+        const lastMonthCount = filterMissions(firstOfLastMonth, lastOfLastMonth);
+        const minReq = eventSettings.minMissionsToSpin ?? 10;
+        const remaining = Math.max(0, minReq - thisMonthCount);
+
+        return { lastMonth: lastMonthCount, thisMonth: thisMonthCount, remaining };
+    }, [student, transactions, eventSettings.minMissionsToSpin]);
 
     const handleOpenPartialMissionModal = (mission: Mission) => {
         setPartialMission(mission);
@@ -198,7 +226,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             `[특별] ${dailySpecialMission.content}`, 
             dailySpecialMission.stones
         );
-        setShowSpecialAnswer(false);
+        // Do not reset showSpecialAnswer - keep it visible after processing
     };
 
     const handleFailSpecialMission = () => {
@@ -207,15 +235,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             onClearSpecialMission(student.id);
             setShowSpecialAnswer(false);
         }
-    };
-
-    const handleOpenPartialSpecialMissionModal = (sm: SpecialMission) => {
-        const dummyMission: Mission = {
-            id: sm.id,
-            description: `[특별] ${sm.content}`,
-            stones: sm.stones
-        };
-        handleOpenPartialMissionModal(dummyMission);
     };
 
     const handleAttendanceToday = () => {
@@ -358,7 +377,21 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                         <button className="close-btn" onClick={onClose} aria-label="닫기">&times;</button>
                         <h2>{student.name}</h2>
                         <p>{student.rank} ({groupSettings[student.group]?.name || student.group})</p>
-                        <p className="stones">{student.stones} / {student.maxStones} 스톤</p>
+                        
+                        <div className="header-stats-row" style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'rgba(255,255,255,0.15)', padding: '1rem', borderRadius: '12px' }}>
+                             <div className="stat-item" style={{ flex: 1, textAlign: 'center' }}>
+                                <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>보유 스톤</label>
+                                <strong style={{ fontSize: '1.4rem' }}>{student.stones}<span style={{fontSize: '0.9rem', opacity: 0.7, fontWeight: 'normal'}}> / {student.maxStones}</span></strong>
+                            </div>
+                            <div className="stat-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
+                                <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>미션 달성 (전월/당월)</label>
+                                <strong style={{ fontSize: '1.4rem' }}>{missionStats.lastMonth} <span style={{fontSize: '0.9rem', opacity: 0.7}}>/</span> {missionStats.thisMonth}</strong>
+                            </div>
+                            <div className="stat-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
+                                <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>이벤트까지</label>
+                                <strong style={{ fontSize: '1.4rem', color: missionStats.remaining === 0 ? '#ffeb3b' : 'inherit' }}>{missionStats.remaining === 0 ? '달성!' : `${missionStats.remaining}회`}</strong>
+                            </div>
+                        </div>
                     </div>
                     <div className="sidebar-tabs">
                         <button className={`tab-item ${activeTab === 'missions' ? 'active' : ''}`} onClick={() => setActiveTab('missions')}>오늘의 미션</button>
@@ -410,12 +443,18 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                         <strong>{dailySpecialMission.content}</strong>
                                                         <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
                                                         
-                                                        {showSpecialAnswer && dailySpecialMission.answer && (
-                                                            <div className="special-mission-answer">
-                                                                <span className="answer-label">💡 정답:</span>
-                                                                <p className="answer-text">{dailySpecialMission.answer}</p>
-                                                            </div>
-                                                        )}
+                                                        <div className="special-mission-answer-container" style={{ minHeight: '80px', marginTop: '0.8rem' }}>
+                                                            {(showSpecialAnswer || isSpecialMissionCompletedToday) && dailySpecialMission.answer ? (
+                                                                <div className="special-mission-answer" style={{ opacity: 1, visibility: 'visible' }}>
+                                                                    <span className="answer-label">💡 정답:</span>
+                                                                    <p className="answer-text">{dailySpecialMission.answer}</p>
+                                                                </div>
+                                                            ) : (
+                                                                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #fbc02d', borderRadius: '8px' }}>
+                                                                    <span style={{ fontSize: '0.8rem', color: '#f9a825' }}>[정답 확인]을 누르면 표시됩니다</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                     <div className="special-actions">
                                                         <span className="mission-stones">+{dailySpecialMission.stones}</span>

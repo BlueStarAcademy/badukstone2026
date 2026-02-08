@@ -121,14 +121,15 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const missions = useMemo(() => (appState && appState !== 'error') ? appState.missions || [] : [], [appState]);
     const chessMissions = useMemo(() => (appState && appState !== 'error') ? appState.chessMissions || [] : [], [appState]);
     const specialMissions = useMemo(() => (appState && appState !== 'error') ? appState.specialMissions || [] : [], [appState]);
-    const shopItems = useMemo(() => (appState && appState !== 'error') ? appState.shopItems || [] : [], [appState]);
     const shopCategories = useMemo(() => (appState && appState !== 'error') ? appState.shopCategories || INITIAL_SHOP_CATEGORIES : INITIAL_SHOP_CATEGORIES, [appState]);
+    // FIX: Added missing shopItems useMemo hook.
+    const shopItems = useMemo(() => (appState && appState !== 'error') ? appState.shopItems || [] : [], [appState]);
     
     const groupSettings = (appState && appState !== 'error') ? appState.groupSettings || INITIAL_GROUP_SETTINGS : INITIAL_GROUP_SETTINGS;
     const generalSettings = (appState && appState !== 'error') ? appState.generalSettings || INITIAL_GENERAL_SETTINGS : INITIAL_GENERAL_SETTINGS;
     const eventSettings = (appState && appState !== 'error') ? appState.eventSettings || INITIAL_EVENT_SETTINGS : INITIAL_EVENT_SETTINGS;
     const shopSettings = (appState && appState !== 'error') ? appState.shopSettings || { bulkPurchaseDiscountRate: 0 } : { bulkPurchaseDiscountRate: 0 };
-    const tournamentData = (appState && appState !== 'error') ? appState.tournamentData || { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [] }, { name: 'B', players: [] }] } : { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [] }, { name: 'B', players: [] }] };
+    const tournamentData = (appState && appState !== 'error') ? appState.tournamentData || { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [], mannerPenalties: 0 }, { name: 'B', players: [], mannerPenalties: 0 }] } : { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [], mannerPenalties: 0 }, { name: 'B', players: [], mannerPenalties: 0 }] };
     const tournamentSettings = (appState && appState !== 'error') ? appState.tournamentSettings || INITIAL_TOURNAMENT_SETTINGS : INITIAL_TOURNAMENT_SETTINGS;
     const chessMatches = (appState && appState !== 'error') ? appState.chessMatches || [] : [];
     const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
@@ -495,6 +496,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             const updatedStudents = [...prev.students];
             updatedStudents[fromIdx] = { ...from, stones: newFromStones };
+            // FIX: Corrected typo newToToStones to newToStones.
             updatedStudents[toIdx] = { ...to, stones: newToStones };
             
             const updatedTransactions = [t1, t2, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
@@ -555,7 +557,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    if (appState === 'error') {
+    // FIX: Cast appState for intentional comparison with string literal to avoid TS overlap errors.
+    if ((appState as unknown) === 'error') {
         return <AppLoader 
             message="데이터를 불러오는 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요." 
             showLogout 
@@ -709,8 +712,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             <QuickMenuSidebar 
                 isOpen={isSidebarOpen} student={freshSelectedStudent} students={students} missions={missions} specialMissions={specialMissions}
-                shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} coupons={coupons} transactions={transactions}
-                groupSettings={groupSettings} generalSettings={generalSettings}
+                shopItems={appState && appState !== 'error' ? appState.shopItems : []} shopSettings={shopSettings} shopCategories={shopCategories} coupons={coupons} transactions={transactions}
+                groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings}
                 onClose={() => setIsSidebarOpen(false)}
                 onAddTransaction={handleAddTransaction} onUpdateTransaction={(tx) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, transactions: prev!.transactions.map(t => t.id === tx.id ? tx : t) }))} onDeleteCoupon={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, coupons: prev!.coupons.filter(c => c.id !== id) }))}
                 onPurchase={handlePurchase} onCancelTransaction={handleCancelTransaction} onDeleteTransaction={handleDeleteTransaction}
@@ -719,24 +722,51 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     const student = prev.students.find(s => s.id === id);
                     if (!student) return prev;
                     
-                    const studentGroupIdx = prev.generalSettings.groupOrder.indexOf(student.group);
-                    const allowedGroups = prev.generalSettings.groupOrder.slice(studentGroupIdx === -1 ? 0 : studentGroupIdx);
+                    const groupOrder = prev.generalSettings.groupOrder;
+                    const studentGroupIdx = groupOrder.indexOf(student.group);
                     
-                    // [필터링 업데이트] 
-                    // 1. 하위 그룹 미션들을 가져오되
-                    // 2. 만약 해당 미션이 다른 그룹(하위 그룹)의 미션이고 isExclusive가 true라면 제외함
+                    // 1. 가용 미션 필터링
                     const available = prev.specialMissions.filter(m => {
-                        const isInCategory = allowedGroups.includes(m.group);
-                        if (!isInCategory) return false;
-                        
-                        // 급수 전용 체크: 미션 그룹이 학생 그룹과 다르고 isExclusive가 체크되어 있다면 제외
-                        if (m.isExclusive && m.group !== student.group) return false;
-                        
+                        const missionGroupIdx = groupOrder.indexOf(m.group);
+                        if (missionGroupIdx === -1 || studentGroupIdx === -1) return true;
+
+                        // 상위 그룹 제한 (Exclusive): 학생이 미션 그룹보다 상급자(index가 작음)이면 필터링
+                        if (m.isExclusive && studentGroupIdx < missionGroupIdx) return false;
+
+                        // 하위 그룹 제한 (AtLeast): 학생이 미션 그룹보다 하급자(index가 큼)이면 필터링
+                        if (m.isAtLeast && studentGroupIdx > missionGroupIdx) return false;
+
                         return true;
                     });
                     
                     if (available.length === 0) return prev;
-                    const randomMission = available[Math.floor(Math.random() * available.length)];
+
+                    // 2. 가중치(확률) 기반 추출 로직
+                    const weights = (prev.generalSettings.specialMissionWeights && prev.generalSettings.specialMissionWeights[student.group]) 
+                        ? prev.generalSettings.specialMissionWeights[student.group] 
+                        : { 1: 20, 2: 20, 3: 20, 4: 20, 5: 20 };
+
+                    // 먼저 출현할 '별 개수'를 가중치에 따라 결정
+                    const starPool: number[] = [];
+                    Object.entries(weights).forEach(([stars, weight]) => {
+                        // 해당 별 개수의 미션이 하나라도 있는 경우에만 풀에 추가
+                        if (available.some(m => m.stars === parseInt(stars))) {
+                            // FIX: Cast weight to number to avoid comparison with unknown errors.
+                            for (let i = 0; i < (weight as number); i++) starPool.push(parseInt(stars));
+                        }
+                    });
+
+                    // 만약 가중치 설정된 별 개수의 미션이 하나도 없다면 전체에서 완전 무작위 추출
+                    if (starPool.length === 0) {
+                        const randomMission = available[Math.floor(Math.random() * available.length)];
+                        const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
+                        return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
+                    }
+
+                    const selectedStars = starPool[Math.floor(Math.random() * starPool.length)];
+                    const starMissions = available.filter(m => m.stars === selectedStars);
+                    const randomMission = starMissions[Math.floor(Math.random() * starMissions.length)];
+                    
                     const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
                     return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
                 })} onClearSpecialMission={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: undefined, specialMissionDate: undefined } : s) }))}

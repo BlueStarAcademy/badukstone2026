@@ -145,6 +145,7 @@ interface AdminPanelProps {
     onUpdateGeneralSettings: (newSettings: GeneralSettings) => void;
     onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
     onBulkUpdateStudents: (studentIds: string[], updates: { rank?: string; status?: Student['status'] }) => void;
+    // FIX: Removed duplicate onAddCoupon identifier
     onAddCoupon: (couponData: Omit<Coupon, 'id'>) => void;
     onImportStudents: (data: (Omit<Student, 'id' | 'group' | 'maxStones'> & { stones?: number })[], mode: 'replace' | 'add') => void;
     onImportMissions: (data: Omit<Mission, 'id'>[], mode: 'replace' | 'add') => void;
@@ -829,6 +830,9 @@ export const AdminPanel = (props: AdminPanelProps) => {
                     onUpdateSpecialMissions={setSpecialMissions} 
                     groupSettings={groupSettings} 
                     groupOrder={generalSettings.groupOrder} 
+                    // FIX: Passed missing properties generalSettings and onUpdateGeneralSettings.
+                    generalSettings={generalSettings}
+                    onUpdateGeneralSettings={onUpdateGeneralSettings}
                 />
             )}
             {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}

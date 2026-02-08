@@ -33,7 +33,8 @@ export interface SpecialMission {
     stars: number;
     stones: number;
     answer?: string;
-    isExclusive?: boolean; // 해당 급수에서만 나오도록 제한 (상위 그룹 노출 방지)
+    isExclusive?: boolean; // 상위 그룹 노출 방지 (상급자가 쉬운 미션 뽑기 제한)
+    isAtLeast?: boolean;   // 하위 그룹 노출 방지 (하급자가 어려운 미션 뽑기 제한)
 }
 
 export interface UsedCouponInfo {
@@ -83,6 +84,11 @@ export interface GeneralSettings {
     groupOrder: string[];
     nonChessPlayerRating: number;
     birthdayCouponValue: number;
+    specialMissionWeights?: {
+        [group: string]: {
+            [stars: number]: number; // 1 to 5 stars, value is percentage (0-100)
+        }
+    };
 }
 
 export interface RouletteSegment {
