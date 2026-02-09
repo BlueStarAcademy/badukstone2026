@@ -385,7 +385,15 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             const updatedStudents = [...prev.students];
             const student = updatedStudents[studentIdx];
-            const newStones = Math.max(0, student.stones - tx.amount);
+            
+            // 스마트 취소 로직 적용
+            const actualImpact = tx.stoneBalanceAfter - tx.stoneBalanceBefore;
+            let newStones;
+            if (student.stones === tx.stoneBalanceAfter) {
+                newStones = tx.stoneBalanceBefore;
+            } else {
+                newStones = Math.max(0, student.stones - actualImpact);
+            }
             updatedStudents[studentIdx] = { ...student, stones: newStones };
 
             const updatedTransactions = [...prev.transactions];
@@ -419,20 +427,48 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const studentIdx = prev.students.findIndex(s => s.id === transaction.studentId);
             if (studentIdx === -1) return prev;
 
-            const student = prev.students[studentIdx];
+            const updatedStudents = [...prev.students];
+            const student = updatedStudents[studentIdx];
             
-            const actualDelta = (transaction.stoneBalanceAfter || 0) - (transaction.stoneBalanceBefore || 0);
-            const reversalAmount = -actualDelta;
+            // 스마트 복구 로직: 최대치 도달 시의 영향을 정확히 되돌림
+            const actualImpact = transaction.stoneBalanceAfter - transaction.stoneBalanceBefore;
             
-            const newStones = Math.max(0, Math.min(student.maxStones, (student.stones || 0) + reversalAmount));
+            let newStones;
+            // 만약 현재 학생의 스톤이 이 내역 직후의 상태와 같다면, 단순히 '변경 전'으로 점프
+            if (student.stones === transaction.stoneBalanceAfter) {
+                newStones = transaction.stoneBalanceBefore;
+            } else {
+                // 그 사이 다른 변동이 있었다면, 이 내역이 줬던 실제 수치만큼만 차감/가산
+                newStones = Math.max(0, Math.min(student.maxStones, student.stones - actualImpact));
+            }
 
             const updatedTransactions = [...prev.transactions];
             updatedTransactions[txIdx] = { ...transaction, status: 'cancelled' };
-
-            const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
 
-            return { ...prev, students: updatedStudents, transactions: updatedTransactions };
+            // [추가] 이벤트(뽑기) 내역인 경우 뽑기판 데이터도 동기화하여 취소
+            let newGachaState = prev.gachaState;
+            if (transaction.type === 'gacha' && transaction.eventMonth) {
+                const month = transaction.eventMonth;
+                if (prev.gachaState[month]) {
+                    const newPickedNumbers = { ...prev.gachaState[month].pickedNumbers };
+                    delete newPickedNumbers[transaction.studentId];
+                    newGachaState = {
+                        ...prev.gachaState,
+                        [month]: {
+                            ...prev.gachaState[month],
+                            pickedNumbers: newPickedNumbers
+                        }
+                    };
+                }
+            }
+
+            return { 
+                ...prev, 
+                students: updatedStudents, 
+                transactions: updatedTransactions,
+                gachaState: newGachaState
+            };
         });
     }, [setAppState]);
 
@@ -444,23 +480,47 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             if (!transaction) return prev;
 
             let updatedStudents = [...prev.students];
+            let newGachaState = prev.gachaState;
 
             if (transaction.status === 'active') {
                 const studentIdx = updatedStudents.findIndex(s => s.id === transaction.studentId);
                 if (studentIdx !== -1) {
                     const student = updatedStudents[studentIdx];
-                    const actualDelta = (transaction.stoneBalanceAfter || 0) - (transaction.stoneBalanceBefore || 0);
-                    const reversalAmount = -actualDelta;
-                    const newStones = Math.max(0, Math.min(student.maxStones, (student.stones || 0) + reversalAmount));
+                    
+                    // 스마트 복구 로직 동일 적용
+                    const actualImpact = transaction.stoneBalanceAfter - transaction.stoneBalanceBefore;
+                    let newStones;
+                    if (student.stones === transaction.stoneBalanceAfter) {
+                        newStones = transaction.stoneBalanceBefore;
+                    } else {
+                        newStones = Math.max(0, Math.min(student.maxStones, student.stones - actualImpact));
+                    }
                     
                     updatedStudents[studentIdx] = { ...student, stones: newStones };
+                }
+
+                // [추가] 이벤트 내역 삭제 시 뽑기판 점유 해제
+                if (transaction.type === 'gacha' && transaction.eventMonth) {
+                    const month = transaction.eventMonth;
+                    if (prev.gachaState[month]) {
+                        const newPickedNumbers = { ...prev.gachaState[month].pickedNumbers };
+                        delete newPickedNumbers[transaction.studentId];
+                        newGachaState = {
+                            ...prev.gachaState,
+                            [month]: {
+                                ...prev.gachaState[month],
+                                pickedNumbers: newPickedNumbers
+                            }
+                        };
+                    }
                 }
             }
 
             return { 
                 ...prev, 
                 students: updatedStudents,
-                transactions: prev.transactions.filter(t => t.id !== transactionId) 
+                transactions: prev.transactions.filter(t => t.id !== transactionId),
+                gachaState: newGachaState
             };
         });
     }, [setAppState]);
