@@ -71,9 +71,11 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     // Special Mission View Answer State
     const [showSpecialAnswer, setShowSpecialAnswer] = useState(false);
 
+    // 학생이 바뀌거나 사이드바가 닫힐 때 상태 초기화
     useEffect(() => {
         if (student) {
             setJosekiInput(String(student.josekiProgress || 1));
+            setShowSpecialAnswer(false); // 다른 학생 클릭 시 정답 가림
         }
         if (!isOpen) {
             setActiveTab('missions');
@@ -91,7 +93,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setPenaltyAmount('');
             setShowSpecialAnswer(false);
         }
-    }, [isOpen, student]);
+    }, [isOpen, student?.id]); // student.id를 종속성에 추가하여 학생 변경 감지
 
     // Mission Stats Logic
     const missionStats = useMemo(() => {
@@ -226,7 +228,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             `[특별] ${dailySpecialMission.content}`, 
             dailySpecialMission.stones
         );
-        // Do not reset showSpecialAnswer - keep it visible after processing
     };
 
     const handleFailSpecialMission = () => {
@@ -440,18 +441,20 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             {dailySpecialMission ? (
                                                 <div className="special-mission-display">
                                                     <div className="special-mission-text">
-                                                        <strong>{dailySpecialMission.content}</strong>
-                                                        <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
+                                                        <div style={{ height: '2.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                            <strong>{dailySpecialMission.content}</strong>
+                                                            <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
+                                                        </div>
                                                         
-                                                        <div className="special-mission-answer-container" style={{ minHeight: '80px', marginTop: '0.8rem' }}>
+                                                        <div className="special-mission-answer-container">
                                                             {(showSpecialAnswer || isSpecialMissionCompletedToday) && dailySpecialMission.answer ? (
                                                                 <div className="special-mission-answer" style={{ opacity: 1, visibility: 'visible' }}>
                                                                     <span className="answer-label">💡 정답:</span>
                                                                     <p className="answer-text">{dailySpecialMission.answer}</p>
                                                                 </div>
                                                             ) : (
-                                                                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #fbc02d', borderRadius: '8px' }}>
-                                                                    <span style={{ fontSize: '0.8rem', color: '#f9a825' }}>[정답 확인]을 누르면 표시됩니다</span>
+                                                                <div className="special-mission-placeholder">
+                                                                    <span>[정답 확인]을 누르면 표시됩니다</span>
                                                                 </div>
                                                             )}
                                                         </div>
