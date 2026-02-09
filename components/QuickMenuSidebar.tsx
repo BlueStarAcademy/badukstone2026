@@ -441,7 +441,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             {dailySpecialMission ? (
                                                 <div className="special-mission-display">
                                                     <div className="special-mission-text">
-                                                        <div style={{ height: '2.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                        <div className="special-mission-content-area">
                                                             <strong>{dailySpecialMission.content}</strong>
                                                             <div className="stars">{'★'.repeat(dailySpecialMission.stars)}</div>
                                                         </div>
@@ -522,7 +522,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </div>
                                     </div>
                                 </div>
-
+                                {/* 이후 구조 동일 */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem', marginBottom: '1.5rem'}}>
                                     <div>
                                         <h3 style={{ fontSize: '1.1rem', color: 'var(--primary-color)', marginBottom: '0.8rem' }}>개인 연속 미션</h3>
@@ -568,6 +568,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 </ul>
                             </>
                         )}
+                        {/* 나머지 탭 코드 동일 */}
                         {activeTab === 'shop' && (
                            <>
                                 <div className="shop-main">
