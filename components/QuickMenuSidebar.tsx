@@ -25,9 +25,11 @@ interface QuickMenuSidebarProps {
     onPurchase: (studentId: string, description: string, totalCost: number, couponDeduction: number, finalStoneCost: number) => void;
     onCancelTransaction: (transactionId: string) => void;
     onDeleteTransaction: (transactionId: string) => void;
+    // FIX: Removed duplicate onTransferStones identifier.
     onTransferStones: (fromStudentId: string, toStudentId: string, amount: number) => void;
     onUpdateJosekiProgress: (studentId: string, progress: number) => void;
     onCompleteJosekiMission: (studentId: string) => void;
+    onUpdateContinuousMissionName?: (studentId: string, name: string) => void;
     onAssignSpecialMission: (studentId: string, specificMissionId?: string) => void;
     onClearSpecialMission: (studentId: string) => void;
 }
@@ -37,7 +39,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         student, students, missions, specialMissions, shopItems, shopSettings, shopCategories, coupons, transactions, 
         isOpen, groupSettings, generalSettings, eventSettings, onClose, onAddTransaction, onUpdateTransaction, 
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
-        onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission
+        onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission,
+        onUpdateContinuousMissionName
     } = props;
 
     const [activeTab, setActiveTab] = useState<SidebarTab>('missions');
@@ -46,6 +49,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [transferAmount, setTransferAmount] = useState('');
     const [recipientId, setRecipientId] = useState('');
     const [josekiInput, setJosekiInput] = useState('1');
+    const [missionNameInput, setMissionNameInput] = useState('');
 
     // Penalty State
     const [penaltyAmount, setPenaltyAmount] = useState('');
@@ -75,7 +79,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     useEffect(() => {
         if (student) {
             setJosekiInput(String(student.josekiProgress || 1));
-            setShowSpecialAnswer(false); // 다른 학생 클릭 시 정답 가림
+            setMissionNameInput(student.continuousMissionName || '');
+            setShowSpecialAnswer(false); 
         }
         if (!isOpen) {
             setActiveTab('missions');
@@ -93,7 +98,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setPenaltyAmount('');
             setShowSpecialAnswer(false);
         }
-    }, [isOpen, student?.id]); // student.id를 종속성에 추가하여 학생 변경 감지
+    }, [isOpen, student?.id]);
 
     // Mission Stats Logic
     const missionStats = useMemo(() => {
@@ -121,6 +126,25 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
 
         return { lastMonth: lastMonthCount, thisMonth: thisMonthCount, remaining };
     }, [student, transactions, eventSettings.minMissionsToSpin]);
+
+    // 이번 달 감점 통계 계산
+    const monthlyPenaltyStats = useMemo(() => {
+        if (!student) return { count: 0, total: 0 };
+        const now = new Date();
+        const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        
+        const penaltyTxs = transactions.filter(t => 
+            t.studentId === student.id &&
+            t.type === 'penalty' &&
+            t.status === 'active' &&
+            new Date(t.timestamp) >= firstOfThisMonth
+        );
+
+        return {
+            count: penaltyTxs.length,
+            total: Math.abs(penaltyTxs.reduce((sum, t) => sum + t.amount, 0))
+        };
+    }, [student, transactions]);
 
     const handleOpenPartialMissionModal = (mission: Mission) => {
         setPartialMission(mission);
@@ -172,7 +196,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         }
         onAddTransaction(student.id, 'penalty', '예절 불량 감점', -amount);
         setPenaltyAmount('');
-        alert('감점이 적용되었습니다.');
     };
 
     const handleTransfer = (e: React.FormEvent) => {
@@ -194,6 +217,10 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             onUpdateJosekiProgress(student.id, newProgress);
         } else {
             setJosekiInput(String(student.josekiProgress || 1));
+        }
+        // 미션 내용도 함께 저장
+        if (onUpdateContinuousMissionName) {
+            onUpdateContinuousMissionName(student.id, missionNameInput);
         }
     };
 
@@ -497,27 +524,66 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </div>
                                     </div>
                                 </div>
-                                {/* 이후 구조 동일 */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1.5rem', marginBottom: '1.5rem'}}>
-                                    <div>
-                                        <h3 style={{ fontSize: '1.1rem', color: 'var(--primary-color)', marginBottom: '0.8rem' }}>개인 연속 미션</h3>
-                                        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 0 }}>
-                                            <label htmlFor="joseki-progress" style={{ marginBottom: 0, whiteSpace: 'nowrap', fontSize: '0.9rem' }}>No.</label>
-                                            <input type="number" id="joseki-progress" value={josekiInput} onChange={e => setJosekiInput(e.target.value)} onBlur={handleUpdateJoseki} min="1" style={{ width: '50px', textAlign: 'center', padding: '0.3rem' }} />
-                                            <button className="btn-sm" onClick={handleUpdateJoseki}>변경</button>
-                                            <button className="btn-sm primary" onClick={handleCompleteJoseki} disabled={student.stones >= student.maxStones} style={{ marginLeft: 'auto' }} title={`완료시 +${generalSettings.josekiMissionValue} 스톤`}>완료</button>
+                                
+                                {/* 개인 연속 미션 & 예절 감점 통합 행 */}
+                                <div className="mission-bottom-row">
+                                    <div className="mission-control-wrapper">
+                                        <span className="control-label-mini" style={{ color: 'var(--primary-color)' }}>개인 연속 미션</span>
+                                        <div className="continuous-mission-line">
+                                            <input 
+                                                type="text" 
+                                                className="mission-name-input"
+                                                placeholder="미션 내용 입력 (예: 정석 외우기)" 
+                                                value={missionNameInput} 
+                                                onChange={e => setMissionNameInput(e.target.value)} 
+                                            />
+                                            <div className="mission-progress-group">
+                                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#666' }}>No.</label>
+                                                <input 
+                                                    type="number" 
+                                                    className="mission-no-input"
+                                                    value={josekiInput} 
+                                                    onChange={e => setJosekiInput(e.target.value)} 
+                                                    min="1" 
+                                                />
+                                            </div>
+                                            <button className="btn-sm" onClick={handleUpdateJoseki}>저장</button>
+                                            <div className="mission-reward-badge">+{generalSettings.josekiMissionValue}</div>
+                                            <button 
+                                                className="btn-sm primary" 
+                                                onClick={handleCompleteJoseki} 
+                                                disabled={student.stones >= student.maxStones}
+                                                style={{ fontWeight: 'bold' }}
+                                            >
+                                                완료
+                                            </button>
                                         </div>
                                     </div>
-                                    <div style={{ borderLeft: '1px solid #eee', paddingLeft: '1.5rem' }}>
-                                        <h3 style={{ fontSize: '1.1rem', color: 'var(--danger-color)', marginBottom: '0.8rem' }}>예절 불량 감점</h3>
-                                        <form onSubmit={handleApplyPenalty} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <input type="number" placeholder="점수" value={penaltyAmount} onChange={e => setPenaltyAmount(e.target.value)} min="1" style={{ width: '80px', padding: '0.4rem', border: '1px solid #ddd', borderRadius: '4px' }} />
-                                            <button type="submit" className="btn-sm danger" style={{whiteSpace: 'nowrap'}}>적용</button>
-                                        </form>
+
+                                    <div className="penalty-control-wrapper">
+                                        <span className="control-label-mini" style={{ color: 'var(--danger-color)' }}>예절 불량 감점</span>
+                                        <div className="penalty-mission-line">
+                                            <form onSubmit={handleApplyPenalty} className="penalty-form-inline">
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="점수" 
+                                                    className="penalty-input-sm"
+                                                    value={penaltyAmount} 
+                                                    onChange={e => setPenaltyAmount(e.target.value)} 
+                                                    min="1" 
+                                                />
+                                                <button type="submit" className="btn-sm danger penalty-btn-sm">차감</button>
+                                            </form>
+                                            <div className="penalty-stats-text">
+                                                <span className="penalty-stats">
+                                                    이번달 감점: {monthlyPenaltyStats.count}회 / -{monthlyPenaltyStats.total}점
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <h3 style={{fontSize: '1.2rem', marginBottom: '1rem'}}>단체 미션</h3>
+                                <h3 style={{fontSize: '1.2rem', marginBottom: '1rem'}}>수업 미션</h3>
                                 <ul className="mission-list">
                                     {groupMissions.map((mission: any) => {
                                         const completionsToday = missionCompletionCounts.get(mission.description) || 0;
@@ -541,7 +607,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         );
                                     })}
                                 </ul>
-                            </>
+                           </>
                         )}
                         {/* 나머지 탭 코드 동일 */}
                         {activeTab === 'shop' && (
@@ -560,7 +626,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                 </div>
                                                 <div className="sort-dropdown">
                                                     <label htmlFor="shop-sort">정렬:</label>
-                                                    <select id="shop-sort" value={shopSortKey} onChange={e => setShopSortKey(e.target.value as ShopSortKey)}>
+                                                    <select id="sort-order-shop" value={shopSortKey} onChange={e => setShopSortKey(e.target.value as ShopSortKey)}>
                                                         <option value="name">이름순</option><option value="price">가격순</option>
                                                     </select>
                                                 </div>
@@ -631,15 +697,25 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                             </ul>
                         )}
                         {activeTab === 'send' && (
-                            <div>
-                                <form className="send-stone-form" onSubmit={handleSendStones}>
-                                    <h3>스톤 수동 지급/차감</h3>
-                                    <div className="form-group"><label htmlFor="sendAmount">지급/차감할 스톤</label><input type="number" id="sendAmount" value={sendAmount} onChange={e => setSendAmount(e.target.value)} placeholder="0" /><small>양수는 지급, 음수는 차감입니다.</small></div>
-                                    <div className="form-group"><label htmlFor="sendReason">사유</label><input type="text" id="sendReason" value={sendReason} onChange={e => setSendReason(e.target.value)} placeholder="예: 착한 일을 해서 스톤 지급" /></div>
-                                    <button type="submit" className="btn primary">적용</button>
-                                </form>
-                                <div className="stone-transfer-form">
-                                    <h3>학생에게 스톤 보내기</h3>
+                            <div className="stone-mgmt-row">
+                                <div className="stone-mgmt-card">
+                                    <h3>💎 스톤 수동 지급/차감</h3>
+                                    <form onSubmit={handleSendStones}>
+                                        <div className="form-group">
+                                            <label htmlFor="sendAmount">지급/차감할 스톤</label>
+                                            <input type="number" id="sendAmount" value={sendAmount} onChange={e => setSendAmount(e.target.value)} placeholder="0" />
+                                            <small style={{display: 'block', marginTop: '4px', color: '#888'}}>양수는 지급, 음수는 차감입니다.</small>
+                                        </div>
+                                        <div className="form-group">
+                                            <label htmlFor="sendReason">사유</label>
+                                            <input type="text" id="sendReason" value={sendReason} onChange={e => setSendReason(e.target.value)} placeholder="예: 착한 일을 해서 스톤 지급" />
+                                        </div>
+                                        <button type="submit" className="btn primary" style={{width: '100%', marginTop: 'auto'}}>적용</button>
+                                    </form>
+                                </div>
+
+                                <div className="stone-mgmt-card">
+                                    <h3>🤝 물물교환</h3>
                                     <form onSubmit={handleTransfer}>
                                         <div className="form-group">
                                             <label htmlFor="recipient">받는 학생</label>
@@ -648,8 +724,18 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                 {students.filter(s => s.id !== student.id && s.status === '재원').sort((a,b) => a.name.localeCompare(b.name)).map(s => <option key={s.id} value={s.id}>{s.name} ({s.rank})</option>)}
                                             </select>
                                         </div>
-                                        <div className="form-group"><label htmlFor="transferAmount">보낼 스톤</label><input type="number" id="transferAmount" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} min="1" max={student.stones} required placeholder="0" /></div>
-                                        <button type="submit" className="btn primary" disabled={(parseInt(transferAmount, 10) || 0) <= 0 || !recipientId || student.stones < (parseInt(transferAmount, 10) || 0)}>보내기</button>
+                                        <div className="form-group">
+                                            <label htmlFor="transferAmount">보낼 스톤</label>
+                                            <input type="number" id="transferAmount" value={transferAmount} onChange={e => setTransferAmount(e.target.value)} min="1" max={student.stones} required placeholder="0" />
+                                        </div>
+                                        <button 
+                                            type="submit" 
+                                            className="btn primary" 
+                                            style={{width: '100%', marginTop: 'auto'}}
+                                            disabled={(parseInt(transferAmount, 10) || 0) <= 0 || !recipientId || student.stones < (parseInt(transferAmount, 10) || 0)}
+                                        >
+                                            보내기
+                                        </button>
                                     </form>
                                 </div>
                             </div>

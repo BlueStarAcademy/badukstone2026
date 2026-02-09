@@ -122,7 +122,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const chessMissions = useMemo(() => (appState && appState !== 'error') ? appState.chessMissions || [] : [], [appState]);
     const specialMissions = useMemo(() => (appState && appState !== 'error') ? appState.specialMissions || [] : [], [appState]);
     const shopCategories = useMemo(() => (appState && appState !== 'error') ? appState.shopCategories || INITIAL_SHOP_CATEGORIES : INITIAL_SHOP_CATEGORIES, [appState]);
-    // FIX: Added missing shopItems useMemo hook.
     const shopItems = useMemo(() => (appState && appState !== 'error') ? appState.shopItems || [] : [], [appState]);
     
     const groupSettings = (appState && appState !== 'error') ? appState.groupSettings || INITIAL_GROUP_SETTINGS : INITIAL_GROUP_SETTINGS;
@@ -496,7 +495,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             const updatedStudents = [...prev.students];
             updatedStudents[fromIdx] = { ...from, stones: newFromStones };
-            // FIX: Corrected typo newToToStones to newToStones.
             updatedStudents[toIdx] = { ...to, stones: newToStones };
             
             const updatedTransactions = [t1, t2, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
@@ -557,7 +555,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    // FIX: Cast appState for intentional comparison with string literal to avoid TS overlap errors.
     if ((appState as unknown) === 'error') {
         return <AppLoader 
             message="데이터를 불러오는 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요." 
@@ -717,7 +714,10 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 onClose={() => setIsSidebarOpen(false)}
                 onAddTransaction={handleAddTransaction} onUpdateTransaction={(tx) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, transactions: prev!.transactions.map(t => t.id === tx.id ? tx : t) }))} onDeleteCoupon={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, coupons: prev!.coupons.filter(c => c.id !== id) }))}
                 onPurchase={handlePurchase} onCancelTransaction={handleCancelTransaction} onDeleteTransaction={handleDeleteTransaction}
-                onTransferStones={handleTransferStones} onUpdateJosekiProgress={(id, p) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? {...s, josekiProgress: p} : s) }))} onCompleteJosekiMission={(id) => handleAddTransaction(id, 'joseki_mission', '정석 미션 완료', generalSettings.josekiMissionValue)} onAssignSpecialMission={(id) => setAppState(prev => {
+                onTransferStones={handleTransferStones} 
+                onUpdateJosekiProgress={(id, p) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? {...s, josekiProgress: p} : s) }))} 
+                onUpdateContinuousMissionName={(id, name) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? {...s, continuousMissionName: name} : s) }))}
+                onCompleteJosekiMission={(id) => handleAddTransaction(id, 'joseki_mission', '정석 미션 완료', generalSettings.josekiMissionValue)} onAssignSpecialMission={(id) => setAppState(prev => {
                     if (!prev || prev === 'error') return prev;
                     const student = prev.students.find(s => s.id === id);
                     if (!student) return prev;

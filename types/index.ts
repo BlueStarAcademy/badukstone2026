@@ -14,6 +14,7 @@ export interface Student {
     chessRating?: number;
     chessGamesPlayed?: number;
     josekiProgress?: number;
+    continuousMissionName?: string; // 개인 연속 미션 내용 (예: 정석 외우기)
     dailySpecialMissionId?: string;
     specialMissionDate?: string;
 }
