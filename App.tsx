@@ -108,7 +108,8 @@ interface MainAppProps {
 }
 
 const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
-    const [appState, setAppState, isSaving] = useFirestoreState<AppData>(user.uid, getInitialData);
+    // FIX: useFirestoreState hook now returns saveError as the 4th element
+    const [appState, setAppState, isSaving, saveError] = useFirestoreState<AppData>(user.uid, getInitialData);
 
     const [view, setView] = useState<View>('student');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -518,7 +519,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             return { 
                 ...prev, 
-                students: updatedStudents,
+                students: updatedStudents, 
                 transactions: prev.transactions.filter(t => t.id !== transactionId),
                 gachaState: newGachaState
             };
@@ -629,7 +630,14 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
     return (
         <div className="app-container">
-            <header className="header">
+            {/* 저장 실패 시 경고 배너 */}
+            {saveError && (
+                <div className="save-error-banner" style={{ background: '#d32f2f', color: 'white', textAlign: 'center', padding: '0.8rem', fontWeight: 'bold', zIndex: 10000, position: 'fixed', top: 0, left: 0, right: 0 }}>
+                    ⚠️ 데이터 저장에 실패했습니다! 네트워크 연결을 확인하세요. 이 상태에서 새로고침하면 작업 내용이 유실될 수 있습니다.
+                </div>
+            )}
+            
+            <header className="header" style={saveError ? { marginTop: '40px' } : {}}>
                 <div className="header-title-group">
                     <h1 onClick={() => setView('student')} style={{cursor: 'pointer'}}>
                         {generalSettings.academyName}

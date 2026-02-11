@@ -6,12 +6,14 @@ import type { AppData } from '../types';
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T | 'error' | null>>;
 
+// 반환 타입에 에러 상태 추가
 export function useFirestoreState<T extends AppData>(
     userId: string | null,
     getInitialData: () => T
-): [T | 'error' | null, SetState<T>, boolean] {
+): [T | 'error' | null, SetState<T>, boolean, Error | null] {
     const [state, setState] = useState<T | 'error' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<Error | null>(null);
     
     const localTruthRef = useRef<T | null>(null);
     const isPendingWrite = useRef<boolean>(false);
@@ -42,11 +44,8 @@ export function useFirestoreState<T extends AppData>(
     };
 
     const saveToServer = useCallback(async (data: T) => {
-        if (!userId || !db || isDemoMode) {
-            setIsSaving(false);
-            return;
-        }
-        
+        if (!userId) return;
+
         // 저장 직전 최종 데이터 압축
         const finalData = compactData(data);
         const currentJson = JSON.stringify(finalData);
@@ -59,18 +58,28 @@ export function useFirestoreState<T extends AppData>(
         try {
             isPendingWrite.current = true;
             setIsSaving(true);
-            const docRef = doc(db, 'users', userId);
-            
-            await setDoc(docRef, {
-                ...finalData,
-                _lastUpdatedAt: Date.now()
-            });
+            setSaveError(null); // 에러 초기화
+
+            if (isDemoMode || !db) {
+                // 데모 모드일 경우 로컬 스토리지에 저장
+                localStorage.setItem(`demo_data_${userId}`, currentJson);
+                // 지연 효과 시뮬레이션
+                await new Promise(resolve => setTimeout(resolve, 300));
+            } else {
+                // Firebase 저장
+                const docRef = doc(db, 'users', userId);
+                await setDoc(docRef, {
+                    ...finalData,
+                    _lastUpdatedAt: Date.now()
+                });
+                console.log(`[Firestore Success] Saved to users/${userId}`);
+            }
             
             lastSavedJson.current = currentJson;
-            console.log(`[Firestore Success] Saved to users/${userId} (Compact Mode)`);
         } catch (e: any) {
             console.error(`[Firestore Error] Save failed:`, e);
-            // 만약 여전히 용량 부족이라면 더 강하게 압축 시도 (필요시)
+            setSaveError(e); // 에러 상태 업데이트
+            alert("⚠️ 데이터 저장에 실패했습니다! 인터넷 연결을 확인해주세요.");
         } finally {
             isPendingWrite.current = false;
             setIsSaving(false);
@@ -80,6 +89,7 @@ export function useFirestoreState<T extends AppData>(
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (isPendingWrite.current && localTruthRef.current) {
+                // 브라우저 닫기 직전 시도 (완벽하지 않음)
                 saveToServer(localTruthRef.current);
             }
         };
@@ -169,5 +179,5 @@ export function useFirestoreState<T extends AppData>(
         });
     }, [saveToServer]);
 
-    return [state, setDebouncedState, isSaving];
+    return [state, setDebouncedState, isSaving, saveError];
 }

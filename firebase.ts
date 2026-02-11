@@ -32,8 +32,10 @@ if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
     try {
         app = initializeApp(firebaseConfig);
         // [수정] v10+ 최신 방식으로 메모리 캐시 설정 (디스크 저장 안함)
+        // [수정] ignoreUndefinedProperties: true 추가하여 undefined 값으로 인한 저장 실패 방지
         db = initializeFirestore(app, {
-            localCache: memoryLocalCache()
+            localCache: memoryLocalCache(),
+            ignoreUndefinedProperties: true
         });
         auth = getAuth(app);
         
