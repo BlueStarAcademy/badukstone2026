@@ -191,11 +191,16 @@ export const EventView = (props: EventViewProps) => {
         return students.map(student => {
             const missionsThisMonth = transactions.filter(t => 
                 t.studentId === student.id &&
-                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') &&
+                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
                 new Date(t.timestamp) >= startOfMonth &&
                 new Date(t.timestamp) <= endOfMonth &&
                 t.status === 'active'
-            ).length;
+            ).reduce((acc, t) => {
+                if (t.type === 'mission_adjustment') {
+                    return acc + (t.missionCountDelta || 0);
+                }
+                return acc + 1;
+            }, 0);
 
             const penaltyCount = transactions.filter(t =>
                 t.studentId === student.id &&

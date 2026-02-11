@@ -59,11 +59,16 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
             // Current Month Stats
             const missionsThisMonth = transactions.filter(t => 
                 t.studentId === student.id &&
-                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') &&
+                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
                 new Date(t.timestamp) >= startOfMonth &&
                 new Date(t.timestamp) <= endOfMonth &&
                 t.status === 'active'
-            ).length;
+            ).reduce((acc, t) => {
+                if (t.type === 'mission_adjustment') {
+                    return acc + (t.missionCountDelta || 0);
+                }
+                return acc + 1;
+            }, 0);
 
             const penaltyCountThisMonth = transactions.filter(t =>
                 t.studentId === student.id &&
@@ -86,11 +91,16 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
             // Previous Month Stats
             const missionsLastMonth = transactions.filter(t =>
                 t.studentId === student.id &&
-                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') &&
+                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
                 new Date(t.timestamp) >= startOfPreviousMonth &&
                 new Date(t.timestamp) <= endOfPreviousMonth &&
                 t.status === 'active'
-            ).length;
+            ).reduce((acc, t) => {
+                if (t.type === 'mission_adjustment') {
+                    return acc + (t.missionCountDelta || 0);
+                }
+                return acc + 1;
+            }, 0);
 
             const penaltyCountLastMonth = transactions.filter(t =>
                 t.studentId === student.id &&

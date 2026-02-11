@@ -32,6 +32,7 @@ interface QuickMenuSidebarProps {
     onUpdateContinuousMissionName?: (studentId: string, name: string) => void;
     onAssignSpecialMission: (studentId: string, specificMissionId?: string) => void;
     onClearSpecialMission: (studentId: string) => void;
+    onAdjustMissionCount: (studentId: string, delta: number) => void;
 }
 
 export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
@@ -40,7 +41,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         isOpen, groupSettings, generalSettings, eventSettings, onClose, onAddTransaction, onUpdateTransaction, 
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
         onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission,
-        onUpdateContinuousMissionName
+        onUpdateContinuousMissionName, onAdjustMissionCount
     } = props;
 
     const [activeTab, setActiveTab] = useState<SidebarTab>('missions');
@@ -112,11 +113,16 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         const filterMissions = (start: Date, end: Date) => {
             return transactions.filter(t => 
                 t.studentId === student.id &&
-                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission') &&
+                (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
                 t.status === 'active' &&
                 new Date(t.timestamp) >= start &&
                 new Date(t.timestamp) <= end
-            ).length;
+            ).reduce((acc, t) => {
+                if (t.type === 'mission_adjustment') {
+                    return acc + (t.missionCountDelta || 0);
+                }
+                return acc + 1;
+            }, 0);
         };
 
         const thisMonthCount = filterMissions(firstOfThisMonth, new Date());
@@ -413,7 +419,25 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                             </div>
                             <div className="stat-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
                                 <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>미션 달성 (전월/당월)</label>
-                                <strong style={{ fontSize: '1.4rem' }}>{missionStats.lastMonth} <span style={{fontSize: '0.9rem', opacity: 0.7}}>/</span> {missionStats.thisMonth}</strong>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                    <strong style={{ fontSize: '1.4rem' }}>{missionStats.lastMonth} <span style={{fontSize: '0.9rem', opacity: 0.7}}>/</span> {missionStats.thisMonth}</strong>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                        <button 
+                                            onClick={() => onAdjustMissionCount(student.id, 1)} 
+                                            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '0.6rem', lineHeight: 1, padding: '1px 3px' }}
+                                            title="미션 횟수 1 증가"
+                                        >
+                                            ▲
+                                        </button>
+                                        <button 
+                                            onClick={() => onAdjustMissionCount(student.id, -1)} 
+                                            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '0.6rem', lineHeight: 1, padding: '1px 3px' }}
+                                            title="미션 횟수 1 감소"
+                                        >
+                                            ▼
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                             <div className="stat-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
                                 <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>이벤트까지</label>

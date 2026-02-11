@@ -220,6 +220,39 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
+    const handleAdjustMissionCount = useCallback((studentId: string, delta: number) => {
+        setAppState(prev => {
+            if (prev === 'error' || !prev) return prev;
+            
+            const studentIdx = prev.students.findIndex(s => s.id === studentId);
+            if (studentIdx === -1) return prev;
+
+            const student = prev.students[studentIdx];
+            const timestamp = new Date().toISOString();
+            
+            // 미션 횟수만 조정하고 스톤은 0으로 기록하는 트랜잭션 생성
+            const transaction: Transaction = {
+                id: generateId(),
+                studentId,
+                type: 'mission_adjustment',
+                description: `미션 횟수 보정 (${delta > 0 ? '+' : ''}${delta})`,
+                amount: 0,
+                timestamp,
+                status: 'active',
+                stoneBalanceBefore: student.stones,
+                stoneBalanceAfter: student.stones,
+                missionCountDelta: delta
+            };
+
+            const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
+
+            return { 
+                ...prev, 
+                transactions: updatedTransactions 
+            };
+        });
+    }, [setAppState]);
+
     const handlePurchase = useCallback((studentId: string, description: string, totalCost: number, couponDeduction: number, finalStoneCost: number) => {
         setAppState(prev => {
             if (prev === 'error' || !prev) return prev;
@@ -838,6 +871,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
                     return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
                 })} onClearSpecialMission={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: undefined, specialMissionDate: undefined } : s) }))}
+                onAdjustMissionCount={handleAdjustMissionCount}
             />
 
             {isAccountModalOpen && (

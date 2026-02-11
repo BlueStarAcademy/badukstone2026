@@ -48,7 +48,7 @@ export interface UsedCouponInfo {
 export interface Transaction {
     id: string;
     studentId: string;
-    type: 'mission' | 'attendance' | 'purchase' | 'adjustment' | 'gacha' | 'roulette' | 'chess_attendance' | 'penalty' | 'joseki_mission' | 'transfer' | 'special_mission';
+    type: 'mission' | 'attendance' | 'purchase' | 'adjustment' | 'gacha' | 'roulette' | 'chess_attendance' | 'penalty' | 'joseki_mission' | 'transfer' | 'special_mission' | 'mission_adjustment';
     description: string;
     amount: number;
     timestamp: string;
@@ -57,6 +57,7 @@ export interface Transaction {
     stoneBalanceAfter: number;
     eventMonth?: string;
     couponsUsed?: UsedCouponInfo[];
+    missionCountDelta?: number; // 미션 횟수 보정값 (+1, -1 등)
 }
 
 export interface Coupon {
