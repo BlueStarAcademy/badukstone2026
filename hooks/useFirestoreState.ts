@@ -17,6 +17,7 @@ export function useFirestoreState<T extends AppData>(
     
     const localTruthRef = useRef<T | null>(null);
     const isPendingWrite = useRef<boolean>(false);
+    const isDirty = useRef<boolean>(false); // 변경사항이 있는데 아직 저장 시작 안됨 or 저장 중
     const writeTimeout = useRef<number | null>(null);
     const lastSavedJson = useRef<string>("");
 
@@ -28,16 +29,16 @@ export function useFirestoreState<T extends AppData>(
 
     // [추가] 데이터 용량 관리를 위한 강제 압축 함수
     const compactData = (data: T): T => {
-        const MAX_TX = 800; // 좀 더 보수적으로 800건으로 제한
+        const MAX_TX = 800; 
         const MAX_CHESS = 400;
 
         const compact = { ...data };
         if (Array.isArray(compact.transactions) && compact.transactions.length > MAX_TX) {
-            console.log(`[Compact] Trimming transactions: ${compact.transactions.length} -> ${MAX_TX}`);
+            // console.log(`[Compact] Trimming transactions: ${compact.transactions.length} -> ${MAX_TX}`);
             compact.transactions = compact.transactions.slice(0, MAX_TX);
         }
         if (Array.isArray(compact.chessMatches) && compact.chessMatches.length > MAX_CHESS) {
-            console.log(`[Compact] Trimming chess matches: ${compact.chessMatches.length} -> ${MAX_CHESS}`);
+            // console.log(`[Compact] Trimming chess matches: ${compact.chessMatches.length} -> ${MAX_CHESS}`);
             compact.chessMatches = compact.chessMatches.slice(0, MAX_CHESS);
         }
         return compact;
@@ -46,12 +47,20 @@ export function useFirestoreState<T extends AppData>(
     const saveToServer = useCallback(async (data: T) => {
         if (!userId) return;
 
-        // 저장 직전 최종 데이터 압축
         const finalData = compactData(data);
         const currentJson = JSON.stringify(finalData);
 
+        // [안전장치] 로컬 스토리지에 백업 (서버 저장 실패 대비)
+        try {
+            localStorage.setItem(`backup_data_${userId}`, currentJson);
+            localStorage.setItem(`backup_timestamp_${userId}`, Date.now().toString());
+        } catch (e) {
+            console.warn("Local backup failed:", e);
+        }
+
         if (currentJson === lastSavedJson.current) {
             setIsSaving(false);
+            isDirty.current = false;
             return;
         }
 
@@ -76,21 +85,30 @@ export function useFirestoreState<T extends AppData>(
             }
             
             lastSavedJson.current = currentJson;
+            isDirty.current = false; // 저장 성공 시 Clean 상태로 변경
         } catch (e: any) {
             console.error(`[Firestore Error] Save failed:`, e);
             setSaveError(e); // 에러 상태 업데이트
             alert("⚠️ 데이터 저장에 실패했습니다! 인터넷 연결을 확인해주세요.");
+            // 실패 시 isDirty는 true로 유지하여 재시도 유도
         } finally {
             isPendingWrite.current = false;
             setIsSaving(false);
         }
     }, [userId, isDemoMode]);
 
+    // 브라우저 종료/새로고침 방지 (저장 중이거나 변경사항 있을 때)
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (isPendingWrite.current && localTruthRef.current) {
-                // 브라우저 닫기 직전 시도 (완벽하지 않음)
-                saveToServer(localTruthRef.current);
+            if (isDirty.current || isPendingWrite.current) {
+                // 변경사항이 있으면 즉시 저장 시도 (Best Effort)
+                if (localTruthRef.current) {
+                    saveToServer(localTruthRef.current);
+                }
+                
+                e.preventDefault();
+                e.returnValue = '저장되지 않은 데이터가 있습니다. 정말 나가시겠습니까?';
+                return '저장되지 않은 데이터가 있습니다. 정말 나가시겠습니까?';
             }
         };
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -167,13 +185,17 @@ export function useFirestoreState<T extends AppData>(
             // 로컬 상태를 즉시 다이어트하여 메모리 및 저장 준비
             const compactedNext = compactData(nextState);
             localTruthRef.current = compactedNext;
+            
+            // 변경 즉시 Dirty 플래그 설정 및 저장 상태 표시
+            isDirty.current = true;
             setIsSaving(true);
 
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
+            // 디바운스 시간을 1초로 늘려 잦은 쓰기 방지 및 안정성 확보
             writeTimeout.current = window.setTimeout(() => {
                 saveToServer(compactedNext);
                 writeTimeout.current = null;
-            }, 400);
+            }, 1000);
 
             return compactedNext;
         });
