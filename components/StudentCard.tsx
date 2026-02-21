@@ -32,24 +32,31 @@ export const StudentCard: React.FC<StudentCardProps> = ({ student, activeCouponV
                     <span className="student-header-rank">{student.rank}</span>
                 </h3>
                  {isEventEligible && (
-                    <button className="btn-sm primary" onClick={(e) => { e.stopPropagation(); onEventClick(); }}>이벤트</button>
+                    <button
+                        type="button"
+                        className={`btn-sm ${hasParticipatedInEvent ? 'event-btn-completed' : 'primary'}`}
+                        onClick={(e) => { e.stopPropagation(); if (!hasParticipatedInEvent) onEventClick(); }}
+                        disabled={hasParticipatedInEvent}
+                        title={hasParticipatedInEvent ? '이번 달 이벤트 참여 완료' : undefined}
+                    >
+                        이벤트
+                    </button>
                 )}
                 {hasParticipatedInEvent && (
                     <span className="event-badge success" title="이번 달 이벤트 참여 완료">참여완료</span>
                 )}
             </div>
             
-            <div className="student-card-stones">
-                <span className="current-stone-val">{student.stones}</span>
-                <span className="max-stone-separator">/</span>
-                <span className="max-stone-val">{student.maxStones}</span>
+            <div className="student-card-bottom">
+                <div className="student-card-stones">
+                    <span className="current-stone-val">{student.stones}</span>
+                    <span className="max-stone-separator">/</span>
+                    <span className="max-stone-val">{student.maxStones}</span>
+                </div>
+                <span className="student-card-coupons">
+                    {activeCouponValue > 0 ? `🎟️ 쿠폰 ${activeCouponValue} 스톤` : '\u00A0'}
+                </span>
             </div>
-            
-            {activeCouponValue > 0 && (
-                <p className="student-card-coupons">
-                    🎟️ 쿠폰 {activeCouponValue} 스톤
-                </p>
-            )}
         </div>
     );
 }

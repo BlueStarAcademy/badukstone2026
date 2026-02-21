@@ -13,12 +13,13 @@ interface TournamentRelayViewProps {
     students: Student[];
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
+    setSettings: React.Dispatch<React.SetStateAction<TournamentSettings>>;
     onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
     onOpenPlayerManagement: () => void;
 }
 
 export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) => {
-    const { data, students, setData, settings, onBulkAddTransaction, onOpenPlayerManagement } = props;
+    const { data, students, setData, settings, setSettings, onBulkAddTransaction, onOpenPlayerManagement } = props;
     
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [playerToSwap, setPlayerToSwap] = useState<{ teamName: 'A' | 'B', playerIndex: number } | null>(null);
@@ -210,10 +211,17 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
         : null;
 
     const summaryData = TournamentSummary({
-        data, 
-        settings, 
+        data,
+        settings,
         onApplyPenalty: handleApplyPenalty,
-        onApplyBonus: handleApplyBonus
+        onApplyBonus: handleApplyBonus,
+        renderAfterGameStats: (winner) =>
+            winner ? (
+                <div className="award-buttons-below-stats">
+                    <button type="button" className="btn" onClick={() => setAwardModal({ teamName: winner, teamType: 'winner' })}>🏆 승리팀 시상</button>
+                    <button type="button" className="btn" onClick={() => setAwardModal({ teamName: winner === 'A' ? 'B' : 'A', teamType: 'loser' })}>👏 패배팀 시상</button>
+                </div>
+            ) : null,
     });
     const winnerTeam = summaryData.winner;
 
@@ -222,12 +230,6 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
              <div className="tournament-controls">
                 <div className="tournament-header-controls">
                      <button className="btn" onClick={onOpenPlayerManagement}>선수 관리 및 팀 배정</button>
-                     {winnerTeam && (
-                        <>
-                            <button className="btn" onClick={() => setAwardModal({ teamName: winnerTeam, teamType: 'winner' })}>🏆 승리팀 시상</button>
-                            <button className="btn" onClick={() => setAwardModal({ teamName: winnerTeam === 'A' ? 'B' : 'A', teamType: 'loser' })}>👏 패배팀 시상</button>
-                        </>
-                    )}
                      <button className="btn danger" onClick={() => setConfirmation({
                         message: "현재까지의 모든 점수와 선수 배치를 초기화하시겠습니까?",
                         actions: [
@@ -252,6 +254,14 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                     onReorderMatchups={handleReorderMatchups}
                     onUniversalPlayerSwap={handleUniversalPlayerSwap}
                     onOpenSwapModal={handleOpenSwapModal}
+                    onReorderGames={(fromIndex, toIndex) => {
+                        setSettings(prev => {
+                            const games = [...prev.games];
+                            const [removed] = games.splice(fromIndex, 1);
+                            games.splice(toIndex, 0, removed);
+                            return { ...prev, games };
+                        });
+                    }}
                 />
                 <div className="relay-summary-panel">
                     {summaryData.element}

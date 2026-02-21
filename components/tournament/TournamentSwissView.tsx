@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import type { SwissData, SwissMatch, TournamentData, SwissPlayer } from '../../types';
+import { sortSwissPlayers } from '../../utils';
 
 interface TournamentSwissViewProps {
     swissData?: SwissData;
@@ -31,7 +32,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     }
     
     const { players, rounds } = swissData;
-    const sortedPlayers = [...players].sort((a, b) => b.score - a.score || b.sos - a.sos || b.sosos - a.sosos);
+    const sortedPlayers = sortSwissPlayers(players, rounds);
     const latestRoundIndex = rounds.length - 1;
     const latestRound = rounds[latestRoundIndex];
     const isRoundComplete = latestRound.every(match => match.winnerId !== null);

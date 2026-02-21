@@ -24,6 +24,45 @@ export const getGroupForRank = (rankStr: string): { group: string } => {
 
 export const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+import type { SwissMatch, SwissPlayer } from '../types';
+
+/**
+ * 두 선수의 상대 전적(승자승). A가 이겼으면 1, B가 이겼으면 -1, 무승부/미대국이면 0.
+ */
+export const getSwissHeadToHead = (
+    rounds: SwissMatch[][],
+    playerIdA: string,
+    playerIdB: string
+): number => {
+    for (const round of rounds) {
+        for (const match of round) {
+            if (match.players[0] === 'BYE' || match.players[1] === 'BYE') continue;
+            const hasA = match.players[0] === playerIdA || match.players[1] === playerIdA;
+            const hasB = match.players[0] === playerIdB || match.players[1] === playerIdB;
+            if (hasA && hasB) {
+                if (match.winnerId === playerIdA) return 1;
+                if (match.winnerId === playerIdB) return -1;
+                return 0;
+            }
+        }
+    }
+    return 0;
+};
+
+/**
+ * 스위스 순위: 승점 → SOS → SOSOS → 승자승 순으로 정렬 (동점 시 승자승 적용)
+ */
+export const sortSwissPlayers = (players: SwissPlayer[], rounds: SwissMatch[][]): SwissPlayer[] => {
+    return [...players].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.sos !== a.sos) return b.sos - a.sos;
+        if (b.sosos !== a.sosos) return b.sosos - a.sosos;
+        const h2h = getSwissHeadToHead(rounds, a.studentId, b.studentId);
+        if (h2h !== 0) return -h2h; // sort: 음수면 a가 앞(상위). A가 이겼으면 h2h=1 → -1 반환해 A가 앞으로
+        return 0;
+    });
+};
+
 export const formatRelativeTime = (isoString: string): string => {
     const date = new Date(isoString);
     const now = new Date();

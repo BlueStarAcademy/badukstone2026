@@ -13,6 +13,8 @@ interface TournamentGamesProps {
         droppedOn: { teamName: 'A' | 'B'; playerIndex: number }
     ) => void;
     onOpenSwapModal: (teamName: 'A' | 'B', playerIndex: number) => void;
+    /** 경기 탭 순서 변경 (fromIndex, toIndex는 settings.games 기준 0-based) */
+    onReorderGames?: (fromIndex: number, toIndex: number) => void;
 }
 
 const gameNameMap: Record<GameKey, string> = {
@@ -200,15 +202,25 @@ const RelayPlayerCard = ({
     );
 };
 
+const gameDisplayName: Record<GameSelection, string> = {
+    game1: '바둑',
+    game2: '주사위 바둑',
+    game3: '컬링',
+    none: '없음',
+};
+
 export const TournamentGames = (props: TournamentGamesProps) => {
-    const { data, settings, onPlayerChange, onOpenSwapModal, onUniversalPlayerSwap } = props;
+    const { data, settings, onPlayerChange, onOpenSwapModal, onUniversalPlayerSwap, onReorderGames } = props;
     
     const [activeTab, setActiveTab] = useState(1);
     const [draggedItem, setDraggedItem] = useState<{ teamName: 'A' | 'B', index: number } | null>(null);
+    const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
+    const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
     
     const configuredGames = settings.games
         .map((type, index) => ({ type, matchNumber: index + 1 }))
         .filter(g => g.type !== 'none');
+    const allGameTabs = settings.games.map((type, index) => ({ type, index, matchNumber: index + 1 }));
 
     useEffect(() => {
         const activeGameStillExists = configuredGames.some(g => g.matchNumber === activeTab);
@@ -262,18 +274,57 @@ export const TournamentGames = (props: TournamentGamesProps) => {
         setDraggedItem(null);
     };
 
+    const handleTabDragStart = (e: React.DragEvent, index: number) => {
+        if (!onReorderGames) return;
+        setDraggedTabIndex(index);
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(index));
+        (e.target as HTMLElement).classList.add('tab-dragging');
+    };
+    const handleTabDragEnd = (e: React.DragEvent) => {
+        setDraggedTabIndex(null);
+        setDragOverTabIndex(null);
+        (e.target as HTMLElement).classList.remove('tab-dragging');
+    };
+    const handleTabDragOver = (e: React.DragEvent, index: number) => {
+        if (!onReorderGames || draggedTabIndex === null) return;
+        e.preventDefault();
+        setDragOverTabIndex(index);
+    };
+    const handleTabDragLeave = () => setDragOverTabIndex(null);
+    const handleTabDrop = (e: React.DragEvent, toIndex: number) => {
+        e.preventDefault();
+        if (!onReorderGames || draggedTabIndex === null) return;
+        if (draggedTabIndex !== toIndex) {
+            onReorderGames(draggedTabIndex, toIndex);
+        }
+        setDraggedTabIndex(null);
+        setDragOverTabIndex(null);
+    };
 
     return (
         <div className="tournament-games-container">
             <div className="tournament-games-header">
                 <div className="tournament-tabs">
-                    {configuredGames.map(game => (
-                         <button 
-                            key={game.matchNumber} 
-                            className={`tab-btn ${activeTab === game.matchNumber ? 'active' : ''}`} 
-                            onClick={() => setActiveTab(game.matchNumber)}>
-                            {game.matchNumber}경기 ({gameNameMap[game.type as GameKey]})
-                        </button>
+                    {allGameTabs.map((game) => (
+                        <div
+                            key={game.index}
+                            className={`tab-btn-wrapper ${draggedTabIndex === game.index ? 'tab-dragging' : ''} ${dragOverTabIndex === game.index ? 'tab-drag-over' : ''}`}
+                            draggable={!!onReorderGames}
+                            onDragStart={(e) => handleTabDragStart(e, game.index)}
+                            onDragEnd={handleTabDragEnd}
+                            onDragOver={(e) => handleTabDragOver(e, game.index)}
+                            onDragLeave={handleTabDragLeave}
+                            onDrop={(e) => handleTabDrop(e, game.index)}
+                        >
+                            <button
+                                type="button"
+                                className={`tab-btn ${activeTab === game.matchNumber ? 'active' : ''}`}
+                                onClick={() => setActiveTab(game.matchNumber)}
+                            >
+                                {game.matchNumber}경기 ({gameDisplayName[game.type]})
+                            </button>
+                        </div>
                     ))}
                 </div>
             </div>

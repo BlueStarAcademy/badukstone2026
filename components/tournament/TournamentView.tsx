@@ -9,7 +9,7 @@ import { TournamentMissionView } from './TournamentMissionView';
 import { TournamentPlayerManagementModal } from './TournamentPlayerManagementModal';
 import { TournamentSettingsModal } from '../modals/TournamentSettingsModal';
 import { TournamentSwissPrizeModal } from './TournamentSwissPrizeModal';
-import { generateId, parseRank } from '../../utils';
+import { generateId, parseRank, sortSwissPlayers } from '../../utils';
 
 interface TournamentViewProps {
     students: Student[];
@@ -447,7 +447,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     
     const handleSwissAwardPrizes = (prizes: { first: number, second: number, third: number, participant: number }) => {
         if (!data.swiss) return;
-        const sorted = [...data.swiss.players].sort((a, b) => b.score - a.score || b.sos - a.sos || b.sosos - a.sosos);
+        const sorted = sortSwissPlayers(data.swiss.players, data.swiss.rounds);
         
         if (sorted.length > 0 && prizes.first > 0) onBulkAddTransaction([sorted[0].studentId], '스위스 리그 1위', prizes.first);
         if (sorted.length > 1 && prizes.second > 0) onBulkAddTransaction([sorted[1].studentId], '스위스 리그 2위', prizes.second);
@@ -482,6 +482,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         students={students} 
                         setData={setData} 
                         settings={settings} 
+                        setSettings={setSettings}
                         onBulkAddTransaction={onBulkAddTransaction}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                     />

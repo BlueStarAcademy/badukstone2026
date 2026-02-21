@@ -3,6 +3,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type { Student, ChessMatch, Transaction, GeneralSettings, Mission } from '../../types';
 import { ConfirmationModal, ActionButton } from '../modals/ConfirmationModal';
 import { ChessSettingsModal } from './ChessSettingsModal';
+import { ChessMissionSidebar } from './ChessMissionSidebar';
 
 interface ChessPanelProps {
     students: Student[];
@@ -31,6 +32,7 @@ export const ChessPanel = (props: ChessPanelProps) => {
     const [blackToRecord, setBlackToRecord] = useState<Student | null>(null);
     const [result, setResult] = useState<'white' | 'black' | 'draw'>('white');
     const [missionStudent, setMissionStudent] = useState<Student | null>(null);
+    const [isChessSidebarOpen, setIsChessSidebarOpen] = useState(false);
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode; actions: ActionButton[] } | null>(null);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
@@ -264,6 +266,15 @@ export const ChessPanel = (props: ChessPanelProps) => {
     };
 
 
+    const openChessSidebar = (student: Student) => {
+        setMissionStudent(student);
+        setIsChessSidebarOpen(true);
+    };
+
+    const closeChessSidebar = () => {
+        setIsChessSidebarOpen(false);
+    };
+
     return (
         <div className="chess-panel-container">
             <div className="chess-roster-wrapper">
@@ -271,73 +282,68 @@ export const ChessPanel = (props: ChessPanelProps) => {
                     <h3>체스반 명단</h3>
                     <button className="btn" onClick={() => setIsSettingsModalOpen(true)}>설정</button>
                 </div>
-                {/* FIX: Ensure direct class for scrolling control */}
-                <div className="student-table" style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', border: '1px solid #eee', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead style={{ position: 'sticky', top: 0, zIndex: 10, background: '#f8f9fa' }}>
-                            <tr>
-                                <th>순위</th>
-                                <th>이름</th>
-                                <th>레이팅</th>
-                                <th>판수</th>
-                                <th>보유 스톤</th>
-                                <th>작업</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr className="non-chess-player-row">
-                                <td>-</td>
-                                <td><strong>{nonChessPlayer.name}</strong></td>
-                                <td className="rating-cell">
-                                    <input 
-                                        type="number" 
-                                        value={nonChessRatingInput}
-                                        onChange={e => setNonChessRatingInput(e.target.value)}
-                                        onBlur={handleNonChessRatingUpdate}
-                                        onKeyDown={e => {
-                                            if (e.key === 'Backspace') e.stopPropagation();
-                                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                            if (e.key === 'Escape') {
-                                                setNonChessRatingInput(String(Math.round(generalSettings.nonChessPlayerRating)));
-                                                (e.target as HTMLInputElement).blur();
-                                            }
-                                        }}
-                                        style={{width: '60px', textAlign: 'center', fontWeight: 'bold'}}
+                <div className="chess-student-buttons">
+                    <div className="chess-non-chess-row">
+                        <span className="chess-name-label">{nonChessPlayer.name}</span>
+                        <span className="chess-rating-input-wrap">
+                            <input
+                                type="number"
+                                value={nonChessRatingInput}
+                                onChange={e => setNonChessRatingInput(e.target.value)}
+                                onBlur={handleNonChessRatingUpdate}
+                                onKeyDown={e => {
+                                    if (e.key === 'Backspace') e.stopPropagation();
+                                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                    if (e.key === 'Escape') {
+                                        setNonChessRatingInput(String(Math.round(generalSettings.nonChessPlayerRating)));
+                                        (e.target as HTMLInputElement).blur();
+                                    }
+                                }}
+                                aria-label="비체스반 레이팅"
+                            />
+                        </span>
+                        <span className="chess-actions">
+                            <button type="button" className="btn-sm" onClick={() => handleSelectPlayer(nonChessPlayer, 'white')} disabled={whiteToRecord?.id === nonChessPlayer.id || blackToRecord?.id === nonChessPlayer.id}>백</button>
+                            <button type="button" className="btn-sm" onClick={() => handleSelectPlayer(nonChessPlayer, 'black')} disabled={blackToRecord?.id === nonChessPlayer.id || whiteToRecord?.id === nonChessPlayer.id}>흑</button>
+                        </span>
+                    </div>
+                    {chessStudents.map((student, index) => (
+                        <div key={student.id} className="chess-student-row">
+                            <button
+                                type="button"
+                                className={`chess-student-btn ${missionStudent?.id === student.id && isChessSidebarOpen ? 'active' : ''}`}
+                                onClick={() => openChessSidebar(student)}
+                            >
+                                <span className="chess-student-btn-name">{student.name}</span>
+                                <span className="chess-student-btn-meta">
+                                    {Math.round(student.chessRating || 1000)} · {student.chessGamesPlayed || 0}판 · {student.stones}/{student.maxStones}
+                                </span>
+                            </button>
+                            <span className="chess-rating-cell" onClick={(e) => { e.stopPropagation(); if (editingState?.studentId !== student.id) handleRatingClick(student); }}>
+                                {editingState?.studentId === student.id ? (
+                                    <input
+                                        ref={inputRef}
+                                        type="number"
+                                        value={editingState.rating}
+                                        onChange={handleRatingChange}
+                                        onBlur={handleRatingUpdate}
+                                        onKeyDown={handleRatingKeyDown}
+                                        onClick={(e) => e.stopPropagation()}
+                                        aria-label="레이팅 수정"
                                     />
-                                </td>
-                                <td>-</td>
-                                <td>-</td>
-                                <td className="actions">
-                                    <button className="btn-sm" onClick={() => handleSelectPlayer(nonChessPlayer, 'white')} disabled={whiteToRecord?.id === nonChessPlayer.id || blackToRecord?.id === nonChessPlayer.id}>백</button>
-                                    <button className="btn-sm" onClick={() => handleSelectPlayer(nonChessPlayer, 'black')} disabled={blackToRecord?.id === nonChessPlayer.id || whiteToRecord?.id === nonChessPlayer.id}>흑</button>
-                                </td>
-                            </tr>
-                            {chessStudents.map((student, index) => {
-                                return (
-                                    <tr key={student.id} onClick={() => setMissionStudent(student)} className={missionStudent?.id === student.id ? 'selected-for-mission' : ''}>
-                                        <td data-label="순위">{index + 1}</td>
-                                        <td data-label="이름">{student.name}</td>
-                                        <td data-label="레이팅" className="rating-cell" onClick={(e) => {e.stopPropagation(); if(editingState?.studentId !== student.id) handleRatingClick(student)}}>
-                                            {editingState?.studentId === student.id ? (
-                                                <input ref={inputRef} type="number" value={editingState.rating} onChange={handleRatingChange} onBlur={handleRatingUpdate} onKeyDown={handleRatingKeyDown} onClick={(e) => e.stopPropagation()} />
-                                            ) : (
-                                                <strong>{Math.round(student.chessRating || 1000)}</strong>
-                                            )}
-                                        </td>
-                                        <td data-label="판수">{student.chessGamesPlayed || 0}</td>
-                                        <td data-label="보유 스톤">{student.stones} / {student.maxStones}</td>
-                                        <td data-label="작업" className="actions">
-                                            <button className="btn-sm" onClick={(e) => {e.stopPropagation(); handleSelectPlayer(student, 'white')}} disabled={whiteToRecord?.id === student.id || blackToRecord?.id === student.id}>백</button>
-                                            <button className="btn-sm" onClick={(e) => {e.stopPropagation(); handleSelectPlayer(student, 'black')}} disabled={blackToRecord?.id === student.id || whiteToRecord?.id === student.id}>흑</button>
-                                            <button className="btn-sm danger" onClick={(e) => {e.stopPropagation(); onChessAbsencePenalty(student.id)}}>결석</button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                ) : (
+                                    <strong>{Math.round(student.chessRating || 1000)}</strong>
+                                )}
+                            </span>
+                            <span className="chess-actions">
+                                <button type="button" className="btn-sm" onClick={(e) => { e.stopPropagation(); handleSelectPlayer(student, 'white'); }} disabled={whiteToRecord?.id === student.id || blackToRecord?.id === student.id}>백</button>
+                                <button type="button" className="btn-sm" onClick={(e) => { e.stopPropagation(); handleSelectPlayer(student, 'black'); }} disabled={blackToRecord?.id === student.id || whiteToRecord?.id === student.id}>흑</button>
+                                <button type="button" className="btn-sm danger" onClick={(e) => { e.stopPropagation(); onChessAbsencePenalty(student.id); }}>결석</button>
+                            </span>
+                        </div>
+                    ))}
                 </div>
-                
+
                 <div className="new-match-recorder">
                      <h3>새 대국 기록</h3>
                      <div className="player-selection-display">
@@ -361,63 +367,6 @@ export const ChessPanel = (props: ChessPanelProps) => {
                         <button onClick={handleRecord} className="btn primary" disabled={!whiteToRecord || !blackToRecord}>결과 기록</button>
                     </div>
                 </div>
-            </div>
-            
-            <div className="chess-mission-panel">
-                 <h3>체스 미션</h3>
-                 {missionStudent ? (
-                    <>
-                        <p><strong>{missionStudent.name}</strong> 학생의 미션</p>
-                        <ul className="mission-list">
-                           {studentMissions.length > 0 ? studentMissions.map(mission => {
-                                // FIX: Display completion count for attendance mission as well
-                                const completionsToday = missionCompletionCounts.get(mission.description) || 0;
-
-                                if (mission.id === 'chess_attendance_mission') {
-                                    const hasAttended = chessAttendanceToday.has(missionStudent.id);
-                                    return (
-                                        <li key={mission.id} className="mission-item">
-                                            <span>{mission.description}</span>
-                                            <div className="mission-actions">
-                                                {/* Added completion count display for attendance */}
-                                                {completionsToday > 0 && (
-                                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-color-secondary)' }}>
-                                                        ({completionsToday}회)
-                                                    </span>
-                                                )}
-                                                <span className="mission-stones">+{mission.stones}</span>
-                                                <button className="btn-sm primary" onClick={() => onChessAttendance(missionStudent.id)} disabled={hasAttended}>
-                                                    {hasAttended ? '완료' : '출석'}
-                                                </button>
-                                            </div>
-                                        </li>
-                                    );
-                                }
-
-                                return (
-                                    <li key={mission.id} className="mission-item">
-                                        <span>{mission.description}</span>
-                                        <div className="mission-actions">
-                                            {completionsToday > 0 && (
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--text-color-secondary)' }}>
-                                                    ({completionsToday}회)
-                                                </span>
-                                            )}
-                                            <span className="mission-stones">+{mission.stones}</span>
-                                            <button className="btn-sm" onClick={() => handleOpenPartialMissionModal(mission)} disabled={missionStudent.stones >= missionStudent.maxStones}>부분</button>
-                                            <button className="btn-sm primary" onClick={() => onAddTransaction(missionStudent.id, 'mission', mission.description, mission.stones)} disabled={missionStudent.stones >= missionStudent.maxStones}>완료</button>
-                                        </div>
-                                    </li>
-                                )
-                           }) : <p>체스반 미션이 없습니다.</p>}
-                        </ul>
-                        <div style={{ marginTop: '1rem', textAlign: 'right' }}>
-                             <button className="btn danger" onClick={handleOpenPenaltyModal}>감점 (패널티)</button>
-                        </div>
-                    </>
-                 ) : (
-                    <p style={{textAlign: 'center', color: 'var(--text-color-secondary)', marginTop: '2rem'}}>명단에서 학생을 선택하여 미션을 확인하세요.</p>
-                 )}
             </div>
 
             <div className="chess-history-panel">
@@ -492,6 +441,19 @@ export const ChessPanel = (props: ChessPanelProps) => {
                     </div>
                 </div>
             </div>
+
+            <ChessMissionSidebar
+                isOpen={isChessSidebarOpen}
+                onClose={closeChessSidebar}
+                student={missionStudent ? (students.find(s => s.id === missionStudent.id) ?? missionStudent) : null}
+                studentMissions={studentMissions}
+                missionCompletionCounts={missionCompletionCounts}
+                chessAttendanceToday={chessAttendanceToday}
+                transactions={transactions}
+                onChessAttendance={onChessAttendance}
+                onAddTransaction={onAddTransaction}
+                onOpenPartialMission={handleOpenPartialMissionModal}
+            />
 
             {isSettingsModalOpen && <ChessSettingsModal
                 isOpen={isSettingsModalOpen}

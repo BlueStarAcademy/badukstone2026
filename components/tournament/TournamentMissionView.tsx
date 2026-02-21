@@ -53,9 +53,11 @@ const TextSlotMachine = ({ text, isSpinning, stars }: { text: string, isSpinning
     }, [isSpinning, text]);
 
     return (
-        <div className={`mission-text ${isSpinning ? 'spinning' : ''}`}>
-            {displayText}
-            {!isSpinning && stars ? <span className="stars" style={{marginLeft: '4px', color: '#ffb300'}}>{'★'.repeat(stars)}</span> : null}
+        <div className="mission-text-line">
+            <span className="mission-stars-fixed" aria-hidden="true">
+                {!isSpinning && stars ? '★'.repeat(stars) : '\u00A0'}
+            </span>
+            <span className={`mission-text ${isSpinning ? 'spinning' : ''}`}>{displayText}</span>
         </div>
     );
 };
@@ -97,6 +99,7 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
 
     const handleStart = () => {
         onUpdate(player.studentId, { status: 'active', startTime: new Date().toISOString() });
+        handleGenerateMission('all');
     };
 
     const handleAddTime = () => {
@@ -187,25 +190,29 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
     return (
         <div className={`mission-row-card ${player.status === 'finished' ? 'status-finished' : 'status-active'}`}>
             <div className="mission-row-main">
-                <div className="mission-row-player-info">
+                {/* 좌측: 이름, 점수, 타이머, +10분, 종료 */}
+                <div className="mission-card-left">
                     <button className="row-delete-btn" onClick={(e) => { e.stopPropagation(); onRemove(player.studentId); }} title="명단에서 제거">×</button>
-                    <div className="mission-row-name-group">
-                        <span className="mission-row-name">{player.name}</span>
-                        <span className="mission-row-score">{player.score}점</span>
+                    <div className="mission-left-info">
+                        <div className="mission-row-name">{player.name}</div>
+                        <div className="mission-row-score">{player.score}점</div>
                     </div>
                     <div className="mission-row-status-btns">
-                        {player.status === 'waiting' && <button className="btn-xs primary" onClick={handleStart}>시작</button>}
+                        {player.status === 'waiting' && (
+                            <button type="button" className="btn-xs primary" onClick={handleStart}>시작</button>
+                        )}
                         {player.status === 'active' && (
-                            <>
-                                <span className={`timer-badge ${timeLeft <= 0 ? 'status-expired' : ''}`}>{formatTime(timeLeft)}</span>
-                                <button className="btn-xs" onClick={handleAddTime}>+10분</button>
-                                <button className="btn-xs danger" onClick={() => onFinish(player.studentId)}>종료</button>
-                            </>
+                            <div className="mission-time-btns">
+                                <span className={`mission-row-timer ${timeLeft <= 0 ? 'status-expired' : ''}`}>{formatTime(timeLeft)}</span>
+                                <button type="button" className="btn-xs" onClick={handleAddTime}>+10분</button>
+                                <button type="button" className="btn-xs danger" onClick={() => onFinish(player.studentId)}>종료</button>
+                            </div>
                         )}
                     </div>
                 </div>
 
-                <div className="mission-row-missions">
+                {/* 중앙: 미션1, 미션2 */}
+                <div className="mission-card-center">
                     <div className="mission-mini-card match">
                         <div className="mission-mini-label">{missionSettings?.matchMissionLabel || '미션1'}</div>
                         <TextSlotMachine 
@@ -214,8 +221,8 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
                             stars={player.currentMission?.matchMissionStars}
                         />
                         <div className="mission-card-actions">
-                            <button className="btn-xs success" onClick={() => handleMissionSuccess('match')} disabled={player.status !== 'active'}>성공</button>
-                            <button className="btn-xs" onClick={() => handleGenerateMission('match')} disabled={player.status !== 'active'}>변경</button>
+                            <button type="button" className="btn-xs success" onClick={() => handleMissionSuccess('match')} disabled={player.status !== 'active'}>성공</button>
+                            <button type="button" className="btn-xs" onClick={() => handleGenerateMission('match')} disabled={player.status !== 'active'}>변경</button>
                         </div>
                     </div>
                     <div className="mission-mini-card wearable">
@@ -226,20 +233,20 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
                             stars={player.currentMission?.wearableMissionStars}
                         />
                         <div className="mission-card-actions">
-                            <button className="btn-xs success" onClick={() => handleMissionSuccess('wearable')} disabled={player.status !== 'active'}>성공</button>
-                            <button className="btn-xs" onClick={() => handleGenerateMission('wearable')} disabled={player.status !== 'active'}>변경</button>
+                            <button type="button" className="btn-xs success" onClick={() => handleMissionSuccess('wearable')} disabled={player.status !== 'active'}>성공</button>
+                            <button type="button" className="btn-xs" onClick={() => handleGenerateMission('wearable')} disabled={player.status !== 'active'}>변경</button>
                         </div>
                     </div>
                 </div>
 
-                <div className="mission-row-controls">
+                {/* 우측: 19줄, 13줄, 9줄, 감점, 조절 */}
+                <div className="mission-card-right">
                     <div className="quick-action-grid">
-                        <button className="btn-xs" onClick={() => handleQuickAction('win19')} disabled={player.status !== 'active'}>19줄</button>
-                        <button className="btn-xs" onClick={() => handleQuickAction('win13')} disabled={player.status !== 'active'}>13줄</button>
-                        <button className="btn-xs" onClick={() => handleQuickAction('win9')} disabled={player.status !== 'active'}>9줄</button>
-                        <button className="btn-xs danger" onClick={() => handleQuickAction('penalty')} disabled={player.status !== 'active'}>감점</button>
-                        <button className="btn-xs" onClick={handleManualScore} disabled={player.status !== 'active'}>조절</button>
-                        <button className="btn-xs" onClick={() => handleGenerateMission('all')} disabled={player.status !== 'active'}>전체변경</button>
+                        <button type="button" className="btn-xs" onClick={() => handleQuickAction('win19')} disabled={player.status !== 'active'}>19줄</button>
+                        <button type="button" className="btn-xs" onClick={() => handleQuickAction('win13')} disabled={player.status !== 'active'}>13줄</button>
+                        <button type="button" className="btn-xs" onClick={() => handleQuickAction('win9')} disabled={player.status !== 'active'}>9줄</button>
+                        <button type="button" className="btn-xs danger" onClick={() => handleQuickAction('penalty')} disabled={player.status !== 'active'}>감점</button>
+                        <button type="button" className="btn-xs" onClick={handleManualScore} disabled={player.status !== 'active'}>조절</button>
                     </div>
                 </div>
             </div>

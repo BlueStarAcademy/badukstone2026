@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { TournamentSettings, SwissData } from '../../types';
+import { sortSwissPlayers } from '../../utils';
 
 interface TournamentSwissPrizeModalProps {
     isOpen: boolean;
@@ -28,7 +29,7 @@ export const TournamentSwissPrizeModal = ({ isOpen, onClose, settings, swissData
 
     const finalRanks = useMemo(() => {
         if (!swissData) return [];
-        const sortedPlayers = [...swissData.players].sort((a, b) => b.score - a.score || b.sos - a.sos || b.sosos - a.sosos);
+        const sortedPlayers = sortSwissPlayers(swissData.players, swissData.rounds);
         if (sortedPlayers.length === 0) return [];
         
         const ranks: { name: string; rank: number; score: number, sos: number, sosos: number }[] = [];

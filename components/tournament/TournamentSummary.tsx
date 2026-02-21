@@ -8,6 +8,8 @@ interface TournamentSummaryProps {
     settings: TournamentSettings;
     onApplyPenalty?: (teamName: 'A' | 'B') => void;
     onApplyBonus?: (teamName: 'A' | 'B') => void;
+    /** GAME STATS 박스 바로 아래에 렌더링. 인자로 승자('A'|'B'|'Draw') 또는 null 전달 */
+    renderAfterGameStats?: (winner: string | null) => React.ReactNode;
 }
 
 const calculateTeamScores = (team: Team, settings: TournamentSettings) => {
@@ -56,7 +58,7 @@ const findMvp = (teams: Team[], settings: TournamentSettings): TournamentPlayer 
     return mvp;
 }
 
-export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus }: TournamentSummaryProps) => {
+export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus, renderAfterGameStats }: TournamentSummaryProps) => {
     const teamA = data.teams.find(t => t.name === 'A');
     const teamB = data.teams.find(t => t.name === 'B');
 
@@ -153,6 +155,12 @@ export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus
                     </div>
                 </div>
             </div>
+
+            {renderAfterGameStats && (
+                <div className="summary-after-game-stats">
+                    {renderAfterGameStats(winner)}
+                </div>
+            )}
 
             {mvp && (
                 <div style={{marginTop: '2rem', textAlign: 'center', padding: '1rem', background: 'rgba(255,215,0,0.2)', borderRadius: '8px', border: '1px solid gold'}}>
