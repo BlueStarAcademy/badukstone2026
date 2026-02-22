@@ -4,6 +4,7 @@ import type { Student, TournamentBracket, TournamentData, TournamentSettings, To
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { parseRank, generateId } from '../../utils';
+import { BracketTree } from './BracketTree';
 
 interface TournamentBracketViewProps {
     data: TournamentData;
@@ -300,6 +301,36 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     }
     
     const isFinished = bracketData.rounds[bracketData.rounds.length - 1].matches.every(m => m.winnerId);
+    const firstRoundCount = bracketData.rounds[0]?.matches.length ?? 0;
+    const useBracketTabs = firstRoundCount >= 8 && bracketData.players.length >= 16;
+    const [bracketTab, setBracketTab] = useState(0);
+
+    const renderBracketBody = () => {
+        const rounds = bracketData.rounds;
+        if (useBracketTabs) {
+            const half = Math.ceil(firstRoundCount / 2);
+            const tabs = [
+                { label: `1~${half}경기`, roundFilter: (ri: number, mi: number) => ri === 0 ? mi < half : true },
+                { label: `${half + 1}~${firstRoundCount}경기`, roundFilter: (ri: number, mi: number) => ri === 0 ? mi >= half : true }
+            ];
+            const t = tabs[Math.min(bracketTab, tabs.length - 1)];
+            return (
+                <>
+                    <div className="group-tab-buttons" style={{ marginBottom: '1rem' }}>
+                        {tabs.map((tab, i) => (
+                            <button key={i} className={`tab-btn ${bracketTab === i ? 'active' : ''}`} onClick={() => setBracketTab(i)}>{tab.label}</button>
+                        ))}
+                    </div>
+                    <BracketTree
+                        rounds={rounds}
+                        roundFilter={t.roundFilter}
+                        handleSetMatchWinner={handleSetMatchWinner}
+                    />
+                </>
+            );
+        }
+        return <BracketTree rounds={rounds} handleSetMatchWinner={handleSetMatchWinner} />;
+    };
 
     return (
         <div className="tournament-bracket-view">
@@ -308,62 +339,8 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
                 <button className="btn" onClick={() => setIsPrizeModalOpen(true)} disabled={!isFinished}>결과 및 시상</button>
                 <button className="btn danger" onClick={handleResetBracket}>대진표 초기화</button>
             </div>
-            <div className="bracket-container">
-                {bracketData.rounds.map((round, roundIndex) => (
-                    <div key={roundIndex} className="bracket-round">
-                        <h4>{round.title}</h4>
-                        {round.title.includes('결승') ? (
-                            <div className="bracket-final-round">
-                                {round.matches.map((match, matchIndex) => {
-                                     const player1 = match.players[0];
-                                     const player2 = match.players[1];
-                                     return (
-                                        <div key={match.id} className="bracket-final-match-wrapper">
-                                            <h5>{matchIndex === 0 ? '결승' : '3/4위전'}</h5>
-                                             <div className="bracket-match">
-                                                <div 
-                                                    className={`bracket-player ${match.winnerId === (player1 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
-                                                    onClick={() => player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, player1.studentId)}
-                                                >
-                                                    {player1 === 'BYE' ? '부전승' : player1?.name || '...'}
-                                                </div>
-                                                <div 
-                                                    className={`bracket-player ${match.winnerId === (player2 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
-                                                    onClick={() => player2 && player2 !== 'BYE' && player1 && player1 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, player2.studentId)}
-                                                >
-                                                    {player2 === 'BYE' ? '' : player2?.name || '...'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                     )
-                                })}
-                            </div>
-                        ) : (
-                            <div className="bracket-match-list">
-                                {round.matches.map((match, matchIndex) => {
-                                    const player1 = match.players[0];
-                                    const player2 = match.players[1];
-                                    return (
-                                        <div key={match.id} className="bracket-match">
-                                            <div 
-                                                className={`bracket-player ${match.winnerId === (player1 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
-                                                onClick={() => player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, player1.studentId)}
-                                            >
-                                                {player1 === 'BYE' ? '부전승' : player1?.name || '...'}
-                                            </div>
-                                            <div 
-                                                className={`bracket-player ${match.winnerId === (player2 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
-                                                onClick={() => player2 && player2 !== 'BYE' && player1 && player1 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, player2.studentId)}
-                                            >
-                                                {player2 === 'BYE' ? '' : player2?.name || '...'}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                ))}
+            <div className="bracket-wrapper">
+                {renderBracketBody()}
             </div>
             {isFinished && <TournamentWinnerDisplay bracketData={bracketData} students={students} />}
             {isPrizeModalOpen && <TournamentPrizeModal isOpen={isPrizeModalOpen} onClose={() => setIsPrizeModalOpen(false)} settings={settings} onAwardPrizes={handleAwardPrizes} />}

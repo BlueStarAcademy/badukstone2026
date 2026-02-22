@@ -15,10 +15,13 @@ interface TournamentSwissViewProps {
     onOpenPlayerManagement: () => void;
 }
 
+const MATCHES_PER_TAB = 8; // 8 matches = 16 players per tab
+
 export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     const { swissData, onStartSwiss, onSetWinner, onGenerateNextRound, onCancelLastRound, onRematchRound, onOpenPrizeModal, onPlayerSwap, onOpenPlayerManagement } = props;
 
     const [draggedItem, setDraggedItem] = useState<{ matchId: string, playerId: string, playerIndex: 0 | 1 } | null>(null);
+    const [roundTab, setRoundTab] = useState(0);
 
     if (!swissData || swissData.status === 'not_started' || swissData.rounds.length === 0) {
         return (
@@ -36,6 +39,14 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     const latestRoundIndex = rounds.length - 1;
     const latestRound = rounds[latestRoundIndex];
     const isRoundComplete = latestRound.every(match => match.winnerId !== null);
+
+    const useRoundTabs = players.length >= 16 && rounds.length >= 1;
+    const displayRounds = useRoundTabs
+        ? [rounds[Math.min(roundTab, rounds.length - 1)]]
+        : rounds;
+    const displayRoundIndices = useRoundTabs
+        ? [Math.min(roundTab, rounds.length - 1)]
+        : rounds.map((_, i) => i);
 
     const getPlayerName = (playerId: string | 'BYE') => {
         if (playerId === 'BYE') return '부전승';
@@ -143,9 +154,22 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                     결과 및 시상
                  </button>
             </div>
+            {useRoundTabs && (
+                <div className="group-tab-buttons" style={{ marginBottom: '1rem' }}>
+                    {rounds.map((_, i) => (
+                        <button
+                            key={i}
+                            className={`tab-btn ${roundTab === i ? 'active' : ''}`}
+                            onClick={() => setRoundTab(i)}
+                        >{i + 1}라운드</button>
+                    ))}
+                </div>
+            )}
             <div className="swiss-layout">
                 <div className="swiss-rounds-container">
-                    {rounds.map((round, roundIndex) => (
+                    {displayRounds.map((round, idx) => {
+                        const roundIndex = displayRoundIndices[idx];
+                        return (
                         <div key={roundIndex} className="swiss-round">
                             <h3 style={{ borderBottom: '2px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem' }}>{roundIndex + 1}라운드</h3>
                             <ul className="swiss-match-list">
@@ -193,7 +217,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                                 )})}
                             </ul>
                         </div>
-                    ))}
+                    );})}
                 </div>
                 <div className="swiss-standings-container">
                     <h3 style={{marginBottom: '1rem', color: 'var(--secondary-color)'}}>실시간 순위</h3>

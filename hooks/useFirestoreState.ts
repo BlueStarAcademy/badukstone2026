@@ -6,6 +6,64 @@ import type { AppData } from '../types';
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T | 'error' | null>>;
 
+/** Firestore는 중첩 배열(array of arrays)을 지원하지 않음. 저장 전 변환 */
+function sanitizeForFirestore<T>(data: T): T {
+    if (!data || typeof data !== 'object') return data;
+    const out = { ...data } as any;
+    // tournamentData.swiss.rounds: SwissMatch[][] → { roundIndex, matches }[]
+    if (out.tournamentData?.swiss?.rounds && Array.isArray(out.tournamentData.swiss.rounds)) {
+        const rounds = out.tournamentData.swiss.rounds;
+        if (rounds.length > 0 && Array.isArray(rounds[0])) {
+            out.tournamentData = { ...out.tournamentData };
+            out.tournamentData.swiss = { ...out.tournamentData.swiss };
+            out.tournamentData.swiss.rounds = rounds.map((r: any[], i: number) =>
+                ({ roundIndex: i, matches: r })
+            );
+        }
+    }
+    // tournamentData.hybrid.preliminaryGroups: SwissMatch[][] → { groupIndex, matches }[]
+    if (out.tournamentData?.hybrid?.preliminaryGroups && Array.isArray(out.tournamentData.hybrid.preliminaryGroups)) {
+        const groups = out.tournamentData.hybrid.preliminaryGroups;
+        if (groups.length > 0 && Array.isArray(groups[0])) {
+            out.tournamentData = out.tournamentData || {};
+            out.tournamentData.hybrid = { ...out.tournamentData.hybrid };
+            out.tournamentData.hybrid.preliminaryGroups = groups.map((g: any[], i: number) =>
+                ({ groupIndex: i, matches: g })
+            );
+        }
+    }
+    return out as T;
+}
+
+/** Firestore에서 로드한 데이터를 앱 구조로 복원 */
+function restoreFromFirestore<T>(data: any): T {
+    if (!data || typeof data !== 'object') return data as T;
+    const out = { ...data };
+    // swiss.rounds: { roundIndex, matches }[] → SwissMatch[][]
+    if (out.tournamentData?.swiss?.rounds && Array.isArray(out.tournamentData.swiss.rounds)) {
+        const rounds = out.tournamentData.swiss.rounds;
+        if (rounds.length > 0 && rounds[0] && typeof rounds[0] === 'object' && 'matches' in rounds[0]) {
+            out.tournamentData = { ...out.tournamentData };
+            out.tournamentData.swiss = { ...out.tournamentData.swiss };
+            out.tournamentData.swiss.rounds = rounds
+                .sort((a: any, b: any) => (a.roundIndex ?? 0) - (b.roundIndex ?? 0))
+                .map((r: any) => r.matches || []);
+        }
+    }
+    // hybrid.preliminaryGroups: { groupIndex, matches }[] → SwissMatch[][]
+    if (out.tournamentData?.hybrid?.preliminaryGroups && Array.isArray(out.tournamentData.hybrid.preliminaryGroups)) {
+        const groups = out.tournamentData.hybrid.preliminaryGroups;
+        if (groups.length > 0 && groups[0] && typeof groups[0] === 'object' && 'matches' in groups[0]) {
+            out.tournamentData = { ...out.tournamentData };
+            out.tournamentData.hybrid = { ...out.tournamentData.hybrid };
+            out.tournamentData.hybrid.preliminaryGroups = groups
+                .sort((a: any, b: any) => (a.groupIndex ?? 0) - (b.groupIndex ?? 0))
+                .map((g: any) => g.matches || []);
+        }
+    }
+    return out as T;
+}
+
 // 반환 타입에 에러 상태 추가
 export function useFirestoreState<T extends AppData>(
     userId: string | null,
@@ -75,10 +133,11 @@ export function useFirestoreState<T extends AppData>(
                 // 지연 효과 시뮬레이션
                 await new Promise(resolve => setTimeout(resolve, 300));
             } else {
-                // Firebase 저장
+                // Firebase 저장 (중첩 배열 → Firestore 호환 포맷으로 변환)
                 const docRef = doc(db, 'users', userId);
+                const sanitized = sanitizeForFirestore(finalData);
                 await setDoc(docRef, {
-                    ...finalData,
+                    ...sanitized,
                     _lastUpdatedAt: Date.now()
                 });
                 console.log(`[Firestore Success] Saved to users/${userId}`);
@@ -133,7 +192,7 @@ export function useFirestoreState<T extends AppData>(
                 let initialData: T;
 
                 if (snap.exists()) {
-                    initialData = mergeData(snap.data());
+                    initialData = mergeData(restoreFromFirestore(snap.data()));
                     console.log(`[Firestore Load] Found data for users/${userId}`);
                 } else {
                     initialData = getInitialData();
@@ -148,7 +207,7 @@ export function useFirestoreState<T extends AppData>(
                     if (isPendingWrite.current || docSnap.metadata.hasPendingWrites) return;
 
                     if (docSnap.exists()) {
-                        const serverData = mergeData(docSnap.data());
+                        const serverData = mergeData(restoreFromFirestore(docSnap.data()));
                         const serverJson = JSON.stringify(serverData);
                         
                         if (JSON.stringify(localTruthRef.current) !== serverJson) {

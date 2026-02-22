@@ -72,6 +72,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const { hybridMode, hybridAdvanceCount, hybridGroupCount } = settings;
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
+    const [groupTab, setGroupTab] = useState(0);
 
     const handleGeneratePreliminaries = () => {
         const participants = (hybridParticipantIds || [])
@@ -306,6 +307,38 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     
     if (data.hybrid && !data.hybrid.bracket) {
         const allMatchesPlayed = data.hybrid.preliminaryGroups.flat().every(m => m.winnerId);
+        const totalParticipants = data.hybrid.players.length;
+        const useGroupTabs = totalParticipants >= 16 && data.hybrid.preliminaryGroups.length >= 2;
+
+        const activeGroupTab = Math.min(groupTab, data.hybrid.preliminaryGroups.length - 1);
+        const content = useGroupTabs ? (
+            <div className="tournament-group-tabs">
+                <div className="group-tab-buttons">
+                    {data.hybrid.preliminaryGroups.map((_, i) => (
+                        <button
+                            key={i}
+                            className={`tab-btn ${activeGroupTab === i ? 'active' : ''}`}
+                            onClick={() => setGroupTab(i)}
+                        >{i + 1}조</button>
+                    ))}
+                </div>
+                <div className="group-tab-content">
+                    <PreliminaryGroupView
+                        group={data.hybrid.preliminaryGroups[activeGroupTab]}
+                        groupIndex={activeGroupTab}
+                        players={data.hybrid.players}
+                        onSetWinner={handleSetPreliminaryWinner}
+                    />
+                </div>
+            </div>
+        ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
+                {data.hybrid.preliminaryGroups.map((group, i) => (
+                    <PreliminaryGroupView key={i} group={group} groupIndex={i} players={data.hybrid!.players} onSetWinner={handleSetPreliminaryWinner} />
+                ))}
+            </div>
+        );
+
         return (
             <div className="tournament-swiss-view">
                  <div className="swiss-controls">
@@ -314,11 +347,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                     <button className="btn danger" onClick={handleReset}>대진표 초기화</button>
                 </div>
                 <p>각 조의 모든 경기를 진행한 후, '본선 대진표 생성' 버튼을 누르세요. 상위 {hybridAdvanceCount || 8}명이 진출합니다.</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
-                    {data.hybrid.preliminaryGroups.map((group, i) => (
-                        <PreliminaryGroupView key={i} group={group} groupIndex={i} players={data.hybrid!.players} onSetWinner={handleSetPreliminaryWinner} />
-                    ))}
-                </div>
+                {content}
             </div>
         );
     }
