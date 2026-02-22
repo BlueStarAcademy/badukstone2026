@@ -78,6 +78,7 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
+    const [bracketTab, setBracketTab] = useState(0);
 
     const handleGenerateBracket = () => {
         const participants = (bracketParticipantIds || [])
@@ -303,7 +304,6 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     const isFinished = bracketData.rounds[bracketData.rounds.length - 1].matches.every(m => m.winnerId);
     const firstRoundCount = bracketData.rounds[0]?.matches.length ?? 0;
     const useBracketTabs = firstRoundCount >= 8 && bracketData.players.length >= 16;
-    const [bracketTab, setBracketTab] = useState(0);
 
     const renderBracketBody = () => {
         const rounds = bracketData.rounds;

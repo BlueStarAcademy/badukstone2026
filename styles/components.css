@@ -237,14 +237,24 @@
 }
 
 /* Forms */
-.form-group { margin-bottom: 1rem; text-align: left; }
-.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+.form-group { margin-bottom: 1.25rem; text-align: left; }
+.form-group label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; color: #334155; }
 .form-group input, .form-group select, .form-group textarea {
     width: 100%;
-    padding: 0.8rem;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
     font-size: 1rem;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+}
+.form-group input::placeholder, .form-group textarea::placeholder {
+    color: #94a3b8;
 }
 
 .settings-form-row {
@@ -259,36 +269,190 @@
 
 .input-group { display: flex; align-items: center; gap: 0.5rem; }
 
-/* Modals */
+/* ========== Modals (통합 고급 디자인) ========== */
 .modal-overlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
+    padding: 1rem;
+    animation: modalOverlayIn 0.2s ease-out;
+}
+
+@keyframes modalOverlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .modal-content {
-    background: white;
-    padding: 2rem;
-    border-radius: var(--radius);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 16px;
     width: 90%;
-    max-width: 600px;
-    max-height: 90vh;
-    overflow-y: auto;
+    max-width: 560px;
+    max-height: 88vh;
     display: flex;
     flex-direction: column;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    animation: modalContentIn 0.25s ease-out;
+    overflow: hidden;
+}
+
+@keyframes modalContentIn {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-content h2 {
+    margin: 0;
+    padding: 1.25rem 1.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Form-based modals (no modal-body) */
+.modal-content > form {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .modal-actions {
-    margin-top: 2rem;
+    padding: 1rem 1.5rem;
     display: flex;
     justify-content: flex-end;
-    gap: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #eee;
+    gap: 0.75rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.modal-actions .btn {
+    min-width: 88px;
+    padding: 0.6rem 1.25rem;
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.modal-actions .btn.primary {
+    box-shadow: 0 2px 4px rgba(74, 144, 226, 0.25);
+}
+
+.modal-actions .btn.danger {
+    box-shadow: 0 2px 4px rgba(231, 76, 60, 0.2);
+}
+
+/* PlayerSwapModal - 선수 교체 */
+.available-student-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.available-student-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.15s, border-color 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.available-student-item:last-child {
+    border-bottom: none;
+}
+
+.available-student-item:hover {
+    background: #f8fafc;
+}
+
+.available-student-item.selected {
+    background: linear-gradient(90deg, rgba(74, 144, 226, 0.12) 0%, rgba(74, 144, 226, 0.06) 100%);
+    border-left: 3px solid var(--primary-color);
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.available-student-item small {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.available-student-item.selected small {
+    color: var(--primary-color);
+    opacity: 0.9;
+}
+
+.available-student-item .check-icon {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.available-student-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.9rem;
+    list-style: none;
+}
+
+/* ConfirmationModal */
+.confirmation-modal-content {
+    padding: 1.5rem;
+}
+
+.confirmation-modal-content p {
+    margin: 0 0 1.5rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #334155;
+}
+
+/* 모달 반응형 */
+@media (max-width: 600px) {
+    .modal-content {
+        max-height: 92vh;
+        border-radius: 12px;
+    }
+    .modal-content h2 {
+        padding: 1rem 1.25rem;
+        font-size: 1.1rem;
+    }
+    .modal-body {
+        padding: 1rem;
+    }
+    .modal-actions {
+        padding: 0.75rem 1rem;
+        flex-wrap: wrap;
+    }
 }
 
 /* Tables */

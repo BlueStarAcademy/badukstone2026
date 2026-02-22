@@ -51,16 +51,21 @@ export const PlayerSwapModal = ({ isOpen, onClose, onSwap, playerToReplace, avai
                             autoFocus
                         />
                     </div>
-                    <ul className="available-student-list" style={{ maxHeight: '40vh' }}>
-                        {filteredStudents.map(student => (
-                            <li 
-                                key={student.id} 
-                                className={`available-student-item ${selectedStudentId === student.id ? 'selected' : ''}`} 
-                                onClick={() => setSelectedStudentId(student.id)}
-                            >
-                                <span>{student.name} <small>({student.rank})</small></span>
-                            </li>
-                        ))}
+                    <ul className="available-student-list">
+                        {filteredStudents.length === 0 ? (
+                            <li className="available-student-empty">검색 결과가 없습니다.</li>
+                        ) : (
+                            filteredStudents.map(student => (
+                                <li 
+                                    key={student.id} 
+                                    className={`available-student-item ${selectedStudentId === student.id ? 'selected' : ''}`} 
+                                    onClick={() => setSelectedStudentId(student.id)}
+                                >
+                                    <span>{student.name} <small>({student.rank})</small></span>
+                                    {selectedStudentId === student.id && <span className="check-icon">✓</span>}
+                                </li>
+                            ))
+                        )}
                     </ul>
                 </div>
                 <div className="modal-actions">

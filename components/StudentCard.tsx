@@ -54,7 +54,12 @@ export const StudentCard: React.FC<StudentCardProps> = ({ student, activeCouponV
                     <span className="max-stone-val">{student.maxStones}</span>
                 </div>
                 <span className="student-card-coupons">
-                    {activeCouponValue > 0 ? `🎟️ 쿠폰 ${activeCouponValue} 스톤` : '\u00A0'}
+                    {activeCouponValue > 0 ? (
+                        <>
+                            <span className="coupon-emoji">🎟️</span>
+                            <span className="coupon-num">{activeCouponValue} 스톤</span>
+                        </>
+                    ) : '\u00A0'}
                 </span>
             </div>
         </div>
