@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useDateKey } from '../hooks/useDateKey';
 import type { Student, Transaction, EventSettings, GachaState, GachaData } from '../types';
 import { ConfirmationModal } from './modals/ConfirmationModal';
 import { EventSettingsModal } from './modals/EventSettingsModal';
@@ -164,6 +165,7 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
 export const EventView = (props: EventViewProps) => {
     const { students, transactions, eventSettings, setEventSettings, onAddTransaction, gachaStates, onGachaPick, onCancelEventEntry, targetStudent, onClearTargetStudent } = props;
     
+    const dateKey = useDateKey();
     const [selectedMonth, setSelectedMonth] = useState<'current' | 'previous'>('current');
     const [resultMessage, setResultMessage] = useState<{ student: StudentWithStats; text: string; } | null>(null);
     const [revealResult, setRevealResult] = useState<{ student: Student; prizeTier: number; prizeAmount: number; pickedNumber: number } | null>(null);
@@ -185,7 +187,7 @@ export const EventView = (props: EventViewProps) => {
         const monthLabel = `${month + 1}월`;
 
         return { startOfMonth, endOfMonth, monthIdentifier, monthLabel };
-    }, [selectedMonth]);
+    }, [selectedMonth, dateKey]);
 
     const studentStats: StudentWithStats[] = useMemo(() => {
         return students.map(student => {
@@ -359,10 +361,10 @@ export const EventView = (props: EventViewProps) => {
                     {studentStats.map(student => (
                         <li key={student.id} className="eligible-student-item">
                             <div className="student-info">
-                                <span style={{fontWeight: 'bold', fontSize: '1.05rem', marginRight: '0.5rem'}}>{student.name}</span>
-                                <small style={{color: '#666'}}>미션 {student.missionsThisMonth}회 / 감점 {student.penaltyCount}회</small>
+                                <span className="student-name" style={{fontWeight: 'bold', fontSize: '1.05rem'}}>{student.name}</span>
+                                <small className="student-stats" style={{color: '#666'}}>미션 {student.missionsThisMonth}회 / 감점 {student.penaltyCount}회</small>
                             </div>
-                            <div className="student-actions" style={{display: 'flex', gap: '0.5rem', alignItems: 'center'}}>
+                            <div className="student-actions">
                                 {student.eventParticipation ? (
                                     <>
                                         <span className="spin-result">

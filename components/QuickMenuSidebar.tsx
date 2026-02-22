@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission, EventSettings } from '../types';
+import { useDateKey } from '../hooks/useDateKey';
 import { ConfirmationModal, ActionButton } from './modals/ConfirmationModal';
 
 
@@ -44,6 +45,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         onUpdateContinuousMissionName, onAdjustMissionCount
     } = props;
 
+    const dateKey = useDateKey();
     const [activeTab, setActiveTab] = useState<SidebarTab>('missions');
     const [sendAmount, setSendAmount] = useState('');
     const [sendReason, setSendReason] = useState('');
@@ -131,7 +133,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         const remaining = Math.max(0, minReq - thisMonthCount);
 
         return { lastMonth: lastMonthCount, thisMonth: thisMonthCount, remaining };
-    }, [student, transactions, eventSettings.minMissionsToSpin]);
+    }, [student, transactions, eventSettings.minMissionsToSpin, dateKey]);
 
     // 이번 달 감점 통계 계산
     const monthlyPenaltyStats = useMemo(() => {
@@ -150,7 +152,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             count: penaltyTxs.length,
             total: Math.abs(penaltyTxs.reduce((sum, t) => sum + t.amount, 0))
         };
-    }, [student, transactions]);
+    }, [student, transactions, dateKey]);
 
     const handleOpenPartialMissionModal = (mission: Mission) => {
         setPartialMission(mission);

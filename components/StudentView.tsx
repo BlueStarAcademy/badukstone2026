@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
-// FIX: Corrected import path for type definitions.
 import type { Student, SortKey, Coupon, GroupSettings, GeneralSettings, Transaction, EventSettings, View } from '../types';
 import { parseRank } from '../utils';
+import { useDateKey } from '../hooks/useDateKey';
 import { StudentCard } from './StudentCard';
 
 interface StudentViewProps {
@@ -21,6 +21,7 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
     const [sortKey, setSortKey] = useState<SortKey>('rank');
     const [activeGroup, setActiveGroup] = useState('전체');
     const [searchTerm, setSearchTerm] = useState('');
+    const dateKey = useDateKey();
 
     const { startOfMonth, endOfMonth, startOfPreviousMonth, endOfPreviousMonth, currentMonthIdentifier, previousMonthIdentifier } = useMemo(() => {
         const now = new Date();
@@ -43,7 +44,7 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
         const endOfPreviousMonth = new Date(previousYear, previousMonth + 1, 0, 23, 59, 59);
         
         return { startOfMonth, endOfMonth, startOfPreviousMonth, endOfPreviousMonth, currentMonthIdentifier, previousMonthIdentifier };
-    }, []);
+    }, [dateKey]);
 
     const eventParticipationStatus = useMemo(() => {
         const statusMap = new Map<string, {
