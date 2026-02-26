@@ -86,15 +86,17 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
             ).length;
             const penaltyCountThisMonth = storedThis?.penalties !== undefined ? storedThis.penalties : penaltyThisMonthFromTx;
             
-            const hasParticipatedThisMonth = transactions.some(t => {
-                if (t.studentId !== student.id || (t.type !== 'roulette' && t.type !== 'gacha') || t.status === 'cancelled') {
-                    return false;
-                }
-                if (t.eventMonth) {
-                    return t.eventMonth === currentMonthIdentifier;
-                }
-                return new Date(t.timestamp) >= startOfMonth && new Date(t.timestamp) <= endOfMonth;
-            });
+            const hasParticipatedThisMonth =
+                storedThis?.participated === true ||
+                transactions.some(t => {
+                    if (t.studentId !== student.id || (t.type !== 'roulette' && t.type !== 'gacha') || t.status === 'cancelled') {
+                        return false;
+                    }
+                    if (t.eventMonth) {
+                        return t.eventMonth === currentMonthIdentifier;
+                    }
+                    return new Date(t.timestamp) >= startOfMonth && new Date(t.timestamp) <= endOfMonth;
+                });
 
             // Previous Month Stats
             const missionsLastMonthFromTx = transactions.filter(t =>
@@ -120,15 +122,17 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
             ).length;
             const penaltyCountLastMonth = storedLast?.penalties !== undefined ? storedLast.penalties : penaltyLastMonthFromTx;
 
-            const hasParticipatedLastMonth = transactions.some(t => {
-                 if (t.studentId !== student.id || (t.type !== 'roulette' && t.type !== 'gacha') || t.status === 'cancelled') {
-                    return false;
-                }
-                if (t.eventMonth) {
-                    return t.eventMonth === previousMonthIdentifier;
-                }
-                return new Date(t.timestamp) >= startOfPreviousMonth && new Date(t.timestamp) <= endOfPreviousMonth;
-            });
+            const hasParticipatedLastMonth =
+                storedLast?.participated === true ||
+                transactions.some(t => {
+                    if (t.studentId !== student.id || (t.type !== 'roulette' && t.type !== 'gacha') || t.status === 'cancelled') {
+                        return false;
+                    }
+                    if (t.eventMonth) {
+                        return t.eventMonth === previousMonthIdentifier;
+                    }
+                    return new Date(t.timestamp) >= startOfPreviousMonth && new Date(t.timestamp) <= endOfPreviousMonth;
+                });
             
             statusMap.set(student.id, {
                 missionsThisMonth,

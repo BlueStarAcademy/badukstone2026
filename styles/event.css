@@ -75,13 +75,39 @@
 
 .gacha-cell.picked {
     background: #1a252f;
-    color: #34495e;
+    color: #95a5a6;
     cursor: default;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     border: none;
     border-bottom: none;
     box-shadow: inset 3px 3px 8px rgba(0,0,0,0.8);
     transform: none;
+}
+
+.gacha-cell-picked {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1em;
+    line-height: 1.1;
+    min-width: 0;
+}
+
+.gacha-cell-tier {
+    font-weight: 800;
+    color: #bdc3c7;
+    font-size: 1em;
+}
+
+.gacha-cell-picker {
+    font-weight: 600;
+    color: #7f8c8d;
+    font-size: 0.75em;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .gacha-cell.result {

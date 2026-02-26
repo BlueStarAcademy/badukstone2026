@@ -86,15 +86,27 @@ const GachaRevealModal = ({ result, onClose }: GachaRevealModalProps) => {
     );
 };
 
-const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickingStudentId, remainingPrizes }: { 
+const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickingStudentId, remainingPrizes, students }: { 
     gachaData: GachaData, 
     gachaResult: { pickedNumber: number, prizeTier: number } | null, 
     eventSettings: EventSettings, 
     onCellClick: (num: number) => void, 
     pickingStudentId: string | null,
-    remainingPrizes: Record<keyof EventSettings['gachaPrizeCounts'], number> 
+    remainingPrizes: Record<keyof EventSettings['gachaPrizeCounts'], number>,
+    students: Student[]
 }) => {
     const pickedSet = useMemo(() => new Set(Object.values(gachaData.pickedNumbers).map(Number)), [gachaData.pickedNumbers]);
+
+    /** 번호별로 뽑은 사람 이름 (studentId -> number 이므로 number -> name 역매핑) */
+    const pickerNameByNumber = useMemo(() => {
+        const map: Record<number, string> = {};
+        Object.entries(gachaData.pickedNumbers).forEach(([studentId, num]) => {
+            const n = Number(num);
+            const name = students.find(s => s.id === studentId)?.name ?? studentId;
+            map[n] = name;
+        });
+        return map;
+    }, [gachaData.pickedNumbers, students]);
 
     const getTierForNumber = (num: number): number | string => {
         if (!gachaData.prizeMap || gachaData.prizeMap.length === 0) return '?';
@@ -109,6 +121,7 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
                     {Array.from({ length: 100 }, (_, i) => i + 1).map(num => {
                         const isPicked = pickedSet.has(num);
                         const isClickable = !isPicked && !!pickingStudentId;
+                        const pickerName = pickerNameByNumber[num];
 
                         return (
                             <div
@@ -118,8 +131,16 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
                                 role={isClickable ? 'button' : undefined}
                                 tabIndex={isClickable ? 0 : -1}
                                 onKeyPress={isClickable ? (e) => e.key === 'Enter' && onCellClick(num) : undefined}
+                                title={isPicked && pickerName ? `${num}번: ${pickerName}` : undefined}
                             >
-                                {isPicked ? `${getTierForNumber(num)}등` : num}
+                                {isPicked ? (
+                                    <span className="gacha-cell-picked">
+                                        <span className="gacha-cell-tier">{getTierForNumber(num)}등</span>
+                                        <span className="gacha-cell-picker">{pickerName ?? ''}</span>
+                                    </span>
+                                ) : (
+                                    num
+                                )}
                             </div>
                         );
                     })}
@@ -229,7 +250,13 @@ export const EventView = (props: EventViewProps) => {
                 return txDate >= startOfMonth && txDate <= endOfMonth;
             });
 
-            const eventParticipation = eventTx && (eventTx.type === 'roulette' || eventTx.type === 'gacha') ? { type: eventTx.type, amount: eventTx.amount } : null;
+            const storedParticipated = storedForMonth?.participated === true;
+            const eventParticipation =
+                eventTx && (eventTx.type === 'roulette' || eventTx.type === 'gacha')
+                    ? { type: eventTx.type, amount: eventTx.amount }
+                    : storedParticipated
+                        ? { type: 'gacha' as const, amount: 0 }
+                        : null;
 
             const minReq = eventSettings.minMissionsToSpin ?? 10;
             const maxAllowedPenalties = eventSettings.maxPenalties ?? 999;
@@ -351,7 +378,8 @@ export const EventView = (props: EventViewProps) => {
                     eventSettings={eventSettings} 
                     onCellClick={handleCellClick} 
                     pickingStudentId={pickingStudentId} 
-                    remainingPrizes={remainingPrizes} 
+                    remainingPrizes={remainingPrizes}
+                    students={students}
                 />
             </div>
             

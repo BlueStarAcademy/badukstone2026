@@ -42,7 +42,19 @@ function applyEventMonthlyStatsDelta(
     month[studentId] = {
         missions: Math.max(0, baseMissions + (delta.missions ?? 0)),
         penalties: Math.max(0, basePenalties + (delta.penalties ?? 0)),
+        ...(student.participated !== undefined && { participated: student.participated }),
     };
+    next[monthKey] = month;
+    return next;
+}
+
+/** 이벤트 참여 여부만 설정 (트랜잭션 압축 시에도 참여 완료 유지) */
+function setEventParticipated(prev: EventMonthlyStats | undefined, monthKey: string, studentId: string, value: boolean): EventMonthlyStats {
+    const next: EventMonthlyStats = { ...(prev || {}) };
+    if (!next[monthKey]) next[monthKey] = {};
+    const month = { ...next[monthKey] };
+    const student = month[studentId] || { missions: 0, penalties: 0 };
+    month[studentId] = { ...student, participated: value };
     next[monthKey] = month;
     return next;
 }
@@ -441,6 +453,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const updatedStudents = [...prev.students];
             updatedStudents[studentIdx] = { ...student, stones: newStones };
 
+            const newEventMonthlyStats = setEventParticipated(prev.eventMonthlyStats, monthIdentifier, studentId, true);
+
             return {
                 ...prev,
                 students: updatedStudents,
@@ -454,7 +468,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             [studentId]: pickedNumber
                         }
                     }
-                }
+                },
+                eventMonthlyStats: newEventMonthlyStats,
             };
         });
 
@@ -500,6 +515,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const newPickedNumbers = { ...gachaData.pickedNumbers };
             delete newPickedNumbers[studentId];
 
+            const newEventMonthlyStats = setEventParticipated(prev.eventMonthlyStats, monthIdentifier, studentId, false);
+
             return {
                 ...prev,
                 students: updatedStudents,
@@ -510,7 +527,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                         ...gachaData,
                         pickedNumbers: newPickedNumbers
                     }
-                }
+                },
+                eventMonthlyStats: newEventMonthlyStats,
             };
         });
     }, [setAppState]);
@@ -592,6 +610,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             let updatedStudents = [...prev.students];
             let newGachaState = prev.gachaState;
+            let newEventMonthlyStats = prev.eventMonthlyStats;
 
             if (transaction.status === 'active') {
                 const studentIdx = updatedStudents.findIndex(s => s.id === transaction.studentId);
@@ -610,7 +629,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     updatedStudents[studentIdx] = { ...student, stones: newStones };
                 }
 
-                // [추가] 이벤트 내역 삭제 시 뽑기판 점유 해제
+                // [추가] 이벤트 내역 삭제 시 뽑기판 점유 해제 + 참여 여부 해제
                 if (transaction.type === 'gacha' && transaction.eventMonth) {
                     const month = transaction.eventMonth;
                     if (prev.gachaState[month]) {
@@ -626,7 +645,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     }
                 }
 
-                let newEventMonthlyStats = prev.eventMonthlyStats;
+                if (transaction.type === 'gacha' && transaction.eventMonth) {
+                    newEventMonthlyStats = setEventParticipated(prev.eventMonthlyStats, transaction.eventMonth, transaction.studentId, false);
+                }
                 const monthKey = getMonthKey(transaction.timestamp);
                 if (transaction.type === 'mission' || transaction.type === 'attendance' || transaction.type === 'special_mission') {
                     newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { missions: -1 });
@@ -650,7 +671,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 ...prev, 
                 students: updatedStudents, 
                 transactions: prev.transactions.filter(t => t.id !== transactionId),
-                gachaState: newGachaState
+                gachaState: newGachaState,
+                ...(newEventMonthlyStats !== prev.eventMonthlyStats && { eventMonthlyStats: newEventMonthlyStats }),
             };
         });
     }, [setAppState]);
