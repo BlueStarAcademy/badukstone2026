@@ -4,7 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firebaseError, isDemoMode } from './firebase';
 import { useFirestoreState } from './hooks/useFirestoreState';
 import { INITIAL_STUDENTS, INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from './data/initialData';
-import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, SpecialMission, EventSettings } from './types';
+import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, SpecialMission, EventSettings, EventMonthlyStats } from './types';
 import { generateId, getGroupForRank } from './utils';
 import { calculateNewElo } from './utils/elo';
 
@@ -20,6 +20,52 @@ import { AccountSettingsModal } from './components/modals/SettingsModal';
 
 const MAX_TRANSACTIONS = 1000;
 const MAX_CHESS_MATCHES = 500;
+
+function getMonthKey(timestamp: string): string {
+    const d = new Date(timestamp);
+    return `${d.getFullYear()}-${d.getMonth()}`;
+}
+
+function applyEventMonthlyStatsDelta(
+    prev: EventMonthlyStats | undefined,
+    monthKey: string,
+    studentId: string,
+    delta: { missions?: number; penalties?: number },
+    baseFromTx?: { missions?: number; penalties?: number }
+): EventMonthlyStats {
+    const next: EventMonthlyStats = { ...(prev || {}) };
+    if (!next[monthKey]) next[monthKey] = {};
+    const month = { ...next[monthKey] };
+    const student = month[studentId] || { missions: 0, penalties: 0 };
+    const baseMissions = baseFromTx?.missions ?? student.missions ?? 0;
+    const basePenalties = baseFromTx?.penalties ?? student.penalties ?? 0;
+    month[studentId] = {
+        missions: Math.max(0, baseMissions + (delta.missions ?? 0)),
+        penalties: Math.max(0, basePenalties + (delta.penalties ?? 0)),
+    };
+    next[monthKey] = month;
+    return next;
+}
+
+function countMonthMissionPenaltyFromTx(transactions: Transaction[], monthKey: string, studentId: string): { missions: number; penalties: number } {
+    const [y, m] = monthKey.split('-').map(Number);
+    const start = new Date(y, m, 1);
+    const end = new Date(y, m + 1, 0, 23, 59, 59);
+    const missions = transactions.filter(t =>
+        t.studentId === studentId &&
+        (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
+        t.status === 'active' &&
+        new Date(t.timestamp) >= start &&
+        new Date(t.timestamp) <= end
+    ).reduce((acc, t) => acc + (t.type === 'mission_adjustment' ? (t.missionCountDelta || 0) : 1), 0);
+    const penalties = transactions.filter(t =>
+        t.studentId === studentId &&
+        t.type === 'penalty' &&
+        new Date(t.timestamp) >= start &&
+        new Date(t.timestamp) <= end
+    ).length;
+    return { missions, penalties };
+}
 
 const getInitialData = (): AppData => ({
     groupSettings: INITIAL_GROUP_SETTINGS,
@@ -41,6 +87,7 @@ const getInitialData = (): AppData => ({
     lastBirthdayCouponMonth: null,
     individualMissionSeries: [],
     studentMissionProgress: {},
+    eventMonthlyStats: {},
 });
 
 const AppLoader = ({ message, showLogout, onLogout }: { message: string, showLogout?: boolean, onLogout?: () => void }) => (
@@ -115,6 +162,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    /** 지난달 이벤트 버튼으로 진입 시 EventView에서 '지난 달' 탭 자동 선택 */
+    const [eventOpenForMonth, setEventOpenForMonth] = useState<'current' | 'previous' | null>(null);
 
     const students = useMemo(() => (appState && appState !== 'error') ? appState.students || [] : [], [appState]);
     const transactions = useMemo(() => (appState && appState !== 'error') ? appState.transactions || [] : [], [appState]);
@@ -133,6 +182,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const tournamentSettings = (appState && appState !== 'error') ? appState.tournamentSettings || INITIAL_TOURNAMENT_SETTINGS : INITIAL_TOURNAMENT_SETTINGS;
     const chessMatches = (appState && appState !== 'error') ? appState.chessMatches || [] : [];
     const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
+    const eventMonthlyStats = (appState && appState !== 'error') ? appState.eventMonthlyStats : undefined;
 
     const freshSelectedStudent = useMemo(() => {
         if (!selectedStudent) return null;
@@ -212,10 +262,20 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
 
+            let newEventMonthlyStats = prev.eventMonthlyStats;
+            const monthKey = getMonthKey(transaction.timestamp);
+            const baseFromTx = countMonthMissionPenaltyFromTx(prev.transactions, monthKey, studentId);
+            if (type === 'mission' || type === 'attendance' || type === 'special_mission') {
+                newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { missions: 1 }, baseFromTx);
+            } else if (type === 'penalty') {
+                newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { penalties: 1 }, baseFromTx);
+            }
+
             return { 
                 ...prev, 
                 students: updatedStudents, 
-                transactions: updatedTransactions 
+                transactions: updatedTransactions,
+                ...(newEventMonthlyStats !== prev.eventMonthlyStats && { eventMonthlyStats: newEventMonthlyStats }),
             };
         });
     }, [setAppState]);
@@ -245,10 +305,14 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             };
 
             const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
+            const monthKey = getMonthKey(timestamp);
+            const baseFromTx = countMonthMissionPenaltyFromTx(prev.transactions, monthKey, studentId);
+            const newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { missions: delta }, baseFromTx);
 
             return { 
                 ...prev, 
-                transactions: updatedTransactions 
+                transactions: updatedTransactions,
+                eventMonthlyStats: newEventMonthlyStats,
             };
         });
     }, [setAppState]);
@@ -480,6 +544,18 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             updatedTransactions[txIdx] = { ...transaction, status: 'cancelled' };
             updatedStudents[studentIdx] = { ...student, stones: newStones };
 
+            let newEventMonthlyStats = prev.eventMonthlyStats;
+            const monthKey = getMonthKey(transaction.timestamp);
+            if (transaction.status === 'active') {
+                if (transaction.type === 'mission' || transaction.type === 'attendance' || transaction.type === 'special_mission') {
+                    newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { missions: -1 });
+                } else if (transaction.type === 'mission_adjustment') {
+                    newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { missions: -(transaction.missionCountDelta || 0) });
+                } else if (transaction.type === 'penalty') {
+                    newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { penalties: -1 });
+                }
+            }
+
             // [추가] 이벤트(뽑기) 내역인 경우 뽑기판 데이터도 동기화하여 취소
             let newGachaState = prev.gachaState;
             if (transaction.type === 'gacha' && transaction.eventMonth) {
@@ -501,7 +577,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 ...prev, 
                 students: updatedStudents, 
                 transactions: updatedTransactions,
-                gachaState: newGachaState
+                gachaState: newGachaState,
+                ...(newEventMonthlyStats !== prev.eventMonthlyStats && { eventMonthlyStats: newEventMonthlyStats }),
             };
         });
     }, [setAppState]);
@@ -547,6 +624,25 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             }
                         };
                     }
+                }
+
+                let newEventMonthlyStats = prev.eventMonthlyStats;
+                const monthKey = getMonthKey(transaction.timestamp);
+                if (transaction.type === 'mission' || transaction.type === 'attendance' || transaction.type === 'special_mission') {
+                    newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { missions: -1 });
+                } else if (transaction.type === 'mission_adjustment') {
+                    newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { missions: -(transaction.missionCountDelta || 0) });
+                } else if (transaction.type === 'penalty') {
+                    newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { penalties: -1 });
+                }
+                if (newEventMonthlyStats !== prev.eventMonthlyStats) {
+                    return { 
+                        ...prev, 
+                        students: updatedStudents, 
+                        transactions: prev.transactions.filter(t => t.id !== transactionId),
+                        gachaState: newGachaState,
+                        eventMonthlyStats: newEventMonthlyStats,
+                    };
                 }
             }
 
@@ -698,10 +794,11 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     {view === 'student' && (
                         <StudentView 
                             students={students} coupons={coupons} transactions={transactions}
-                            groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings}
+                            groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings} eventMonthlyStats={eventMonthlyStats}
                             setView={setView}
                             onStudentClick={(s) => { setSelectedStudent(s); setIsSidebarOpen(true); }}
-                            onNavigateToEvent={(s) => { setSelectedStudent(s); setView('event'); }}
+                            onNavigateToEvent={(s) => { setEventOpenForMonth(null); setSelectedStudent(s); setView('event'); }}
+                            onNavigateToEventLastMonth={(s) => { setEventOpenForMonth('previous'); setSelectedStudent(s); setView('event'); }}
                         />
                     )}
                     {view === 'chess' && (
@@ -726,9 +823,11 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     )}
                     {view === 'event' && (
                         <EventView 
-                            students={students} transactions={transactions} eventSettings={eventSettings} 
+                            students={students} transactions={transactions} eventMonthlyStats={eventMonthlyStats} eventSettings={eventSettings} 
                             gachaStates={gachaState} targetStudent={freshSelectedStudent}
+                            initialMonth={eventOpenForMonth}
                             onClearTargetStudent={() => setSelectedStudent(null)}
+                            onInitialMonthApplied={() => setEventOpenForMonth(null)}
                             setEventSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, eventSettings: typeof s === 'function' ? s(prev!.eventSettings) : s }))}
                             onAddTransaction={handleAddTransaction}
                             onGachaPick={handleGachaPick} 
@@ -811,7 +910,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             <QuickMenuSidebar 
                 isOpen={isSidebarOpen} student={freshSelectedStudent} students={students} missions={missions} specialMissions={specialMissions}
                 shopItems={appState && appState !== 'error' ? appState.shopItems : []} shopSettings={shopSettings} shopCategories={shopCategories} coupons={coupons} transactions={transactions}
-                groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings}
+                groupSettings={groupSettings} generalSettings={generalSettings} eventSettings={eventSettings} eventMonthlyStats={eventMonthlyStats}
                 onClose={() => setIsSidebarOpen(false)}
                 onAddTransaction={handleAddTransaction} onUpdateTransaction={(tx) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, transactions: prev!.transactions.map(t => t.id === tx.id ? tx : t) }))} onDeleteCoupon={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, coupons: prev!.coupons.filter(c => c.id !== id) }))}
                 onPurchase={handlePurchase} onCancelTransaction={handleCancelTransaction} onDeleteTransaction={handleDeleteTransaction}

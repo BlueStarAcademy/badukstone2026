@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission, EventSettings } from '../types';
+import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission, EventSettings, EventMonthlyStats } from '../types';
 import { useDateKey } from '../hooks/useDateKey';
 import { ConfirmationModal, ActionButton } from './modals/ConfirmationModal';
 
@@ -19,6 +19,7 @@ interface QuickMenuSidebarProps {
     groupSettings: GroupSettings;
     generalSettings: GeneralSettings;
     eventSettings: EventSettings;
+    eventMonthlyStats?: EventMonthlyStats;
     onClose: () => void;
     onAddTransaction: (studentId: string, type: Transaction['type'], description: string, amount: number, eventDetails?: { eventMonth: string }) => void;
     onUpdateTransaction: (transaction: Transaction) => void;
@@ -39,7 +40,7 @@ interface QuickMenuSidebarProps {
 export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const { 
         student, students, missions, specialMissions, shopItems, shopSettings, shopCategories, coupons, transactions, 
-        isOpen, groupSettings, generalSettings, eventSettings, onClose, onAddTransaction, onUpdateTransaction, 
+        isOpen, groupSettings, generalSettings, eventSettings, eventMonthlyStats, onClose, onAddTransaction, onUpdateTransaction, 
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
         onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission,
         onUpdateContinuousMissionName, onAdjustMissionCount
@@ -112,6 +113,11 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         const firstOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lastOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
 
+        const thisMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+        const lastMonthKey = `${firstOfLastMonth.getFullYear()}-${firstOfLastMonth.getMonth()}`;
+        const storedThis = eventMonthlyStats?.[thisMonthKey]?.[student.id];
+        const storedLast = eventMonthlyStats?.[lastMonthKey]?.[student.id];
+
         const filterMissions = (start: Date, end: Date) => {
             return transactions.filter(t => 
                 t.studentId === student.id &&
@@ -127,19 +133,23 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             }, 0);
         };
 
-        const thisMonthCount = filterMissions(firstOfThisMonth, new Date());
-        const lastMonthCount = filterMissions(firstOfLastMonth, lastOfLastMonth);
+        const thisMonthFromTx = filterMissions(firstOfThisMonth, new Date());
+        const lastMonthFromTx = filterMissions(firstOfLastMonth, lastOfLastMonth);
+        const thisMonthCount = storedThis?.missions !== undefined ? storedThis.missions : thisMonthFromTx;
+        const lastMonthCount = storedLast?.missions !== undefined ? storedLast.missions : lastMonthFromTx;
         const minReq = eventSettings.minMissionsToSpin ?? 10;
         const remaining = Math.max(0, minReq - thisMonthCount);
 
         return { lastMonth: lastMonthCount, thisMonth: thisMonthCount, remaining };
-    }, [student, transactions, eventSettings.minMissionsToSpin, dateKey]);
+    }, [student, transactions, eventMonthlyStats, eventSettings.minMissionsToSpin, dateKey]);
 
     // 이번 달 감점 통계 계산
     const monthlyPenaltyStats = useMemo(() => {
         if (!student) return { count: 0, total: 0 };
         const now = new Date();
         const firstOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const thisMonthKey = `${now.getFullYear()}-${now.getMonth()}`;
+        const stored = eventMonthlyStats?.[thisMonthKey]?.[student.id];
         
         const penaltyTxs = transactions.filter(t => 
             t.studentId === student.id &&
@@ -147,12 +157,13 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             t.status === 'active' &&
             new Date(t.timestamp) >= firstOfThisMonth
         );
+        const count = stored?.penalties !== undefined ? stored.penalties : penaltyTxs.length;
 
         return {
-            count: penaltyTxs.length,
+            count,
             total: Math.abs(penaltyTxs.reduce((sum, t) => sum + t.amount, 0))
         };
-    }, [student, transactions, dateKey]);
+    }, [student, transactions, eventMonthlyStats, dateKey]);
 
     const handleOpenPartialMissionModal = (mission: Mission) => {
         setPartialMission(mission);

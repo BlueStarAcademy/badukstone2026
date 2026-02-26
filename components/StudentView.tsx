@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Student, SortKey, Coupon, GroupSettings, GeneralSettings, Transaction, EventSettings, View } from '../types';
+import type { Student, SortKey, Coupon, GroupSettings, GeneralSettings, Transaction, EventSettings, EventMonthlyStats, View } from '../types';
 import { parseRank } from '../utils';
 import { useDateKey } from '../hooks/useDateKey';
 import { StudentCard } from './StudentCard';
@@ -10,14 +10,16 @@ interface StudentViewProps {
     coupons: Coupon[];
     onStudentClick: (student: Student) => void;
     onNavigateToEvent: (student: Student) => void;
+    onNavigateToEventLastMonth: (student: Student) => void;
     groupSettings: GroupSettings;
     generalSettings: GeneralSettings;
     transactions: Transaction[];
     eventSettings: EventSettings;
+    eventMonthlyStats?: EventMonthlyStats;
     setView: (view: View) => void;
 }
 
-export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEvent, groupSettings, generalSettings, transactions, eventSettings, setView }: StudentViewProps) => {
+export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEvent, onNavigateToEventLastMonth, groupSettings, generalSettings, transactions, eventSettings, eventMonthlyStats, setView }: StudentViewProps) => {
     const [sortKey, setSortKey] = useState<SortKey>('rank');
     const [activeGroup, setActiveGroup] = useState('전체');
     const [searchTerm, setSearchTerm] = useState('');
@@ -57,8 +59,11 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
         }>();
 
         students.forEach(student => {
+            const storedThis = eventMonthlyStats?.[currentMonthIdentifier]?.[student.id];
+            const storedLast = eventMonthlyStats?.[previousMonthIdentifier]?.[student.id];
+
             // Current Month Stats
-            const missionsThisMonth = transactions.filter(t => 
+            const missionsThisMonthFromTx = transactions.filter(t => 
                 t.studentId === student.id &&
                 (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
                 new Date(t.timestamp) >= startOfMonth &&
@@ -70,14 +75,16 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                 }
                 return acc + 1;
             }, 0);
+            const missionsThisMonth = storedThis?.missions !== undefined ? storedThis.missions : missionsThisMonthFromTx;
 
-            const penaltyCountThisMonth = transactions.filter(t =>
+            const penaltyThisMonthFromTx = transactions.filter(t =>
                 t.studentId === student.id &&
                 t.type === 'penalty' &&
                 new Date(t.timestamp) >= startOfMonth &&
                 new Date(t.timestamp) <= endOfMonth &&
                 t.status === 'active'
             ).length;
+            const penaltyCountThisMonth = storedThis?.penalties !== undefined ? storedThis.penalties : penaltyThisMonthFromTx;
             
             const hasParticipatedThisMonth = transactions.some(t => {
                 if (t.studentId !== student.id || (t.type !== 'roulette' && t.type !== 'gacha') || t.status === 'cancelled') {
@@ -90,7 +97,7 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
             });
 
             // Previous Month Stats
-            const missionsLastMonth = transactions.filter(t =>
+            const missionsLastMonthFromTx = transactions.filter(t =>
                 t.studentId === student.id &&
                 (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
                 new Date(t.timestamp) >= startOfPreviousMonth &&
@@ -102,14 +109,16 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                 }
                 return acc + 1;
             }, 0);
+            const missionsLastMonth = storedLast?.missions !== undefined ? storedLast.missions : missionsLastMonthFromTx;
 
-            const penaltyCountLastMonth = transactions.filter(t =>
+            const penaltyLastMonthFromTx = transactions.filter(t =>
                 t.studentId === student.id &&
                 t.type === 'penalty' &&
                 new Date(t.timestamp) >= startOfPreviousMonth &&
                 new Date(t.timestamp) <= endOfPreviousMonth &&
                 t.status === 'active'
             ).length;
+            const penaltyCountLastMonth = storedLast?.penalties !== undefined ? storedLast.penalties : penaltyLastMonthFromTx;
 
             const hasParticipatedLastMonth = transactions.some(t => {
                  if (t.studentId !== student.id || (t.type !== 'roulette' && t.type !== 'gacha') || t.status === 'cancelled') {
@@ -131,7 +140,7 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
             });
         });
         return statusMap;
-    }, [students, transactions, startOfMonth, endOfMonth, startOfPreviousMonth, endOfPreviousMonth, currentMonthIdentifier, previousMonthIdentifier]);
+    }, [students, transactions, eventMonthlyStats, startOfMonth, endOfMonth, startOfPreviousMonth, endOfPreviousMonth, currentMonthIdentifier, previousMonthIdentifier]);
 
 
     const sortedStudents = useMemo(() => {
@@ -207,20 +216,17 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                     const minReq = eventSettings.minMissionsToSpin ?? 10;
                     const maxPenalties = eventSettings.maxPenalties ?? 999;
 
-                    // Eligibility for THIS month: Met conditions AND not participated this month
-                    const canParticipateThisMonth = 
-                        stats.missionsThisMonth >= minReq && 
+                    // 이번 달: 조건 충족 + 아직 미참여
+                    const showThisMonthEventButton =
+                        stats.missionsThisMonth >= minReq &&
                         stats.penaltyCountThisMonth < maxPenalties &&
                         !stats.hasParticipatedThisMonth;
 
-                    // Eligibility for LAST month: Met conditions THEN AND not participated THEN
-                    const canParticipateLastMonth = 
-                        stats.missionsLastMonth >= minReq && 
+                    // 지난달: 당시 조건 충족했으나 미참여 → 지난달 이벤트 버튼 (참여 후에는 사라짐)
+                    const showLastMonthEventButton =
+                        stats.missionsLastMonth >= minReq &&
                         stats.penaltyCountLastMonth < maxPenalties &&
                         !stats.hasParticipatedLastMonth;
-
-                    // Show event button only if eligible for either current or previous month's missed turn
-                    const showEventButton = canParticipateThisMonth || canParticipateLastMonth;
 
                     return (
                         <StudentCard 
@@ -229,9 +235,11 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                             groupName={groupSettings[student.group]?.name || student.group}
                             activeCouponValue={activeCouponValueByStudent.get(student.id) || 0}
                             onClick={() => onStudentClick(student)} 
-                            isEventEligible={showEventButton}
-                            hasParticipatedInEvent={stats.hasParticipatedThisMonth}
+                            hasParticipatedThisMonth={stats.hasParticipatedThisMonth}
+                            showThisMonthEventButton={showThisMonthEventButton}
+                            showLastMonthEventButton={showLastMonthEventButton}
                             onEventClick={() => onNavigateToEvent(student)}
+                            onLastMonthEventClick={() => onNavigateToEventLastMonth(student)}
                         />
                     );
                 })}

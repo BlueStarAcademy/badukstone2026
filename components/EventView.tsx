@@ -1,17 +1,21 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useDateKey } from '../hooks/useDateKey';
-import type { Student, Transaction, EventSettings, GachaState, GachaData } from '../types';
+import type { Student, Transaction, EventSettings, GachaState, GachaData, EventMonthlyStats } from '../types';
 import { ConfirmationModal } from './modals/ConfirmationModal';
 import { EventSettingsModal } from './modals/EventSettingsModal';
 
 interface EventViewProps {
     students: Student[];
     transactions: Transaction[];
+    eventMonthlyStats?: EventMonthlyStats;
     eventSettings: EventSettings;
     gachaStates: GachaState;
     targetStudent: Student | null;
+    /** 지난달 이벤트 버튼으로 진입 시 '지난 달' 탭 자동 선택 */
+    initialMonth?: 'current' | 'previous' | null;
     onClearTargetStudent: () => void;
+    onInitialMonthApplied?: () => void;
     setEventSettings: React.Dispatch<React.SetStateAction<EventSettings>>;
     onAddTransaction: (studentId: string, type: 'roulette' | 'gacha', description: string, amount: number, eventDetails?: { eventMonth: string }) => void;
     onGachaPick: (studentId: string, pickedNumber: number, monthIdentifier: string) => { pickedNumber: number, prizeTier: number, prizeAmount: number } | undefined;
@@ -163,7 +167,7 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
 }
 
 export const EventView = (props: EventViewProps) => {
-    const { students, transactions, eventSettings, setEventSettings, onAddTransaction, gachaStates, onGachaPick, onCancelEventEntry, targetStudent, onClearTargetStudent } = props;
+    const { students, transactions, eventMonthlyStats, eventSettings, setEventSettings, onAddTransaction, gachaStates, onGachaPick, onCancelEventEntry, targetStudent, initialMonth, onClearTargetStudent, onInitialMonthApplied } = props;
     
     const dateKey = useDateKey();
     const [selectedMonth, setSelectedMonth] = useState<'current' | 'previous'>('current');
@@ -191,7 +195,8 @@ export const EventView = (props: EventViewProps) => {
 
     const studentStats: StudentWithStats[] = useMemo(() => {
         return students.map(student => {
-            const missionsThisMonth = transactions.filter(t => 
+            const storedForMonth = eventMonthlyStats?.[monthIdentifier]?.[student.id];
+            const missionsFromTx = transactions.filter(t => 
                 t.studentId === student.id &&
                 (t.type === 'mission' || t.type === 'attendance' || t.type === 'special_mission' || t.type === 'mission_adjustment') &&
                 new Date(t.timestamp) >= startOfMonth &&
@@ -203,13 +208,15 @@ export const EventView = (props: EventViewProps) => {
                 }
                 return acc + 1;
             }, 0);
+            const missionsThisMonth = storedForMonth?.missions !== undefined ? storedForMonth.missions : missionsFromTx;
 
-            const penaltyCount = transactions.filter(t =>
+            const penaltiesFromTx = transactions.filter(t =>
                 t.studentId === student.id &&
                 t.type === 'penalty' &&
                 new Date(t.timestamp) >= startOfMonth &&
                 new Date(t.timestamp) <= endOfMonth
             ).length;
+            const penaltyCount = storedForMonth?.penalties !== undefined ? storedForMonth.penalties : penaltiesFromTx;
             
             const eventTx = transactions.find(t => {
                 if (t.studentId !== student.id || (t.type !== 'roulette' && t.type !== 'gacha') || t.status === 'cancelled') {
@@ -247,8 +254,16 @@ export const EventView = (props: EventViewProps) => {
                 eventParticipation
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
-    }, [students, transactions, eventSettings.minMissionsToSpin, eventSettings.maxPenalties, startOfMonth, endOfMonth, monthIdentifier]);
+    }, [students, transactions, eventMonthlyStats, eventSettings.minMissionsToSpin, eventSettings.maxPenalties, startOfMonth, endOfMonth, monthIdentifier]);
     
+    // 지난달 이벤트 버튼으로 진입 시 '지난 달' 탭 선택
+    useEffect(() => {
+        if (targetStudent && initialMonth === 'previous') {
+            setSelectedMonth('previous');
+            onInitialMonthApplied?.();
+        }
+    }, [targetStudent, initialMonth, onInitialMonthApplied]);
+
     useEffect(() => {
         if (targetStudent) {
             const stats = studentStats.find(s => s.id === targetStudent.id);

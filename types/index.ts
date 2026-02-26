@@ -99,6 +99,14 @@ export interface RouletteSegment {
     weight: number;
 }
 
+/** 이벤트 참여 조건(미션/감점 횟수)을 트랜잭션 삭제(압축)와 무관하게 유지하기 위한 월별 집계 */
+export interface EventMonthlyStats {
+    /** monthKey (예: "2025-2") -> studentId -> { missions, penalties } */
+    [monthKey: string]: {
+        [studentId: string]: { missions: number; penalties: number };
+    };
+}
+
 export interface EventSettings {
     minMissionsToSpin: number;
     maxPenalties: number;
@@ -342,6 +350,8 @@ export interface AppData {
     lastBirthdayCouponMonth: number | null;
     individualMissionSeries: IndividualMissionSeries[];
     studentMissionProgress: StudentMissionProgress;
+    /** 이벤트 참여 가능 횟수(미션/감점) 월별 저장 - 트랜잭션 압축 시에도 유지 */
+    eventMonthlyStats?: EventMonthlyStats;
 }
 
 export interface ChessMatch {

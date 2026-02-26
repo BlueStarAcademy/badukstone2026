@@ -33,6 +33,15 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.student-card-event-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    align-items: center;
+    justify-content: flex-end;
     margin-bottom: 0.5rem;
 }
 
@@ -138,6 +147,17 @@
     border-color: #9e9e9e !important;
     cursor: not-allowed;
     opacity: 0.9;
+}
+
+/* 지난달 이벤트 버튼 (이번달 이벤트와 구분) */
+.student-card .btn-sm.event-last-month {
+    background: #607d8b;
+    border-color: #607d8b;
+    color: #fff;
+}
+.student-card .btn-sm.event-last-month:hover {
+    background: #546e7a;
+    border-color: #546e7a;
 }
 
 /* Border colors for groups */
