@@ -86,19 +86,44 @@ export function useFirestoreState<T extends AppData>(
     }, [getInitialData]);
 
     // [추가] 데이터 용량 관리를 위한 강제 압축 함수
+    // 최근 2달 활동 기록은 삭제하지 않음 (이벤트 참여·미션 횟수 등 유지)
     const compactData = (data: T): T => {
-        const MAX_TX = 800; 
+        const MAX_TX = 800;
         const MAX_CHESS = 400;
+        const KEEP_MONTHS = 2;
 
         const compact = { ...data };
+
         if (Array.isArray(compact.transactions) && compact.transactions.length > MAX_TX) {
-            // console.log(`[Compact] Trimming transactions: ${compact.transactions.length} -> ${MAX_TX}`);
-            compact.transactions = compact.transactions.slice(0, MAX_TX);
+            const cutoff = new Date();
+            cutoff.setMonth(cutoff.getMonth() - KEEP_MONTHS);
+            const cutoffTime = cutoff.getTime();
+            const recent: typeof compact.transactions = [];
+            const older: typeof compact.transactions = [];
+            for (const t of compact.transactions) {
+                const ts = new Date((t as { timestamp?: string }).timestamp || 0).getTime();
+                if (ts >= cutoffTime) recent.push(t);
+                else older.push(t);
+            }
+            const keepFromOlder = Math.max(0, MAX_TX - recent.length);
+            compact.transactions = [...recent, ...older.slice(0, keepFromOlder)];
         }
+
         if (Array.isArray(compact.chessMatches) && compact.chessMatches.length > MAX_CHESS) {
-            // console.log(`[Compact] Trimming chess matches: ${compact.chessMatches.length} -> ${MAX_CHESS}`);
-            compact.chessMatches = compact.chessMatches.slice(0, MAX_CHESS);
+            const cutoff = new Date();
+            cutoff.setMonth(cutoff.getMonth() - KEEP_MONTHS);
+            const cutoffTime = cutoff.getTime();
+            const recent: typeof compact.chessMatches = [];
+            const older: typeof compact.chessMatches = [];
+            for (const m of compact.chessMatches) {
+                const ts = new Date((m as { timestamp?: string }).timestamp || 0).getTime();
+                if (ts >= cutoffTime) recent.push(m);
+                else older.push(m);
+            }
+            const keepFromOlder = Math.max(0, MAX_CHESS - recent.length);
+            compact.chessMatches = [...recent, ...older.slice(0, keepFromOlder)];
         }
+
         return compact;
     };
 
