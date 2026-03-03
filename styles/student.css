@@ -149,17 +149,6 @@
     opacity: 0.9;
 }
 
-/* 지난달 이벤트 버튼 (이번달 이벤트와 구분) */
-.student-card .btn-sm.event-last-month {
-    background: #607d8b;
-    border-color: #607d8b;
-    color: #fff;
-}
-.student-card .btn-sm.event-last-month:hover {
-    background: #546e7a;
-    border-color: #546e7a;
-}
-
 /* Border colors for groups */
 .student-card--yudanja { border-top: 5px solid #9b59b6; }
 .student-card--gogeup { border-top: 5px solid #e74c3c; }

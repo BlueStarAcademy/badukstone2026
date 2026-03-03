@@ -11,10 +11,7 @@ interface StudentCardProps {
     hasParticipatedThisMonth: boolean;
     /** 이번 달 참여 가능(조건 충족 + 미참여) → 이벤트 버튼 */
     showThisMonthEventButton: boolean;
-    /** 지난달 참여 조건 충족했으나 미참여 → 지난달 이벤트 버튼 */
-    showLastMonthEventButton: boolean;
     onEventClick: () => void;
-    onLastMonthEventClick: () => void;
 }
 
 const groupToClassMap: { [key: string]: string } = {
@@ -28,8 +25,8 @@ const groupToClassMap: { [key: string]: string } = {
 
 export const StudentCard: React.FC<StudentCardProps> = ({
     student, activeCouponValue, onClick,
-    hasParticipatedThisMonth, showThisMonthEventButton, showLastMonthEventButton,
-    onEventClick, onLastMonthEventClick
+    hasParticipatedThisMonth, showThisMonthEventButton,
+    onEventClick
 }) => {
     const groupClassName = groupToClassMap[student.group] || '';
     
@@ -54,17 +51,6 @@ export const StudentCard: React.FC<StudentCardProps> = ({
                             title="이번 달 이벤트 참여"
                         >
                             이벤트
-                        </button>
-                    )}
-                    {/* 지난달 조건 충족했으나 미참여 → 지난달 이벤트 버튼 (참여 후에는 버튼 사라짐) */}
-                    {!hasParticipatedThisMonth && showLastMonthEventButton && (
-                        <button
-                            type="button"
-                            className="btn-sm event-last-month"
-                            onClick={(e) => { e.stopPropagation(); onLastMonthEventClick(); }}
-                            title="지난달 이벤트 참여하기"
-                        >
-                            지난달 이벤트
                         </button>
                     )}
                 </div>

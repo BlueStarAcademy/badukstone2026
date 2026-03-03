@@ -10,7 +10,6 @@ interface StudentViewProps {
     coupons: Coupon[];
     onStudentClick: (student: Student) => void;
     onNavigateToEvent: (student: Student) => void;
-    onNavigateToEventLastMonth: (student: Student) => void;
     groupSettings: GroupSettings;
     generalSettings: GeneralSettings;
     transactions: Transaction[];
@@ -19,7 +18,7 @@ interface StudentViewProps {
     setView: (view: View) => void;
 }
 
-export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEvent, onNavigateToEventLastMonth, groupSettings, generalSettings, transactions, eventSettings, eventMonthlyStats, setView }: StudentViewProps) => {
+export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEvent, groupSettings, generalSettings, transactions, eventSettings, eventMonthlyStats, setView }: StudentViewProps) => {
     const [sortKey, setSortKey] = useState<SortKey>('rank');
     const [activeGroup, setActiveGroup] = useState('전체');
     const [searchTerm, setSearchTerm] = useState('');
@@ -226,12 +225,6 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                         stats.penaltyCountThisMonth < maxPenalties &&
                         !stats.hasParticipatedThisMonth;
 
-                    // 지난달: 당시 조건 충족했으나 미참여 → 지난달 이벤트 버튼 (참여 후에는 사라짐)
-                    const showLastMonthEventButton =
-                        stats.missionsLastMonth >= minReq &&
-                        stats.penaltyCountLastMonth < maxPenalties &&
-                        !stats.hasParticipatedLastMonth;
-
                     return (
                         <StudentCard 
                             key={student.id} 
@@ -241,9 +234,7 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                             onClick={() => onStudentClick(student)} 
                             hasParticipatedThisMonth={stats.hasParticipatedThisMonth}
                             showThisMonthEventButton={showThisMonthEventButton}
-                            showLastMonthEventButton={showLastMonthEventButton}
                             onEventClick={() => onNavigateToEvent(student)}
-                            onLastMonthEventClick={() => onNavigateToEventLastMonth(student)}
                         />
                     );
                 })}

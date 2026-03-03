@@ -820,7 +820,6 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             setView={setView}
                             onStudentClick={(s) => { setSelectedStudent(s); setIsSidebarOpen(true); }}
                             onNavigateToEvent={(s) => { setEventOpenForMonth(null); setSelectedStudent(s); setView('event'); }}
-                            onNavigateToEventLastMonth={(s) => { setEventOpenForMonth('previous'); setSelectedStudent(s); setView('event'); }}
                         />
                     )}
                     {view === 'chess' && (
