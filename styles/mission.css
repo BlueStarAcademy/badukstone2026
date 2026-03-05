@@ -31,7 +31,44 @@
     justify-content: center;
 }
 
-/* Today's Priority Section */
+/* Today's Priority Section - 출석 : 예절 감점 : 특별 미션 = 2 : 2 : 6 한 줄 */
+.mission-top-row-triple {
+    display: grid;
+    grid-template-columns: 2fr 2fr 6fr;
+    gap: 0.75rem;
+    margin-bottom: 1.2rem;
+}
+
+.mission-top-row-triple .mission-top-box {
+    min-height: 120px;
+    min-width: 0;
+}
+
+.mission-top-row-triple .attendance-box h4,
+.mission-top-row-triple .penalty-box h4 {
+    font-size: 0.85rem;
+}
+
+.mission-top-row-triple .special-box {
+    min-width: 0;
+}
+
+.penalty-box {
+    background: linear-gradient(135deg, #ffebee 0%, #fafafa 100%);
+    border-color: #ffcdd2;
+}
+
+.penalty-box h4 { color: var(--danger-color, #c62828); }
+
+.penalty-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
 .mission-top-container {
     display: grid;
     grid-template-columns: 1fr 1.5fr;
@@ -259,6 +296,108 @@
     gap: 6px;
 }
 
+/* 개인미션 탭 전용 */
+.personal-mission-section {
+    margin-bottom: 1rem;
+}
+
+.personal-mission-series-box {
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.personal-mission-current {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.personal-mission-series-name {
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 0.4rem 0;
+    font-size: 0.95rem;
+}
+
+.personal-mission-step-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.personal-mission-step-desc {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9rem;
+    color: #555;
+}
+
+.personal-mission-complete {
+    margin: 0;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.personal-mission-empty {
+    text-align: center;
+    padding: 1rem;
+    color: #666;
+}
+
+.personal-mission-empty p {
+    margin: 0 0 0.8rem 0;
+    font-size: 0.9rem;
+}
+
+/* 개인 미션 불러오기 모달 */
+.load-mission-list {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.load-mission-list-ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.load-mission-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    background: #fafafa;
+}
+
+.load-mission-list-item:last-child {
+    margin-bottom: 0;
+}
+
+.load-mission-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.load-mission-student-name {
+    font-weight: 700;
+    color: #333;
+    font-size: 0.95rem;
+}
+
+.load-mission-series-desc {
+    font-size: 0.85rem;
+    color: var(--text-color-secondary, #666);
+}
+
 .penalty-control-wrapper {
     flex: 1;
     display: flex;
@@ -330,7 +469,7 @@
 }
 
 .penalty-input-sm {
-    width: 45px;
+    width: 58px;
     height: 30px; /* 높이 명시적 지정 */
     padding: 0;
     border: 1px solid #ffcdd2;
@@ -353,14 +492,14 @@
 }
 
 .penalty-stats-text {
-    margin-left: auto; /* 통계 정보를 오른쪽으로 밀어냄 */
     display: flex;
     flex-direction: column;
     justify-content: center;
+    align-items: center;
     line-height: 1.1;
     min-width: 0;
-    text-align: right;
-    padding-right: 2px;
+    text-align: center;
+    width: 100%;
 }
 
 .penalty-stats {

@@ -38,6 +38,18 @@ export interface SpecialMission {
     isAtLeast?: boolean;   // 하위 그룹 노출 방지 (하급자가 어려운 미션 뽑기 제한)
 }
 
+export interface PersonalMission {
+    id: string;
+    ownerStudentId: string;
+    title: string;
+    stones: number;
+    no: number;
+}
+
+export interface PersonalMissionsByStudent {
+    [studentId: string]: PersonalMission[];
+}
+
 export interface UsedCouponInfo {
     id: string;
     description: string;
@@ -352,6 +364,8 @@ export interface AppData {
     studentMissionProgress: StudentMissionProgress;
     /** 이벤트 참여 가능 횟수(미션/감점) 월별 저장 - 트랜잭션 압축 시에도 유지 */
     eventMonthlyStats?: EventMonthlyStats;
+    /** 학생별 개인 미션 카드 (개인 연속 미션에서 생성되는 템플릿) */
+    personalMissions?: PersonalMissionsByStudent;
 }
 
 export interface ChessMatch {
@@ -382,6 +396,6 @@ export interface MasterData {
 }
 
 export type AdminTab = 'students' | 'missions' | 'shop';
-export type SidebarTab = 'missions' | 'shop' | 'coupons' | 'send' | 'history';
+export type SidebarTab = 'missions' | 'personal_missions' | 'shop' | 'coupons' | 'send' | 'history';
 export type SortKey = 'rank' | 'stones' | 'name';
 export type ShopSortKey = 'name' | 'price';

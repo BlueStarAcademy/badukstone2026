@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission, EventSettings, EventMonthlyStats } from '../types';
+import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission, EventSettings, EventMonthlyStats, IndividualMissionSeries, IndividualMissionStep, StudentMissionProgress, PersonalMissionsByStudent } from '../types';
 import { useDateKey } from '../hooks/useDateKey';
 import { ConfirmationModal, ActionButton } from './modals/ConfirmationModal';
+import { AssignMissionModal } from './modals/AssignMissionModal';
+import { LoadPersonalMissionModal } from './modals/LoadPersonalMissionModal';
 
 
 interface QuickMenuSidebarProps {
@@ -35,6 +37,15 @@ interface QuickMenuSidebarProps {
     onAssignSpecialMission: (studentId: string, specificMissionId?: string) => void;
     onClearSpecialMission: (studentId: string) => void;
     onAdjustMissionCount: (studentId: string, delta: number) => void;
+    personalMissions: PersonalMissionsByStudent;
+    onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number }) => void;
+    onUpdatePersonalMissionScore: (studentId: string, missionId: string, newStones: number) => void;
+    onCompletePersonalMission: (studentId: string, missionId: string) => void;
+    individualMissionSeries?: IndividualMissionSeries[];
+    studentMissionProgress?: StudentMissionProgress;
+    onAssignIndividualMission?: (studentId: string, seriesId: string, currentStepIndex: number) => void;
+    onUnassignIndividualMission?: (studentId: string) => void;
+    onCompleteIndividualStep?: (studentId: string, amount: number) => void;
 }
 
 export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
@@ -43,7 +54,10 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         isOpen, groupSettings, generalSettings, eventSettings, eventMonthlyStats, onClose, onAddTransaction, onUpdateTransaction, 
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
         onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission,
-        onUpdateContinuousMissionName, onAdjustMissionCount
+        onUpdateContinuousMissionName, onAdjustMissionCount,
+        personalMissions, onAddPersonalMission, onUpdatePersonalMissionScore, onCompletePersonalMission,
+        individualMissionSeries = [], studentMissionProgress = {},
+        onAssignIndividualMission, onUnassignIndividualMission, onCompleteIndividualStep
     } = props;
 
     const dateKey = useDateKey();
@@ -54,6 +68,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [recipientId, setRecipientId] = useState('');
     const [josekiInput, setJosekiInput] = useState('1');
     const [missionNameInput, setMissionNameInput] = useState('');
+    const [personalMissionScoreInput, setPersonalMissionScoreInput] = useState('');
 
     // Penalty State
     const [penaltyAmount, setPenaltyAmount] = useState('');
@@ -79,11 +94,16 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     // Special Mission View Answer State
     const [showSpecialAnswer, setShowSpecialAnswer] = useState(false);
 
+    // 개인 미션 할당 모달 / 불러오기 모달
+    const [showAssignIndividualModal, setShowAssignIndividualModal] = useState(false);
+    const [showLoadMissionModal, setShowLoadMissionModal] = useState(false);
+
     // 학생이 바뀌거나 사이드바가 닫힐 때 상태 초기화
     useEffect(() => {
         if (student) {
             setJosekiInput(String(student.josekiProgress || 1));
             setMissionNameInput(student.continuousMissionName || '');
+            setPersonalMissionScoreInput(String(generalSettings.josekiMissionValue));
             setShowSpecialAnswer(false); 
         }
         if (!isOpen) {
@@ -101,8 +121,11 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setPartialAmount('');
             setPenaltyAmount('');
             setShowSpecialAnswer(false);
+            setShowAssignIndividualModal(false);
+            setShowLoadMissionModal(false);
+            setPersonalMissionScoreInput('');
         }
-    }, [isOpen, student?.id]);
+    }, [isOpen, student?.id, generalSettings.josekiMissionValue]);
 
     // Mission Stats Logic
     const missionStats = useMemo(() => {
@@ -241,11 +264,11 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         if (onUpdateContinuousMissionName) {
             onUpdateContinuousMissionName(student.id, missionNameInput);
         }
-    };
-
-    const handleCompleteJoseki = () => {
-        if (!student) return;
-        onCompleteJosekiMission(student.id);
+        const trimmed = missionNameInput.trim();
+        const score = parseInt(personalMissionScoreInput || String(generalSettings.josekiMissionValue), 10);
+        if (trimmed && !isNaN(newProgress) && newProgress > 0 && !isNaN(score) && score > 0) {
+            onAddPersonalMission(student.id, { title: trimmed, stones: score, no: newProgress });
+        }
     };
 
     // --- Special Mission Logic ---
@@ -460,6 +483,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                     </div>
                     <div className="sidebar-tabs">
                         <button className={`tab-item ${activeTab === 'missions' ? 'active' : ''}`} onClick={() => setActiveTab('missions')}>오늘의 미션</button>
+                        <button className={`tab-item ${activeTab === 'personal_missions' ? 'active' : ''}`} onClick={() => setActiveTab('personal_missions')}>개인미션</button>
                         <button className={`tab-item ${activeTab === 'shop' ? 'active' : ''}`} onClick={() => setActiveTab('shop')}>상점</button>
                         <button className={`tab-item ${activeTab === 'coupons' ? 'active' : ''}`} onClick={() => setActiveTab('coupons')}>쿠폰함</button>
                         <button className={`tab-item ${activeTab === 'send' ? 'active' : ''}`} onClick={() => setActiveTab('send')}>스톤 관리</button>
@@ -468,7 +492,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                     <div className={`sidebar-content ${activeTab === 'shop' ? 'shop-mode' : ''}`}>
                         {activeTab === 'missions' && (
                            <>
-                                <div className="mission-top-container">
+                                <div className="mission-top-row-triple">
                                     <div className="mission-top-box attendance-box">
                                         <h4>📅 오늘 출석</h4>
                                         <div className="attendance-content">
@@ -498,7 +522,25 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             )}
                                         </div>
                                     </div>
-
+                                    <div className="mission-top-box penalty-box">
+                                        <h4 style={{ color: 'var(--danger-color)' }}>⚠️ 예절 불량 감점</h4>
+                                        <div className="penalty-content">
+                                            <form onSubmit={handleApplyPenalty} className="penalty-form-inline">
+                                                <input 
+                                                    type="number" 
+                                                    placeholder="점수" 
+                                                    className="penalty-input-sm"
+                                                    value={penaltyAmount} 
+                                                    onChange={e => setPenaltyAmount(e.target.value)} 
+                                                    min="1" 
+                                                />
+                                                <button type="submit" className="btn-sm danger penalty-btn-sm">차감</button>
+                                            </form>
+                                            <div className="penalty-stats-text">
+                                                <span className="penalty-stats">이번달: {monthlyPenaltyStats.count}회 / -{monthlyPenaltyStats.total}점</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div className={`mission-top-box special-box ${dailySpecialMission ? 'revealed' : ''}`}>
                                         <h4>✨ 오늘의 특별 미션</h4>
                                         <div className="special-content">
@@ -561,66 +603,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </div>
                                     </div>
                                 </div>
-                                
-                                {/* 개인 연속 미션 & 예절 감점 통합 행 */}
-                                <div className="mission-bottom-row">
-                                    <div className="mission-control-wrapper">
-                                        <span className="control-label-mini" style={{ color: 'var(--primary-color)' }}>개인 연속 미션</span>
-                                        <div className="continuous-mission-line">
-                                            <input 
-                                                type="text" 
-                                                className="mission-name-input"
-                                                placeholder="미션 내용 입력 (예: 정석 외우기)" 
-                                                value={missionNameInput} 
-                                                onChange={e => setMissionNameInput(e.target.value)} 
-                                            />
-                                            <div className="mission-progress-group">
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#666' }}>No.</label>
-                                                <input 
-                                                    type="number" 
-                                                    className="mission-no-input"
-                                                    value={josekiInput} 
-                                                    onChange={e => setJosekiInput(e.target.value)} 
-                                                    min="1" 
-                                                />
-                                            </div>
-                                            <button className="btn-sm" onClick={handleUpdateJoseki}>저장</button>
-                                            <div className="mission-reward-badge">+{generalSettings.josekiMissionValue}</div>
-                                            <button 
-                                                className="btn-sm primary" 
-                                                onClick={handleCompleteJoseki} 
-                                                disabled={student.stones >= student.maxStones}
-                                                style={{ fontWeight: 'bold' }}
-                                            >
-                                                완료
-                                            </button>
-                                        </div>
-                                    </div>
 
-                                    <div className="penalty-control-wrapper">
-                                        <span className="control-label-mini" style={{ color: 'var(--danger-color)' }}>예절 불량 감점</span>
-                                        <div className="penalty-mission-line">
-                                            <form onSubmit={handleApplyPenalty} className="penalty-form-inline">
-                                                <input 
-                                                    type="number" 
-                                                    placeholder="점수" 
-                                                    className="penalty-input-sm"
-                                                    value={penaltyAmount} 
-                                                    onChange={e => setPenaltyAmount(e.target.value)} 
-                                                    min="1" 
-                                                />
-                                                <button type="submit" className="btn-sm danger penalty-btn-sm">차감</button>
-                                            </form>
-                                            <div className="penalty-stats-text">
-                                                <span className="penalty-stats">
-                                                    이번달 감점: {monthlyPenaltyStats.count}회 / -{monthlyPenaltyStats.total}점
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <h3 style={{fontSize: '1.2rem', marginBottom: '1rem'}}>수업 미션</h3>
+                                <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>수업 미션</h3>
                                 <ul className="mission-list">
                                     {groupMissions.map((mission: any) => {
                                         const completionsToday = missionCompletionCounts.get(mission.description) || 0;
@@ -646,7 +630,93 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 </ul>
                            </>
                         )}
-                        {/* 나머지 탭 코드 동일 */}
+                        {activeTab === 'personal_missions' && student && (
+                           <>
+                                <div className="mission-control-wrapper personal-mission-section">
+                                    <span className="control-label-mini" style={{ color: 'var(--primary-color)' }}>개인 연속 미션</span>
+                                    <div className="continuous-mission-line">
+                                        <input 
+                                            type="text" 
+                                            className="mission-name-input"
+                                            placeholder="미션 내용 입력 (예: 정석 외우기)" 
+                                            value={missionNameInput} 
+                                            onChange={e => setMissionNameInput(e.target.value)} 
+                                        />
+                                        <div className="mission-progress-group">
+                                            <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#666' }}>No.</label>
+                                            <input 
+                                                type="number" 
+                                                className="mission-no-input"
+                                                value={josekiInput} 
+                                                onChange={e => setJosekiInput(e.target.value)} 
+                                                min="1" 
+                                            />
+                                        </div>
+                                        <input
+                                            type="number"
+                                            className="mission-no-input"
+                                            value={personalMissionScoreInput}
+                                            onChange={e => setPersonalMissionScoreInput(e.target.value)}
+                                            min="1"
+                                            placeholder={String(generalSettings.josekiMissionValue)}
+                                            style={{ width: '60px' }}
+                                        />
+                                        <button className="btn-sm" onClick={handleUpdateJoseki}>저장</button>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1.2rem', marginBottom: '0.8rem' }}>
+                                    <h3 style={{ fontSize: '1.1rem', margin: 0 }}>📋 개인 미션</h3>
+                                    {onAssignIndividualMission && (
+                                        <button type="button" className="btn-sm" onClick={() => setShowLoadMissionModal(true)}>
+                                            개인 미션 불러오기
+                                        </button>
+                                    )}
+                                </div>
+                                {(() => {
+                                    const list = personalMissions[student.id] || [];
+                                    if (list.length === 0) {
+                                        return (
+                                            <div className="personal-mission-empty">
+                                                <p>등록된 개인 미션이 없습니다.</p>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div className="personal-mission-series-box">
+                                            {list.map(m => (
+                                                <div key={m.id} className="personal-mission-current" style={{ marginBottom: '0.6rem' }}>
+                                                    <div className="personal-mission-step-row">
+                                                        <span className="personal-mission-step-desc">
+                                                            No.{m.no} - {m.title}
+                                                        </span>
+                                                        <input
+                                                            type="number"
+                                                            value={m.stones}
+                                                            min={0}
+                                                            onChange={e => {
+                                                                const val = parseInt(e.target.value, 10);
+                                                                if (!Number.isNaN(val)) {
+                                                                    onUpdatePersonalMissionScore(student.id, m.id, val);
+                                                                }
+                                                            }}
+                                                            style={{ width: '60px', textAlign: 'right' }}
+                                                        />
+                                                        <button
+                                                            className="btn-sm primary"
+                                                            onClick={() => onCompletePersonalMission(student.id, m.id)}
+                                                            disabled={student.stones >= student.maxStones}
+                                                        >
+                                                            완료
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+                           </>
+                        )}
                         {activeTab === 'shop' && (
                            <>
                                 <div className="shop-main">
@@ -859,6 +929,32 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                     </form>
                 </div>
             </div>
+        )}
+        {student && showAssignIndividualModal && individualMissionSeries.length > 0 && onAssignIndividualMission && (
+            <AssignMissionModal
+                isOpen={showAssignIndividualModal}
+                onClose={() => setShowAssignIndividualModal(false)}
+                student={student}
+                allSeries={individualMissionSeries}
+                studentProgress={studentMissionProgress}
+                onAssign={(sid, seriesId, stepIndex) => { onAssignIndividualMission(sid, seriesId, stepIndex); setShowAssignIndividualModal(false); }}
+                onUnassign={(sid) => { onUnassignIndividualMission?.(sid); setShowAssignIndividualModal(false); }}
+            />
+        )}
+        {student && showLoadMissionModal && (
+            <LoadPersonalMissionModal
+                isOpen={showLoadMissionModal}
+                onClose={() => setShowLoadMissionModal(false)}
+                currentStudentId={student.id}
+                students={students}
+                personalMissions={personalMissions}
+                onLoad={(missions) => {
+                    missions.forEach(m => {
+                        onAddPersonalMission(student.id, m);
+                    });
+                    setShowLoadMissionModal(false);
+                }}
+            />
         )}
         </>
     );

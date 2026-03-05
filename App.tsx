@@ -4,7 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firebaseError, isDemoMode } from './firebase';
 import { useFirestoreState } from './hooks/useFirestoreState';
 import { INITIAL_STUDENTS, INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from './data/initialData';
-import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, SpecialMission, EventSettings, EventMonthlyStats } from './types';
+import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, SpecialMission, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress } from './types';
 import { generateId, getGroupForRank } from './utils';
 import { calculateNewElo } from './utils/elo';
 
@@ -100,6 +100,7 @@ const getInitialData = (): AppData => ({
     individualMissionSeries: [],
     studentMissionProgress: {},
     eventMonthlyStats: {},
+    personalMissions: {},
 });
 
 const AppLoader = ({ message, showLogout, onLogout }: { message: string, showLogout?: boolean, onLogout?: () => void }) => (
@@ -195,6 +196,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const chessMatches = (appState && appState !== 'error') ? appState.chessMatches || [] : [];
     const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
     const eventMonthlyStats = (appState && appState !== 'error') ? appState.eventMonthlyStats : undefined;
+    const personalMissions = (appState && appState !== 'error') ? (appState.personalMissions || {}) : {};
+    const individualMissionSeries = (appState && appState !== 'error') ? appState.individualMissionSeries || [] : [];
+    const studentMissionProgress = (appState && appState !== 'error') ? appState.studentMissionProgress || {} : {};
 
     const freshSelectedStudent = useMemo(() => {
         if (!selectedStudent) return null;
@@ -323,6 +327,156 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
 
             return { 
                 ...prev, 
+                transactions: updatedTransactions,
+                eventMonthlyStats: newEventMonthlyStats,
+            };
+        });
+    }, [setAppState]);
+
+    const handleAssignIndividualMission = useCallback((studentId: string, seriesId: string, currentStepIndex: number) => {
+        setAppState(prev => {
+            if (prev === 'error' || !prev) return prev;
+            const next = { ...prev, studentMissionProgress: { ...prev.studentMissionProgress, [studentId]: { missionSeriesId: seriesId, currentStepIndex } } };
+            return next;
+        });
+    }, [setAppState]);
+
+    const handleUnassignIndividualMission = useCallback((studentId: string) => {
+        setAppState(prev => {
+            if (prev === 'error' || !prev) return prev;
+            const nextProgress = { ...prev.studentMissionProgress };
+            delete nextProgress[studentId];
+            return { ...prev, studentMissionProgress: nextProgress };
+        });
+    }, [setAppState]);
+
+    const handleCompleteIndividualStep = useCallback((studentId: string, amount: number) => {
+        setAppState(prev => {
+            if (prev === 'error' || !prev) return prev;
+            const progress = prev.studentMissionProgress[studentId];
+            if (!progress) return prev;
+            const series = prev.individualMissionSeries?.find(s => s.id === progress.missionSeriesId);
+            if (!series || !series.steps[progress.currentStepIndex]) return prev;
+
+            const step = series.steps[progress.currentStepIndex];
+            const studentIdx = prev.students.findIndex(s => s.id === studentId);
+            if (studentIdx === -1) return prev;
+            const student = prev.students[studentIdx];
+            const giveStones = Math.max(0, amount);
+            const newStones = Math.min(student.maxStones, (student.stones || 0) + giveStones);
+
+            const transaction: Transaction = {
+                id: generateId(),
+                studentId,
+                type: 'mission',
+                description: `[개인] ${series.name} - ${step.description}`,
+                amount: giveStones,
+                timestamp: new Date().toISOString(),
+                status: 'active',
+                stoneBalanceBefore: student.stones,
+                stoneBalanceAfter: newStones
+            };
+
+            const updatedStudents = prev.students.map(s => s.id === studentId ? { ...s, stones: newStones } : s);
+            const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
+
+            const nextStepIndex = progress.currentStepIndex + 1;
+            const isLastStep = nextStepIndex >= series.steps.length;
+            const nextProgress = { ...prev.studentMissionProgress };
+            if (isLastStep) delete nextProgress[studentId];
+            else nextProgress[studentId] = { missionSeriesId: series.id, currentStepIndex: nextStepIndex };
+
+            const monthKey = getMonthKey(transaction.timestamp);
+            const baseFromTx = countMonthMissionPenaltyFromTx(prev.transactions, monthKey, studentId);
+            const newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { missions: 1 }, baseFromTx);
+
+            return {
+                ...prev,
+                students: updatedStudents,
+                transactions: updatedTransactions,
+                studentMissionProgress: nextProgress,
+                eventMonthlyStats: newEventMonthlyStats
+            };
+        });
+    }, [setAppState]);
+
+    const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number }) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const existing = prev.personalMissions || {};
+            const list = existing[studentId] || [];
+            const newMission = {
+                id: generateId(),
+                ownerStudentId: studentId,
+                title: mission.title,
+                stones: mission.stones,
+                no: mission.no,
+            };
+            return {
+                ...prev,
+                personalMissions: {
+                    ...existing,
+                    [studentId]: [...list, newMission],
+                },
+            };
+        });
+    }, [setAppState]);
+
+    const handleUpdatePersonalMissionScore = useCallback((studentId: string, missionId: string, newStones: number) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const existing = prev.personalMissions || {};
+            const list = existing[studentId] || [];
+            const updated = list.map(m => m.id === missionId ? { ...m, stones: newStones } : m);
+            return {
+                ...prev,
+                personalMissions: {
+                    ...existing,
+                    [studentId]: updated,
+                },
+            };
+        });
+    }, [setAppState]);
+
+    const handleCompletePersonalMission = useCallback((studentId: string, missionId: string) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const existing = prev.personalMissions || {};
+            const list = existing[studentId] || [];
+            const mission = list.find(m => m.id === missionId);
+            if (!mission) return prev;
+
+            const student = prev.students.find(s => s.id === studentId);
+            if (!student) return prev;
+
+            const give = Math.max(0, mission.stones);
+            if (give === 0) return prev;
+
+            const newStones = Math.min(student.maxStones, (student.stones || 0) + give);
+            const timestamp = new Date().toISOString();
+
+            const transaction: Transaction = {
+                id: generateId(),
+                studentId,
+                type: 'mission',
+                description: `[개인] ${mission.title}`,
+                amount: give,
+                timestamp,
+                status: 'active',
+                stoneBalanceBefore: student.stones,
+                stoneBalanceAfter: newStones,
+            };
+
+            const updatedStudents = prev.students.map(s => s.id === studentId ? { ...s, stones: newStones } : s);
+            const updatedTransactions = [transaction, ...prev.transactions].slice(0, MAX_TRANSACTIONS);
+
+            const monthKey = getMonthKey(timestamp);
+            const baseFromTx = countMonthMissionPenaltyFromTx(prev.transactions, monthKey, studentId);
+            const newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { missions: 1 }, baseFromTx);
+
+            return {
+                ...prev,
+                students: updatedStudents,
                 transactions: updatedTransactions,
                 eventMonthlyStats: newEventMonthlyStats,
             };
@@ -992,6 +1146,15 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
                 })} onClearSpecialMission={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: undefined, specialMissionDate: undefined } : s) }))}
                 onAdjustMissionCount={handleAdjustMissionCount}
+                personalMissions={personalMissions}
+                onAddPersonalMission={handleAddPersonalMission}
+                onUpdatePersonalMissionScore={handleUpdatePersonalMissionScore}
+                onCompletePersonalMission={handleCompletePersonalMission}
+                individualMissionSeries={individualMissionSeries}
+                studentMissionProgress={studentMissionProgress}
+                onAssignIndividualMission={handleAssignIndividualMission}
+                onUnassignIndividualMission={handleUnassignIndividualMission}
+                onCompleteIndividualStep={handleCompleteIndividualStep}
             />
 
             {isAccountModalOpen && (
