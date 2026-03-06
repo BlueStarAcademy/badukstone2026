@@ -45,6 +45,7 @@ function buildDoubleElim(participantIds: string[]): DoubleElimData {
         const grandFinal = createMatch();
         const built: DoubleElimData = { winnersRounds, losersRounds, grandFinal, playerIds: participantIds };
         propagateAllWinners(built);
+        applyByeWinners(built);
         return built;
     }
 
@@ -92,6 +93,7 @@ function buildDoubleElim(participantIds: string[]): DoubleElimData {
     const grandFinal = createMatch();
     const built: DoubleElimData = { winnersRounds, losersRounds, grandFinal, playerIds: participantIds };
     propagateAllWinners(built);
+    applyByeWinners(built);
     return built;
 }
 
@@ -140,6 +142,21 @@ function getLoserFromMatch(match: DoubleElimMatch, winnerId: string | null): str
     return (other as string) || null;
 }
 
+/** 상대가 없을 때(부전승): 한 명만 있으면 그 선수를 승자로 설정 */
+function applyByeWinners(data: DoubleElimData) {
+    const setIfBye = (match: DoubleElimMatch) => {
+        const a = match.players[0];
+        const b = match.players[1];
+        const onlyA = a && a !== 'BYE' && (!b || b === 'BYE');
+        const onlyB = b && b !== 'BYE' && (!a || a === 'BYE');
+        if (onlyA) match.winnerId = a as string;
+        else if (onlyB) match.winnerId = b as string;
+    };
+    data.winnersRounds.forEach(r => r.matches.forEach(setIfBye));
+    data.losersRounds.forEach(r => r.matches.forEach(setIfBye));
+    if (data.grandFinal) setIfBye(data.grandFinal);
+}
+
 export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) => {
     const { data, students, setData, onOpenPlayerManagement } = props;
     const doubleElim = data.doubleElim;
@@ -173,6 +190,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
 
             if (bracket === 'grand') {
                 GF.winnerId = winnerId;
+                applyByeWinners(next);
                 return { ...prev, doubleElim: next };
             }
 
@@ -204,6 +222,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                         else lrMatches[lrMatchIndex].players[lrSlot] = null;
                     }
                 }
+                applyByeWinners(next);
                 return { ...prev, doubleElim: next };
             }
 
@@ -224,6 +243,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                     if (winnerId) GF.players[1] = winnerId;
                     else GF.players[1] = null;
                 }
+                applyByeWinners(next);
                 return { ...prev, doubleElim: next };
             }
 

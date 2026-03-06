@@ -42,6 +42,7 @@ interface QuickMenuSidebarProps {
     onUpdatePersonalMissionScore: (studentId: string, missionId: string, newStones: number) => void;
     onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: PersonalMissionType }) => void;
     onDeletePersonalMission: (studentId: string, missionId: string) => void;
+    onReorderPersonalMissions: (studentId: string, orderedMissionIds: string[]) => void;
     onCompletePersonalMission: (studentId: string, missionId: string) => void;
     individualMissionSeries?: IndividualMissionSeries[];
     studentMissionProgress?: StudentMissionProgress;
@@ -57,7 +58,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
         onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission,
         onUpdateContinuousMissionName, onAdjustMissionCount,
-        personalMissions, onAddPersonalMission, onUpdatePersonalMissionScore, onUpdatePersonalMission, onDeletePersonalMission, onCompletePersonalMission,
+        personalMissions, onAddPersonalMission, onUpdatePersonalMissionScore, onUpdatePersonalMission, onDeletePersonalMission, onReorderPersonalMissions, onCompletePersonalMission,
         individualMissionSeries = [], studentMissionProgress = {},
         onAssignIndividualMission, onUnassignIndividualMission, onCompleteIndividualStep
     } = props;
@@ -105,6 +106,9 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [editPersonalStones, setEditPersonalStones] = useState('');
     const [editPersonalNo, setEditPersonalNo] = useState('');
     const [editPersonalType, setEditPersonalType] = useState<PersonalMissionType>('continuous');
+    const [draggedMissionId, setDraggedMissionId] = useState<string | null>(null);
+    const [dragOverMissionId, setDragOverMissionId] = useState<string | null>(null);
+    const [personalMissionFilter, setPersonalMissionFilter] = useState<'all' | 'continuous' | 'achievement'>('all');
 
     // 학생이 바뀌거나 사이드바가 닫힐 때 상태 초기화
     useEffect(() => {
@@ -699,7 +703,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1.2rem', marginBottom: '0.8rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1.2rem', marginBottom: '0.5rem' }}>
                                     <h3 style={{ fontSize: '1.1rem', margin: 0 }}>📋 개인 미션</h3>
                                     {onAssignIndividualMission && (
                                         <button type="button" className="btn-sm" onClick={() => setShowLoadMissionModal(true)}>
@@ -707,8 +711,56 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </button>
                                     )}
                                 </div>
+                                <div className="personal-mission-filter-tabs" style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                    {(['all', 'continuous', 'achievement'] as const).map(f => (
+                                        <button
+                                            key={f}
+                                            type="button"
+                                            className={`btn-sm ${personalMissionFilter === f ? 'primary' : ''}`}
+                                            onClick={() => setPersonalMissionFilter(f)}
+                                        >
+                                            {f === 'all' ? '전체' : f === 'continuous' ? '연속' : '업적'}
+                                        </button>
+                                    ))}
+                                </div>
                                 {(() => {
                                     const list = personalMissions[student.id] || [];
+                                    const filteredList = list.filter(m => {
+                                        const type = m.missionType || 'continuous';
+                                        if (personalMissionFilter === 'all') return true;
+                                        if (personalMissionFilter === 'continuous') return type === 'continuous';
+                                        return type === 'achievement';
+                                    });
+                                    const handleDragStart = (e: React.DragEvent, missionId: string) => {
+                                        setDraggedMissionId(missionId);
+                                        e.dataTransfer.setData('text/plain', missionId);
+                                        e.dataTransfer.effectAllowed = 'move';
+                                    };
+                                    const handleDragOver = (e: React.DragEvent, missionId: string) => {
+                                        e.preventDefault();
+                                        e.dataTransfer.dropEffect = 'move';
+                                        setDragOverMissionId(missionId);
+                                    };
+                                    const handleDragLeave = () => setDragOverMissionId(null);
+                                    const handleDrop = (e: React.DragEvent, targetMissionId: string) => {
+                                        e.preventDefault();
+                                        setDragOverMissionId(null);
+                                        setDraggedMissionId(null);
+                                        const sourceId = e.dataTransfer.getData('text/plain');
+                                        if (!sourceId || sourceId === targetMissionId) return;
+                                        const ids = list.map(x => x.id);
+                                        const fromIdx = ids.indexOf(sourceId);
+                                        const toIdx = ids.indexOf(targetMissionId);
+                                        if (fromIdx === -1 || toIdx === -1) return;
+                                        const reordered = [...ids];
+                                        reordered.splice(fromIdx, 1);
+                                        reordered.splice(toIdx, 0, sourceId);
+                                        onReorderPersonalMissions(student.id, reordered);
+                                    };
+                                    const handleDragEnd = () => {
+                                        setDraggedMissionId(null);
+                                        setDragOverMissionId(null);
+                                    };
                                     if (list.length === 0) {
                                         return (
                                             <div className="personal-mission-empty">
@@ -716,31 +768,48 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             </div>
                                         );
                                     }
+                                    if (filteredList.length === 0) {
+                                        return (
+                                            <div className="personal-mission-empty">
+                                                <p>{personalMissionFilter === 'continuous' ? '연속 미션이 없습니다.' : personalMissionFilter === 'achievement' ? '업적 미션이 없습니다.' : '등록된 개인 미션이 없습니다.'}</p>
+                                            </div>
+                                        );
+                                    }
                                     return (
-                                        <div className="personal-mission-series-box">
-                                            {list.map(m => (
-                                                <div key={m.id} className="personal-mission-current" style={{ marginBottom: '0.6rem' }}>
-                                                    <div className="personal-mission-step-row">
-                                                        <span className="personal-mission-step-desc">
-                                                            {(m.missionType || 'continuous') === 'achievement' ? (
-                                                                <span><span className="personal-mission-badge achievement">업적</span> {m.title}</span>
-                                                            ) : (
-                                                                <>No.{m.no} - {m.title}</>
-                                                            )}
-                                                        </span>
+                                        <div className="personal-mission-cards-grid">
+                                            {filteredList.map(m => (
+                                                <div
+                                                    key={m.id}
+                                                    className={`personal-mission-card ${draggedMissionId === m.id ? 'personal-mission-card-dragging' : ''} ${dragOverMissionId === m.id ? 'personal-mission-card-drag-over' : ''}`}
+                                                    draggable
+                                                    onDragStart={e => handleDragStart(e, m.id)}
+                                                    onDragOver={e => handleDragOver(e, m.id)}
+                                                    onDragLeave={handleDragLeave}
+                                                    onDrop={e => handleDrop(e, m.id)}
+                                                    onDragEnd={handleDragEnd}
+                                                >
+                                                    <div className="personal-mission-card-handle" title="드래그하여 순서 변경">⋮⋮</div>
+                                                    <div className="personal-mission-card-title">
+                                                        {(m.missionType || 'continuous') === 'achievement' ? (
+                                                            <span><span className="personal-mission-badge achievement">업적</span> {m.title}</span>
+                                                        ) : (
+                                                            <>No.{m.no} - {m.title}</>
+                                                        )}
+                                                    </div>
+                                                    <div className="personal-mission-card-score">
                                                         <input
                                                             type="number"
                                                             value={m.stones}
                                                             min={0}
                                                             onChange={e => {
                                                                 const val = parseInt(e.target.value, 10);
-                                                                if (!Number.isNaN(val)) {
-                                                                    onUpdatePersonalMissionScore(student.id, m.id, val);
-                                                                }
+                                                                if (!Number.isNaN(val)) onUpdatePersonalMissionScore(student.id, m.id, val);
                                                             }}
-                                                            style={{ width: '60px', textAlign: 'right' }}
                                                             disabled={(m.missionType || 'continuous') === 'achievement' && !!m.completedAt}
                                                         />
+                                                        <span className="personal-mission-card-score-label">점</span>
+                                                    </div>
+                                                    <div className="personal-mission-card-actions">
                                                         {(m.missionType || 'continuous') === 'achievement' && m.completedAt ? (
                                                             <span className="personal-mission-completed-badge">완료됨</span>
                                                         ) : (
@@ -752,32 +821,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                                 완료
                                                             </button>
                                                         )}
-                                                        <button
-                                                            type="button"
-                                                            className="btn-sm"
-                                                            onClick={() => {
-                                                                setEditingPersonalMission(m);
-                                                                setEditPersonalTitle(m.title);
-                                                                setEditPersonalStones(String(m.stones));
-                                                                setEditPersonalNo(String(m.no));
-                                                                setEditPersonalType((m.missionType || 'continuous'));
-                                                            }}
-                                                            title="수정"
-                                                        >
-                                                            수정
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className="btn-sm danger"
-                                                            onClick={() => {
-                                                                if (confirm(`"${m.title}" 미션을 삭제하시겠습니까?`)) {
-                                                                    onDeletePersonalMission(student.id, m.id);
-                                                                }
-                                                            }}
-                                                            title="삭제"
-                                                        >
-                                                            삭제
-                                                        </button>
+                                                        <button type="button" className="btn-sm" onClick={() => { setEditingPersonalMission(m); setEditPersonalTitle(m.title); setEditPersonalStones(String(m.stones)); setEditPersonalNo(String(m.no)); setEditPersonalType((m.missionType || 'continuous')); }}>수정</button>
+                                                        <button type="button" className="btn-sm danger" onClick={() => confirm(`"${m.title}" 미션을 삭제하시겠습니까?`) && onDeletePersonalMission(student.id, m.id)}>삭제</button>
                                                     </div>
                                                 </div>
                                             ))}

@@ -1,19 +1,23 @@
 
-import React from 'react';
-import type { Student, TournamentData, FullLeagueData, FullLeagueMatch } from '../../types';
+import React, { useState } from 'react';
+import type { Student, TournamentData, FullLeagueData, FullLeagueMatch, TournamentSettings } from '../../types';
 import { generateId } from '../../utils';
+import { TournamentPrizeModal } from './TournamentPrizeModal';
 
 interface TournamentFullLeagueViewProps {
     data: TournamentData;
     students: Student[];
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     onOpenPlayerManagement: () => void;
+    settings: TournamentSettings;
+    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
 }
 
 export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) => {
-    const { data, students, setData, onOpenPlayerManagement } = props;
+    const { data, students, setData, onOpenPlayerManagement, settings, onBulkAddTransaction } = props;
     const fullLeague = data.fullLeague;
     const participantIds = data.fullLeagueParticipantIds || [];
+    const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
 
     const handleStartFullLeague = (ids: string[]) => {
         const participants = ids
@@ -79,6 +83,44 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
 
     const sortedPlayers = [...fullLeague.players].sort((a, b) => b.wins - a.wins || a.losses - b.losses);
 
+    const handleAwardPrizes = (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => {
+        if (!fullLeague) return;
+        if (sortedPlayers.length === 0) return;
+
+        const championId = sortedPlayers[0]?.studentId;
+        const runnerUpId = sortedPlayers[1]?.studentId;
+        const semiFinalistIds: string[] = [];
+        if (sortedPlayers[2]) semiFinalistIds.push(sortedPlayers[2].studentId);
+        if (sortedPlayers[3]) semiFinalistIds.push(sortedPlayers[3].studentId);
+
+        const prizeWinners = new Set<string>([
+            championId,
+            runnerUpId,
+            ...semiFinalistIds,
+        ].filter(Boolean) as string[]);
+        const participantsWithPrize = sortedPlayers.filter(p => !prizeWinners.has(p.studentId));
+
+        if (championId && prizes.champion > 0) {
+            onBulkAddTransaction([championId], '풀리그 우승', prizes.champion);
+        }
+        if (runnerUpId && prizes.runnerUp > 0) {
+            onBulkAddTransaction([runnerUpId], '풀리그 준우승', prizes.runnerUp);
+        }
+        if (semiFinalistIds.length > 0 && prizes.semiFinalist > 0) {
+            onBulkAddTransaction(semiFinalistIds, '풀리그 3-4위', prizes.semiFinalist);
+        }
+        if (participantsWithPrize.length > 0 && prizes.participant > 0) {
+            onBulkAddTransaction(
+                participantsWithPrize.map(p => p.studentId),
+                '풀리그 참가상',
+                prizes.participant
+            );
+        }
+
+        setIsPrizeModalOpen(false);
+        alert('풀리그 시상이 완료되었습니다.');
+    };
+
     return (
         <div className="tournament-fullleague-view">
             <div className="fullleague-controls">
@@ -141,8 +183,23 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                             </tbody>
                         </table>
                     </div>
+                    <div className="fullleague-standings-actions">
+                        <button
+                            type="button"
+                            className="btn primary"
+                            onClick={() => setIsPrizeModalOpen(true)}
+                        >
+                            순위 보상
+                        </button>
+                    </div>
                 </div>
             </div>
+            <TournamentPrizeModal
+                isOpen={isPrizeModalOpen}
+                onClose={() => setIsPrizeModalOpen(false)}
+                settings={settings}
+                onAwardPrizes={handleAwardPrizes}
+            />
         </div>
     );
 };

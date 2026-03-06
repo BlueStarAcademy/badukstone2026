@@ -586,6 +586,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                         students={students}
                         setData={setData}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
+                        settings={settings}
+                        onBulkAddTransaction={onBulkAddTransaction}
                     />
                 )}
                 {activeTab === 'doubleelim' && (

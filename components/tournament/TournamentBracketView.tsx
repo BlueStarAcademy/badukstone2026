@@ -15,6 +15,20 @@ interface TournamentBracketViewProps {
     onOpenPlayerManagement: () => void;
 }
 
+/** 상대가 없을 때(부전승): 한 명만 있으면 그 선수를 승자로 설정 */
+const applyByeWinnersToBracket = (bracket: TournamentBracket) => {
+    bracket.rounds.forEach(round => {
+        round.matches.forEach(match => {
+            const p1 = match.players[0];
+            const p2 = match.players[1];
+            const only1 = p1 && p1 !== 'BYE' && (!p2 || p2 === 'BYE');
+            const only2 = p2 && p2 !== 'BYE' && (!p1 || p1 === 'BYE');
+            if (only1) match.winnerId = (p1 as TournamentPlayer).studentId;
+            else if (only2) match.winnerId = (p2 as TournamentPlayer).studentId;
+        });
+    });
+};
+
 const getRestRankingsByRound = (
     bracketData: TournamentBracket,
     students: Student[],
@@ -115,7 +129,7 @@ const TournamentResultPanel = ({
                     {fourthPlace && <div className="bracket-result-row rank-4"><span className="bracket-result-icon" aria-hidden>4</span><span className="bracket-result-text">4위 {fourthPlace.name} <span className="bracket-result-meta">({fourthPlace.rank})</span></span></div>}
                 </div>
                 <div className="bracket-result-actions">
-                    {onOpenPrizeModal && <button type="button" className="btn primary" onClick={onOpenPrizeModal}>결과 및 시상</button>}
+                    {onOpenPrizeModal && <button type="button" className="btn primary" onClick={onOpenPrizeModal}>순위 보상</button>}
                     {hasRest && <button type="button" className="btn bracket-result-rest-btn" onClick={() => setRestRankOpen(true)}>5위 이하 순위보기</button>}
                 </div>
             </div>
@@ -306,6 +320,7 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
                     }
                 }
             }
+            applyByeWinnersToBracket(newBracket);
             return { ...prev, bracket: newBracket };
         });
     };

@@ -470,6 +470,24 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
+    const handleReorderPersonalMissions = useCallback((studentId: string, orderedMissionIds: string[]) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const existing = prev.personalMissions || {};
+            const list = existing[studentId] || [];
+            const byId = new Map(list.map(m => [m.id, m]));
+            const ordered = orderedMissionIds.map(id => byId.get(id)).filter(Boolean) as typeof list;
+            if (ordered.length !== list.length) return prev;
+            return {
+                ...prev,
+                personalMissions: {
+                    ...existing,
+                    [studentId]: ordered,
+                },
+            };
+        });
+    }, [setAppState]);
+
     const handleCompletePersonalMission = useCallback((studentId: string, missionId: string) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
@@ -1193,6 +1211,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 onUpdatePersonalMissionScore={handleUpdatePersonalMissionScore}
                 onUpdatePersonalMission={handleUpdatePersonalMission}
                 onDeletePersonalMission={handleDeletePersonalMission}
+                onReorderPersonalMissions={handleReorderPersonalMissions}
                 onCompletePersonalMission={handleCompletePersonalMission}
                 individualMissionSeries={individualMissionSeries}
                 studentMissionProgress={studentMissionProgress}

@@ -43,6 +43,20 @@ export const LoadPersonalMissionModal = ({
     const [addNo, setAddNo] = useState('1');
     const [addType, setAddType] = useState<MissionType>('continuous');
 
+    const selectAllByType = (mode: 'all' | MissionType) => {
+        setSelectedKeys(() => {
+            if (mode === 'all') {
+                return new Set(uniqueMissions.map(m => m.key));
+            }
+            const next = new Set<string>();
+            uniqueMissions.forEach(({ key, mission }) => {
+                const t: MissionType = (mission.missionType as MissionType) || 'continuous';
+                if (t === mode) next.add(key);
+            });
+            return next;
+        });
+    };
+
     const uniqueMissions = useMemo(() => {
         const byKey = new Map<string, { mission: PersonalMission; instances: { studentId: string; missionId: string }[] }>();
         students.forEach(s => {
@@ -125,6 +139,39 @@ export const LoadPersonalMissionModal = ({
                     <p className="load-mission-modal-description">
                         저장된 개인 미션(연속/업적)을 선택하여 불러올 수 있습니다. 같은 내용의 미션은 하나만 표시됩니다.
                     </p>
+                    {uniqueMissions.length > 0 && (
+                        <div className="load-mission-bulk-select-row">
+                            <span className="load-mission-bulk-label">빠른 선택:</span>
+                            <button
+                                type="button"
+                                className="btn btn-xs"
+                                onClick={() => selectAllByType('all')}
+                            >
+                                전체 선택
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-xs"
+                                onClick={() => selectAllByType('continuous')}
+                            >
+                                연속 미션만
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-xs"
+                                onClick={() => selectAllByType('achievement')}
+                            >
+                                업적 미션만
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-xs"
+                                onClick={() => setSelectedKeys(new Set())}
+                            >
+                                선택 해제
+                            </button>
+                        </div>
+                    )}
                     {!showAddForm ? (
                         <button type="button" className="btn btn-sm primary load-mission-add-btn" onClick={() => setShowAddForm(true)}>
                             + 새 미션 추가
