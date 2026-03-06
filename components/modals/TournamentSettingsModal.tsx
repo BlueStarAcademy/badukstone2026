@@ -8,7 +8,7 @@ interface TournamentSettingsModalProps {
     onClose: () => void;
     settings: TournamentSettings;
     onUpdateSettings: React.Dispatch<React.SetStateAction<TournamentSettings>>;
-    activeTab: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'mission';
+    activeTab: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
 }
 
 export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSettings, activeTab }: TournamentSettingsModalProps) => {
@@ -139,7 +139,9 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
                     activeTab === 'relay' ? '팀 대항전' :
                     activeTab === 'bracket' ? '토너먼트' :
                     activeTab === 'swiss' ? '스위스 리그' :
-                    activeTab === 'hybrid' ? '예선+본선' : '미션 바둑'
+                    activeTab === 'hybrid' ? '예선+본선' :
+                    activeTab === 'fullleague' ? '풀리그' :
+                    activeTab === 'doubleelim' ? '더블엘리미네이션' : '미션 바둑'
                 })</h2>
                 <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
                     

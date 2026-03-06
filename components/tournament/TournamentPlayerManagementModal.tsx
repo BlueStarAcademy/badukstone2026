@@ -10,16 +10,18 @@ interface TournamentPlayerManagementModalProps {
     participantIds: string[];
     onUpdateParticipants: (ids: string[]) => void;
     onAssignTeams: (mode: 'random' | 'ranked', ids: string[]) => void;
-    currentView: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'mission';
+    currentView: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
     onStartSwiss: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitMission?: (ids: string[]) => void;
     onInitHybrid?: (ids: string[]) => void;
+    onInitFullLeague?: (ids: string[]) => void;
+    onInitDoubleElim?: (ids: string[]) => void;
 }
 
 export const TournamentPlayerManagementModal = (props: TournamentPlayerManagementModalProps) => {
     const { 
         isOpen, onClose, allStudents, participantIds, 
-        onUpdateParticipants, onAssignTeams, currentView, onStartSwiss, onInitMission, onInitHybrid
+        onUpdateParticipants, onAssignTeams, currentView, onStartSwiss, onInitMission, onInitHybrid, onInitFullLeague, onInitDoubleElim
     } = props;
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -88,9 +90,12 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         } else if (currentView === 'hybrid' && onInitHybrid) {
             onInitHybrid(ids);
         } else if (currentView === 'bracket') {
-            // 토너먼트는 별도 초기화 로직이 없으므로 목록만 저장
             onUpdateParticipants(ids);
             onClose();
+        } else if (currentView === 'fullleague' && onInitFullLeague) {
+            onInitFullLeague(ids);
+        } else if (currentView === 'doubleelim' && onInitDoubleElim) {
+            onInitDoubleElim(ids);
         }
     };
 
@@ -99,7 +104,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         return participantIds.every(id => selectedIds.has(id));
     }, [selectedIds, participantIds]);
 
-    const showFinalizeButton = currentView === 'relay' || currentView === 'swiss' || currentView === 'mission' || currentView === 'hybrid';
+    const showFinalizeButton = currentView === 'relay' || currentView === 'swiss' || currentView === 'mission' || currentView === 'hybrid' || currentView === 'fullleague' || currentView === 'doubleelim';
     const showAssignmentOptions = currentView === 'relay' || currentView === 'swiss';
 
     let finalizeButtonText = '시작';
@@ -107,6 +112,8 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     else if (currentView === 'swiss') finalizeButtonText = '스위스 리그 시작';
     else if (currentView === 'mission') finalizeButtonText = '미션 바둑 시작';
     else if (currentView === 'hybrid') finalizeButtonText = '예선 리그 생성';
+    else if (currentView === 'fullleague') finalizeButtonText = '풀리그 시작';
+    else if (currentView === 'doubleelim') finalizeButtonText = '더블엘리미네이션 시작';
 
     return (
         <div className="modal-overlay" onClick={onClose}>

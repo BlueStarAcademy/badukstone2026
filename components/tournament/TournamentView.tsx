@@ -1,10 +1,12 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentData, TournamentSettings, SwissPlayer, MissionBadukPlayer, TournamentPlayer, SwissMatch } from '../../types';
+import type { Student, TournamentData, TournamentSettings, SwissPlayer, MissionBadukPlayer, TournamentPlayer, SwissMatch, FullLeagueMatch, FullLeagueData, DoubleElimData } from '../../types';
 import { TournamentRelayView } from './TournamentRelayView';
 import { TournamentBracketView } from './TournamentBracketView';
 import { TournamentSwissView } from './TournamentSwissView';
 import { TournamentHybridView } from './TournamentHybridView';
+import { TournamentFullLeagueView } from './TournamentFullLeagueView';
+import { TournamentDoubleElimView } from './TournamentDoubleElimView';
 import { TournamentMissionView } from './TournamentMissionView';
 import { TournamentPlayerManagementModal } from './TournamentPlayerManagementModal';
 import { TournamentSettingsModal } from '../modals/TournamentSettingsModal';
@@ -20,7 +22,7 @@ interface TournamentViewProps {
     onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
 }
 
-type TournamentTab = 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'mission';
+type TournamentTab = 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
 
 export const TournamentView = (props: TournamentViewProps) => {
     const { students, data, setData, settings, setSettings, onBulkAddTransaction } = props;
@@ -35,6 +37,8 @@ export const TournamentView = (props: TournamentViewProps) => {
             case 'bracket': return data.bracketParticipantIds || [];
             case 'swiss': return data.swissParticipantIds || [];
             case 'hybrid': return data.hybridParticipantIds || [];
+            case 'fullleague': return data.fullLeagueParticipantIds || [];
+            case 'doubleelim': return data.doubleElimParticipantIds || [];
             case 'mission': return data.missionParticipantIds || [];
             default: return [];
         }
@@ -47,10 +51,64 @@ export const TournamentView = (props: TournamentViewProps) => {
             else if (activeTab === 'bracket') updates.bracketParticipantIds = ids;
             else if (activeTab === 'swiss') updates.swissParticipantIds = ids;
             else if (activeTab === 'hybrid') updates.hybridParticipantIds = ids;
+            else if (activeTab === 'fullleague') updates.fullLeagueParticipantIds = ids;
+            else if (activeTab === 'doubleelim') updates.doubleElimParticipantIds = ids;
             else if (activeTab === 'mission') updates.missionParticipantIds = ids;
-            
             return { ...prev, ...updates };
         });
+    };
+
+    const handleInitFullLeague = (ids: string[]) => {
+        const participants = ids.map(id => students.find(s => s.id === id)).filter((s): s is Student => !!s);
+        if (participants.length < 2) {
+            alert('풀리그를 시작하려면 최소 2명이 필요합니다.');
+            return;
+        }
+        const players = participants.map(p => ({ studentId: p.id, name: p.name, wins: 0, losses: 0 }));
+        const matches: FullLeagueMatch[] = [];
+        for (let i = 0; i < participants.length; i++) {
+            for (let j = i + 1; j < participants.length; j++) {
+                matches.push({ id: generateId(), player1Id: participants[i].id, player2Id: participants[j].id, winnerId: null });
+            }
+        }
+        setData(prev => ({ ...prev, fullLeagueParticipantIds: ids, fullLeague: { players, matches } }));
+        setIsPlayerManagementModalOpen(false);
+    };
+
+    const handleInitDoubleElim = (ids: string[]) => {
+        const list = ids.filter(id => students.some(s => s.id === id));
+        if (list.length < 2) {
+            alert('더블엘리미네이션을 시작하려면 최소 2명이 필요합니다.');
+            return;
+        }
+        const size = Math.pow(2, Math.ceil(Math.log2(Math.max(2, list.length))));
+        const players = [...list];
+        while (players.length < size) players.push('BYE');
+        const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+        const shuffled = shuffle(players);
+        const createMatch = (): { id: string; players: (string | 'BYE' | null)[]; winnerId: string | null } => ({ id: generateId(), players: [null, null], winnerId: null });
+        const winnersRounds: { title: string; matches: DoubleElimData['winnersRounds'][0]['matches'] }[] = [];
+        let prev: typeof winnersRounds[0]['matches'] = [];
+        const half = size / 2;
+        for (let i = 0; i < half; i++) {
+            const m = createMatch();
+            m.players = [shuffled[i * 2], shuffled[i * 2 + 1]];
+            if (m.players[0] === 'BYE') m.winnerId = m.players[1] as string;
+            else if (m.players[1] === 'BYE') m.winnerId = m.players[0] as string;
+            prev.push(m);
+        }
+        winnersRounds.push({ title: size === 2 ? '결승' : size === 4 ? '준결승' : `${size}강`, matches: prev });
+        let roundSize = half;
+        while (roundSize > 1) {
+            const next: typeof prev = [];
+            for (let i = 0; i < roundSize / 2; i++) next.push(createMatch());
+            winnersRounds.push({ title: roundSize === 2 ? '승자 결승' : `${roundSize}강`, matches: next });
+            roundSize = roundSize / 2;
+        }
+        const losersRounds = winnersRounds.map((_, i) => ({ title: `패자조 R${i + 1}`, matches: winnersRounds[i].matches.map(() => createMatch()) }));
+        const grandFinal = createMatch();
+        setData(prev => ({ ...prev, doubleElimParticipantIds: list, doubleElim: { winnersRounds, losersRounds, grandFinal, playerIds: list } }));
+        setIsPlayerManagementModalOpen(false);
     };
 
     const handleAssignTeams = (mode: 'random' | 'ranked', ids: string[]) => {
@@ -470,6 +528,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                     <button className={`toggle-btn ${activeTab === 'bracket' ? 'active' : ''}`} onClick={() => setActiveTab('bracket')}>토너먼트</button>
                     <button className={`toggle-btn ${activeTab === 'swiss' ? 'active' : ''}`} onClick={() => setActiveTab('swiss')}>스위스리그</button>
                     <button className={`toggle-btn ${activeTab === 'hybrid' ? 'active' : ''}`} onClick={() => setActiveTab('hybrid')}>예선+본선</button>
+                    <button className={`toggle-btn ${activeTab === 'fullleague' ? 'active' : ''}`} onClick={() => setActiveTab('fullleague')}>풀리그</button>
+                    <button className={`toggle-btn ${activeTab === 'doubleelim' ? 'active' : ''}`} onClick={() => setActiveTab('doubleelim')}>더블엘리미네이션</button>
                     <button className={`toggle-btn ${activeTab === 'mission' ? 'active' : ''}`} onClick={() => setActiveTab('mission')}>미션바둑</button>
                 </div>
                 <button className="btn" onClick={() => setIsSettingsModalOpen(true)}>대회 설정</button>
@@ -520,6 +580,22 @@ export const TournamentView = (props: TournamentViewProps) => {
                         onBulkAddTransaction={onBulkAddTransaction}
                     />
                 )}
+                {activeTab === 'fullleague' && (
+                    <TournamentFullLeagueView
+                        data={data}
+                        students={students}
+                        setData={setData}
+                        onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
+                    />
+                )}
+                {activeTab === 'doubleelim' && (
+                    <TournamentDoubleElimView
+                        data={data}
+                        students={students}
+                        setData={setData}
+                        onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
+                    />
+                )}
                 {activeTab === 'mission' && (
                     <TournamentMissionView
                         data={data}
@@ -544,6 +620,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                     onStartSwiss={handleStartSwiss}
                     onInitMission={handleInitMissionBaduk}
                     onInitHybrid={handleInitHybrid}
+                    onInitFullLeague={handleInitFullLeague}
+                    onInitDoubleElim={handleInitDoubleElim}
                 />
             )}
             

@@ -15,58 +15,128 @@ interface TournamentBracketViewProps {
     onOpenPlayerManagement: () => void;
 }
 
-const TournamentWinnerDisplay = ({ bracketData, students }: { bracketData: TournamentBracket, students: Student[] }) => {
-    const finalRound = bracketData.rounds[bracketData.rounds.length - 1];
-    const semiFinalRound = bracketData.rounds.find(r => r.title === '4강전' || r.title === '준결승');
+const getRestRankingsByRound = (
+    bracketData: TournamentBracket,
+    students: Student[],
+    top4Ids: Set<string>
+): { title: string; players: Student[] }[] => {
+    const result: { title: string; players: Student[] }[] = [];
+    const finalRoundIndex = bracketData.rounds.length - 1;
+    for (let ri = 0; ri < finalRoundIndex; ri++) {
+        const round = bracketData.rounds[ri];
+        const losers: Student[] = [];
+        for (const match of round.matches) {
+            if (!match.winnerId) continue;
+            for (const p of match.players) {
+                if (p && p !== 'BYE' && (p as TournamentPlayer).studentId !== match.winnerId) {
+                    const id = (p as TournamentPlayer).studentId;
+                    if (!top4Ids.has(id)) {
+                        const s = students.find(st => st.id === id);
+                        if (s) losers.push(s);
+                    }
+                }
+            }
+        }
+        if (losers.length > 0) result.push({ title: round.title, players: losers });
+    }
+    return result.reverse();
+};
 
-    const championId = finalRound.matches[0].winnerId;
-    const champion = championId ? students.find(s => s.id === championId) : null;
-    
-    const runnerUpPlayer = finalRound.matches[0].players.find(p => p && p !== 'BYE' && p.studentId !== championId);
-    const runnerUp = runnerUpPlayer ? students.find(s => s.id === (runnerUpPlayer as TournamentPlayer).studentId) : null;
+const TournamentResultPanel = ({
+    bracketData,
+    students,
+    isFinished,
+    onOpenPrizeModal,
+}: {
+    bracketData: TournamentBracket | null;
+    students: Student[];
+    isFinished: boolean;
+    onOpenPrizeModal?: () => void;
+}) => {
+    const [restRankOpen, setRestRankOpen] = useState(false);
 
-    let thirdPlaceWinners: (Student | null)[] = [];
-    if (finalRound.matches.length > 1 && finalRound.matches[1].winnerId) {
-        const thirdPlace = students.find(s => s.id === finalRound.matches[1].winnerId);
-        thirdPlaceWinners.push(thirdPlace || null);
-    } else if (semiFinalRound) {
-        const semifinalLosers = semiFinalRound.matches.flatMap(m => m.players)
-            .filter((p): p is TournamentPlayer => !!(p && p !== 'BYE' && p.studentId !== championId && p.studentId !== runnerUp?.id))
-            .map(p => students.find(s => s.id === p.studentId) || null);
-        thirdPlaceWinners = semifinalLosers;
+    if (!bracketData) {
+        return (
+            <div className="bracket-result-panel">
+                <div className="bracket-result-box bracket-result-placeholder">
+                    <div className="bracket-result-crown" aria-hidden>🏆</div>
+                    <h3 className="bracket-result-title">최종 결과</h3>
+                    <p className="bracket-result-message">대진표를 생성하면<br />결과가 여기에 표시됩니다</p>
+                </div>
+            </div>
+        );
+    }
+    if (!isFinished) {
+        return (
+            <div className="bracket-result-panel">
+                <div className="bracket-result-box bracket-result-placeholder">
+                    <div className="bracket-result-crown" aria-hidden>🏆</div>
+                    <h3 className="bracket-result-title">최종 결과</h3>
+                    <p className="bracket-result-message">경기가 종료되면<br />우승·준우승·3·4위가 표시됩니다</p>
+                </div>
+            </div>
+        );
     }
 
+    const finalRound = bracketData.rounds[bracketData.rounds.length - 1];
+    const semiFinalRound = bracketData.rounds.find(r => r.title === '4강전' || r.title === '준결승');
+    const championId = finalRound.matches[0].winnerId;
+    const champion = championId ? students.find(s => s.id === championId) : null;
+    const runnerUpPlayer = finalRound.matches[0].players.find(p => p && p !== 'BYE' && p.studentId !== championId);
+    const runnerUp = runnerUpPlayer ? students.find(s => s.id === (runnerUpPlayer as TournamentPlayer).studentId) : null;
+    let thirdPlace: Student | null = null;
+    let fourthPlace: Student | null = null;
+    if (finalRound.matches.length > 1 && finalRound.matches[1]) {
+        const m = finalRound.matches[1];
+        if (m.winnerId) thirdPlace = students.find(s => s.id === m.winnerId) || null;
+        const fourthPlayer = m.players.find(p => p && p !== 'BYE' && p.studentId !== m.winnerId);
+        if (fourthPlayer) fourthPlace = students.find(s => s.id === (fourthPlayer as TournamentPlayer).studentId) || null;
+    } else if (semiFinalRound) {
+        const losers = semiFinalRound.matches.flatMap(m => m.players)
+            .filter((p): p is TournamentPlayer => !!(p && p !== 'BYE' && p.studentId !== championId && p.studentId !== runnerUp?.id))
+            .map(p => students.find(s => s.id === p.studentId) || null);
+        thirdPlace = losers[0] ?? null;
+        fourthPlace = losers[1] ?? null;
+    }
+
+    const top4Ids = new Set([championId, runnerUp?.id, thirdPlace?.id, fourthPlace?.id].filter(Boolean) as string[]);
+    const restByRound = getRestRankingsByRound(bracketData, students, top4Ids);
+    const hasRest = restByRound.some(g => g.players.length > 0);
 
     return (
-        <div className="tournament-winner-display">
-            <h3 style={{marginBottom: '1.5rem', color: '#333'}}>🏆 최종 결과 🏆</h3>
-            <div className="winner-podium">
-                {runnerUp && (
-                     <div className="podium-step rank-2">
-                        <div className="trophy-icon">🥈</div>
-                        <h4 className="winner-name">{runnerUp.name}</h4>
-                        <p className="winner-rank">{runnerUp.rank}</p>
-                    </div>
-                )}
-                 {champion && (
-                     <div className="podium-step rank-1">
-                        <div className="trophy-icon">🥇</div>
-                        <h4 className="winner-name">{champion.name}</h4>
-                        <p className="winner-rank">{champion.rank}</p>
-                    </div>
-                )}
-                 {thirdPlaceWinners.length > 0 && (
-                     <div className="podium-step rank-3">
-                        <div className="trophy-icon">🥉</div>
-                         {thirdPlaceWinners.map((winner, index) => (
-                            winner && <div key={index}>
-                                <h4 className="winner-name">{winner.name}</h4>
-                                <p className="winner-rank">{winner.rank}</p>
-                            </div>
-                         ))}
-                    </div>
-                )}
+        <div className="bracket-result-panel">
+            <div className="bracket-result-box bracket-result-filled">
+                <div className="bracket-result-glow" aria-hidden />
+                <h3 className="bracket-result-title">최종 결과</h3>
+                <div className="bracket-result-rows">
+                    {champion && <div className="bracket-result-row rank-1"><span className="bracket-result-icon" aria-hidden>🥇</span><span className="bracket-result-text">우승 {champion.name} <span className="bracket-result-meta">({champion.rank})</span></span></div>}
+                    {runnerUp && <div className="bracket-result-row rank-2"><span className="bracket-result-icon" aria-hidden>🥈</span><span className="bracket-result-text">준우승 {runnerUp.name} <span className="bracket-result-meta">({runnerUp.rank})</span></span></div>}
+                    {thirdPlace && <div className="bracket-result-row rank-3"><span className="bracket-result-icon" aria-hidden>🥉</span><span className="bracket-result-text">3위 {thirdPlace.name} <span className="bracket-result-meta">({thirdPlace.rank})</span></span></div>}
+                    {fourthPlace && <div className="bracket-result-row rank-4"><span className="bracket-result-icon" aria-hidden>4</span><span className="bracket-result-text">4위 {fourthPlace.name} <span className="bracket-result-meta">({fourthPlace.rank})</span></span></div>}
+                </div>
+                <div className="bracket-result-actions">
+                    {onOpenPrizeModal && <button type="button" className="btn primary" onClick={onOpenPrizeModal}>결과 및 시상</button>}
+                    {hasRest && <button type="button" className="btn bracket-result-rest-btn" onClick={() => setRestRankOpen(true)}>5위 이하 순위보기</button>}
+                </div>
             </div>
+            {restRankOpen && (
+                <div className="bracket-rest-rank-overlay" onClick={() => setRestRankOpen(false)} role="dialog" aria-modal="true" aria-label="5위 이하 순위">
+                    <div className="bracket-rest-rank-modal" onClick={e => e.stopPropagation()}>
+                        <div className="bracket-rest-rank-header">
+                            <h4>5위 이하 순위</h4>
+                            <button type="button" className="bracket-rest-rank-close" onClick={() => setRestRankOpen(false)} aria-label="닫기">×</button>
+                        </div>
+                        <div className="bracket-rest-rank-body">
+                            {restByRound.map((g, i) => (
+                                <div key={i} className="bracket-rest-rank-group">
+                                    <span className="bracket-rest-rank-label">{g.title} 탈락</span>
+                                    <span className="bracket-rest-rank-names">{g.players.map(p => p.name).join(', ')}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -214,8 +284,13 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
                      finalMatch.players[0] = winner1 || null;
                      finalMatch.players[1] = winner2 || null;
                      if (thirdPlaceMatch) {
-                        thirdPlaceMatch.players[0] = loser1 || null;
-                        thirdPlaceMatch.players[1] = loser2 || null;
+                        if (semi1.winnerId && semi2.winnerId) {
+                            thirdPlaceMatch.players[0] = loser1 || null;
+                            thirdPlaceMatch.players[1] = loser2 || null;
+                        } else {
+                            thirdPlaceMatch.players[0] = null;
+                            thirdPlaceMatch.players[1] = null;
+                        }
                      }
                 } else {
                      for (let mIdx = 0; mIdx < currentRound.matches.length; mIdx++) {
@@ -289,13 +364,20 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
 
     if (!bracketData) {
         return (
-            <div className="tournament-bracket-view" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{marginBottom: '1.5rem'}}>
+            <div className="tournament-bracket-view">
+                <div className="bracket-controls">
                     <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
                 </div>
-                <p style={{ marginBottom: '1rem' }}>대진표가 없습니다. '선수 관리'에서 참가자를 선택하고 대진표를 생성해주세요.</p>
-                <div style={{display: 'flex', justifyContent: 'center', gap: '1rem'}}>
-                     <button className="btn primary" onClick={handleGenerateBracket} disabled={(bracketParticipantIds || []).length < 2}>대진표 생성</button>
+                <div className="bracket-view-body">
+                    <div className="bracket-main">
+                        <div className="bracket-wrapper" style={{ textAlign: 'center', padding: '3rem' }}>
+                            <p style={{ marginBottom: '1rem' }}>대진표가 없습니다. '선수 관리'에서 참가자를 선택하고 대진표를 생성해주세요.</p>
+                            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+                                <button className="btn primary" onClick={handleGenerateBracket} disabled={(bracketParticipantIds || []).length < 2}>대진표 생성</button>
+                            </div>
+                        </div>
+                    </div>
+                    <TournamentResultPanel bracketData={null} students={students} isFinished={false} />
                 </div>
             </div>
         );
@@ -303,16 +385,25 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     
     const isFinished = bracketData.rounds[bracketData.rounds.length - 1].matches.every(m => m.winnerId);
     const firstRoundCount = bracketData.rounds[0]?.matches.length ?? 0;
-    const useBracketTabs = firstRoundCount >= 8 && bracketData.players.length >= 16;
+    const MATCHES_PER_TAB = 4;
+    const useBracketTabs = firstRoundCount > MATCHES_PER_TAB;
+    const tabCount = useBracketTabs ? Math.ceil(firstRoundCount / MATCHES_PER_TAB) : 1;
 
     const renderBracketBody = () => {
         const rounds = bracketData.rounds;
         if (useBracketTabs) {
-            const half = Math.ceil(firstRoundCount / 2);
-            const tabs = [
-                { label: `1~${half}경기`, roundFilter: (ri: number, mi: number) => ri === 0 ? mi < half : true },
-                { label: `${half + 1}~${firstRoundCount}경기`, roundFilter: (ri: number, mi: number) => ri === 0 ? mi >= half : true }
-            ];
+            const tabs = Array.from({ length: tabCount }, (_, t) => {
+                const startMatch = t * MATCHES_PER_TAB;
+                const endMatch = Math.min((t + 1) * MATCHES_PER_TAB, firstRoundCount);
+                return {
+                    label: `${startMatch + 1}~${endMatch}경기`,
+                    roundFilter: (ri: number, mi: number) => {
+                        const start = t * (MATCHES_PER_TAB / Math.pow(2, ri));
+                        const end = (t + 1) * (MATCHES_PER_TAB / Math.pow(2, ri));
+                        return mi >= Math.floor(start) && mi < Math.ceil(end);
+                    }
+                };
+            });
             const t = tabs[Math.min(bracketTab, tabs.length - 1)];
             return (
                 <>
@@ -334,15 +425,23 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
 
     return (
         <div className="tournament-bracket-view">
-             <div className="bracket-controls">
+            <div className="bracket-controls">
                 <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                <button className="btn" onClick={() => setIsPrizeModalOpen(true)} disabled={!isFinished}>결과 및 시상</button>
                 <button className="btn danger" onClick={handleResetBracket}>대진표 초기화</button>
             </div>
-            <div className="bracket-wrapper">
-                {renderBracketBody()}
+            <div className="bracket-view-body">
+                <div className="bracket-main">
+                    <div className="bracket-wrapper">
+                        {renderBracketBody()}
+                    </div>
+                </div>
+                <TournamentResultPanel
+                    bracketData={bracketData}
+                    students={students}
+                    isFinished={!!bracketData && isFinished}
+                    onOpenPrizeModal={isFinished ? () => setIsPrizeModalOpen(true) : undefined}
+                />
             </div>
-            {isFinished && <TournamentWinnerDisplay bracketData={bracketData} students={students} />}
             {isPrizeModalOpen && <TournamentPrizeModal isOpen={isPrizeModalOpen} onClose={() => setIsPrizeModalOpen(false)} settings={settings} onAwardPrizes={handleAwardPrizes} />}
             {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
         </div>

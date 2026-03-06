@@ -400,7 +400,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number }) => {
+    const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'achievement' }) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
             const existing = prev.personalMissions || {};
@@ -411,6 +411,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 title: mission.title,
                 stones: mission.stones,
                 no: mission.no,
+                missionType: mission.missionType || 'continuous',
             };
             return {
                 ...prev,
@@ -438,6 +439,37 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
+    const handleUpdatePersonalMission = useCallback((studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'achievement' }) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const existing = prev.personalMissions || {};
+            const list = existing[studentId] || [];
+            const updated = list.map(m => m.id === missionId ? { ...m, ...payload } : m);
+            return {
+                ...prev,
+                personalMissions: {
+                    ...existing,
+                    [studentId]: updated,
+                },
+            };
+        });
+    }, [setAppState]);
+
+    const handleDeletePersonalMission = useCallback((studentId: string, missionId: string) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const existing = prev.personalMissions || {};
+            const list = (existing[studentId] || []).filter(m => m.id !== missionId);
+            return {
+                ...prev,
+                personalMissions: {
+                    ...existing,
+                    [studentId]: list,
+                },
+            };
+        });
+    }, [setAppState]);
+
     const handleCompletePersonalMission = useCallback((studentId: string, missionId: string) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
@@ -445,6 +477,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const list = existing[studentId] || [];
             const mission = list.find(m => m.id === missionId);
             if (!mission) return prev;
+            if ((mission.missionType || 'continuous') === 'achievement' && mission.completedAt) return prev;
 
             const student = prev.students.find(s => s.id === studentId);
             if (!student) return prev;
@@ -474,11 +507,20 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const baseFromTx = countMonthMissionPenaltyFromTx(prev.transactions, monthKey, studentId);
             const newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { missions: 1 }, baseFromTx);
 
+            const isAchievement = (mission.missionType || 'continuous') === 'achievement';
+            const updatedList = isAchievement
+                ? list.map(m => m.id === missionId ? { ...m, completedAt: timestamp } : m)
+                : list;
+            const nextPersonalMissions = isAchievement
+                ? { ...existing, [studentId]: updatedList }
+                : existing;
+
             return {
                 ...prev,
                 students: updatedStudents,
                 transactions: updatedTransactions,
                 eventMonthlyStats: newEventMonthlyStats,
+                personalMissions: nextPersonalMissions,
             };
         });
     }, [setAppState]);
@@ -1149,6 +1191,8 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 personalMissions={personalMissions}
                 onAddPersonalMission={handleAddPersonalMission}
                 onUpdatePersonalMissionScore={handleUpdatePersonalMissionScore}
+                onUpdatePersonalMission={handleUpdatePersonalMission}
+                onDeletePersonalMission={handleDeletePersonalMission}
                 onCompletePersonalMission={handleCompletePersonalMission}
                 individualMissionSeries={individualMissionSeries}
                 studentMissionProgress={studentMissionProgress}

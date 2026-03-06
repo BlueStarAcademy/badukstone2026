@@ -176,6 +176,8 @@ export const INITIAL_TOURNAMENT_DATA: TournamentData = {
     bracketParticipantIds: [],
     swissParticipantIds: [],
     hybridParticipantIds: [],
+    fullLeagueParticipantIds: [],
+    doubleElimParticipantIds: [],
     missionParticipantIds: [],
     teams: [
         { name: 'A', players: [], mannerPenalties: 0 },

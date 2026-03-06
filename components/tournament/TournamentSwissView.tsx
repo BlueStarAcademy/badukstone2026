@@ -136,13 +136,9 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         <div className="tournament-swiss-view">
              <div className="swiss-controls">
                  <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                 {isRoundComplete ? (
+                 {isRoundComplete && (
                     <button className="btn primary" onClick={onGenerateNextRound}>
                         다음 라운드 생성
-                    </button>
-                 ) : (
-                    <button className="btn" onClick={onRematchRound} style={{border: '1px solid var(--primary-color)', color: 'var(--primary-color)'}}>
-                        🔄 대진 다시 섞기
                     </button>
                  )}
                  {rounds.length > 0 && (
@@ -169,9 +165,17 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                 <div className="swiss-rounds-container">
                     {displayRounds.map((round, idx) => {
                         const roundIndex = displayRoundIndices[idx];
+                        const hasRematchInRound = round.some(m => hasPlayedBefore(m.players[0], m.players[1], roundIndex));
+                        const isLatestRound = roundIndex === latestRoundIndex;
+                        const showRematchBtn = isLatestRound && hasRematchInRound;
                         return (
                         <div key={roundIndex} className="swiss-round">
-                            <h3 style={{ borderBottom: '2px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem' }}>{roundIndex + 1}라운드</h3>
+                            <div className="swiss-round-header">
+                                <h3 className="swiss-round-title">{roundIndex + 1}라운드</h3>
+                                {showRematchBtn && (
+                                    <button type="button" className="btn swiss-round-rematch-btn" onClick={onRematchRound} title="이 라운드 대진 다시 섞기">🔄 대진 다시 섞기</button>
+                                )}
+                            </div>
                             <ul className="swiss-match-list">
                                 {round.map(match => {
                                     const isDuplicate = hasPlayedBefore(match.players[0], match.players[1], roundIndex);

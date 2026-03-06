@@ -38,12 +38,18 @@ export interface SpecialMission {
     isAtLeast?: boolean;   // 하위 그룹 노출 방지 (하급자가 어려운 미션 뽑기 제한)
 }
 
+export type PersonalMissionType = 'continuous' | 'achievement';
+
 export interface PersonalMission {
     id: string;
     ownerStudentId: string;
     title: string;
     stones: number;
     no: number;
+    /** 연속 미션(번호 자동 증가) | 업적 미션(1회성). 없으면 continuous */
+    missionType?: PersonalMissionType;
+    /** 업적 미션 완료 시각(ISO). 있으면 1회성 완료 처리됨 */
+    completedAt?: string;
 }
 
 export interface PersonalMissionsByStudent {
@@ -240,12 +246,39 @@ export interface MissionBadukData {
     players: MissionBadukPlayer[];
 }
 
+/** 풀리그(전체 라운드로빈): 1회전 당 1경기, 매치 리스트 + 순위 */
+export interface FullLeagueMatch {
+    id: string;
+    player1Id: string;
+    player2Id: string;
+    winnerId: string | null;
+}
+export interface FullLeagueData {
+    players: { studentId: string; name: string; wins: number; losses: number }[];
+    matches: FullLeagueMatch[];
+}
+
+/** 더블엘리미네이션: 승자조 + 패자조 + 그랜드파이널 */
+export interface DoubleElimMatch {
+    id: string;
+    players: (string | 'BYE' | null)[];
+    winnerId: string | null;
+}
+export interface DoubleElimData {
+    winnersRounds: { title: string; matches: DoubleElimMatch[] }[];
+    losersRounds: { title: string; matches: DoubleElimMatch[] }[];
+    grandFinal: DoubleElimMatch | null;
+    playerIds: string[];
+}
+
 export interface TournamentData {
     participantIds: string[];
     relayParticipantIds: string[];
     bracketParticipantIds: string[];
     swissParticipantIds: string[];
     hybridParticipantIds: string[];
+    fullLeagueParticipantIds: string[];
+    doubleElimParticipantIds: string[];
     missionParticipantIds: string[];
     teams: Team[];
     bracket: TournamentBracket | null;
@@ -257,6 +290,8 @@ export interface TournamentData {
         preliminaryGroups: SwissMatch[][];
         bracket: TournamentBracket | null;
     };
+    fullLeague?: FullLeagueData;
+    doubleElim?: DoubleElimData;
 }
 
 export type GameKey = 'game1' | 'game2' | 'game3';

@@ -392,6 +392,16 @@
     flex: 1;
 }
 
+.bracket-round-col.is-final-round .bracket-round-matches {
+    justify-content: flex-start;
+    height: 100%;
+}
+
+.bracket-round-col.is-final-round .bracket-final-spacer {
+    flex: 0 0 calc(50% - 56px);
+    min-height: 0;
+}
+
 .bracket-match-cell {
     position: relative;
 }
@@ -403,24 +413,55 @@
     margin: 0 0 4px;
 }
 
-.bracket-match-cell .bracket-match {
+.bracket-match-with-arrow {
+    display: flex;
+    align-items: stretch;
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
     overflow: hidden;
     transition: box-shadow 0.2s, border-color 0.2s;
+    min-width: 140px;
 }
 
-.bracket-match-cell .bracket-match:hover {
+.bracket-match-cell:hover .bracket-match-with-arrow {
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     border-color: var(--primary-color);
 }
 
+.bracket-match-with-arrow .bracket-match {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.bracket-arrow-box {
+    flex-shrink: 0;
+    width: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid #e0e0e0;
+    background: #fafbfc;
+}
+
+.bracket-diagonal-arrow {
+    font-size: 1.1rem;
+    color: var(--primary-color);
+    line-height: 1;
+}
+
 .bracket-match-cell .bracket-player {
-    padding: 6px 10px;
+    flex: 1;
+    min-width: 0;
+    padding: 8px 12px;
     font-size: 0.9rem;
-    min-height: 28px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
 }
 
 /* Tournament: Bracket (Legacy / Compact) */
@@ -599,17 +640,37 @@
     box-shadow: var(--shadow);
 }
 
-/* Tournament: Swiss */
+/* Tournament: Swiss - 화면에 고정된 크기, 하단 짤림 없이 라운드·순위 각각 내부 스크롤 */
+.tournament-swiss-view {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 140px);
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tournament-swiss-view .swiss-controls {
+    flex-shrink: 0;
+}
+
+.tournament-swiss-view .group-tab-buttons {
+    flex-shrink: 0;
+}
+
 .swiss-layout {
     display: flex;
     gap: 1.5rem;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .swiss-rounds-container {
     flex: 2;
+    min-height: 0;
     overflow-y: auto;
     padding-right: 0.5rem;
+    scrollbar-gutter: stable;
 }
 
 .swiss-round {
@@ -620,9 +681,38 @@
     box-shadow: var(--shadow);
 }
 
+.swiss-round-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.swiss-round-title {
+    border-bottom: 2px solid #eee;
+    padding-bottom: 0.5rem;
+    margin: 0 !important;
+    font-size: 1.1rem;
+}
+
+.swiss-round-rematch-btn {
+    flex-shrink: 0;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+    background: transparent;
+}
+
+.swiss-round-rematch-btn:hover {
+    background: #e8f4fd;
+}
+
 .swiss-match-list {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
     list-style: none; padding: 0;
 }
@@ -666,8 +756,95 @@
     font-weight: bold;
 }
 
-.swiss-standings-container {
+/* Tournament: 풀리그 (Full League / Round Robin) */
+.tournament-fullleague-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-height: calc(100vh - 140px);
+    min-height: 0;
+    overflow: hidden;
+}
+
+.fullleague-controls {
+    flex-shrink: 0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.fullleague-layout {
+    display: flex;
+    gap: 1.5rem;
     flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.fullleague-matches-container {
+    flex: 2;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    background: white;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+.fullleague-section-title {
+    margin: 0 0 1rem;
+    color: var(--secondary-color);
+    font-size: 1rem;
+}
+
+.fullleague-match-list {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    list-style: none;
+    padding: 0;
+}
+
+.fullleague-match {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8f9fa;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+}
+
+.fullleague-player {
+    flex: 1;
+    text-align: center;
+    padding: 0.35rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.fullleague-player.clickable {
+    cursor: pointer;
+}
+
+.fullleague-player.winner {
+    background: #d4edda;
+    color: var(--success-color);
+    font-weight: bold;
+}
+
+.fullleague-vs {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: #999;
+    font-weight: bold;
+    margin: 0 0.25rem;
+}
+
+.fullleague-standings-container {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
     background: white;
     border-radius: var(--radius);
     padding: 1.5rem;
@@ -676,9 +853,222 @@
     flex-direction: column;
 }
 
-.swiss-table-wrapper {
+.fullleague-table-wrapper {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.fullleague-standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.fullleague-standings-table th,
+.fullleague-standings-table td {
+    padding: 0.5rem 0.75rem;
+    text-align: center;
+}
+
+.fullleague-standings-table thead th {
+    background: #f1f3f5;
+    font-weight: 600;
+    color: var(--secondary-color);
+    border-bottom: 2px solid #ddd;
+}
+
+.fullleague-standings-table tbody tr.rank-1 { background-color: #fff8e1; }
+.fullleague-standings-table tbody tr.rank-2 { background-color: #f5f5f5; }
+.fullleague-standings-table tbody tr.rank-3 { background-color: #fff3e0; }
+
+/* Tournament: 더블엘리미네이션 */
+.tournament-doubleelim-view {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.tournament-doubleelim-view .bracket-controls {
+    flex-shrink: 0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.doubleelim-bracket-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem 0;
+}
+
+.doubleelim-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.doubleelim-tabs .tab-btn {
+    padding: 0.5rem 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--surface-color);
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.doubleelim-tabs .tab-btn:hover {
+    background: #f1f3f5;
+}
+
+.doubleelim-tabs .tab-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.doubleelim-tab-content {
+    display: flex;
+    flex-direction: row;
+    gap: 2rem;
+    align-items: flex-start;
+    min-width: 0;
+}
+
+.doubleelim-section {
+    flex-shrink: 0;
+}
+
+.doubleelim-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    margin: 0 0 0.75rem;
+    padding: 0;
+}
+
+.doubleelim-grandfinal-section {
+    margin-left: 0.5rem;
+}
+
+.doubleelim-grandfinal-section .bracket-round-title {
+    color: #e65100;
+}
+
+.doubleelim-layout {
+    display: flex;
+    gap: 1.5rem;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+.doubleelim-bracket-column {
+    flex: 1;
+    min-width: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.doubleelim-bracket-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+    margin: 0;
+    padding: 0.4rem 0;
+}
+
+.doubleelim-round {
+    background: white;
+    border-radius: var(--radius);
+    padding: 1rem;
+    box-shadow: var(--shadow);
+}
+
+.doubleelim-round h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.doubleelim-match-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.doubleelim-match {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8f9fa;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.doubleelim-match:last-child {
+    margin-bottom: 0;
+}
+
+.doubleelim-player {
+    flex: 1;
+    text-align: center;
+    padding: 0.25rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.doubleelim-player.winner {
+    background: #d4edda;
+    font-weight: bold;
+    color: var(--success-color);
+}
+
+.doubleelim-vs {
+    flex-shrink: 0;
+    font-size: 0.7rem;
+    color: #999;
+    margin: 0 0.25rem;
+}
+
+.doubleelim-grandfinal {
+    background: linear-gradient(135deg, #fff8e1 0%, #fffbf0 100%);
+    border: 2px solid #ffc107;
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-top: 0.5rem;
+}
+
+.doubleelim-grandfinal h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    color: #e65100;
+}
+
+.swiss-standings-container {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    background: white;
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+}
+
+.swiss-standings-container .swiss-table-wrapper {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
     border-radius: 8px;
     border: 1px solid var(--border-color);
 }
@@ -727,7 +1117,264 @@
     font-weight: bold;
 }
 
-/* Tournament Winner Display */
+/* Tournament Bracket View Body (오른쪽 결과 패널 레이아웃) */
+.tournament-bracket-view {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.bracket-view-body {
+    display: flex;
+    gap: 1.5rem;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    align-items: flex-start;
+}
+
+.bracket-main {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+/* Tournament Result Panel (오른쪽 고급 결과 영역) */
+.bracket-result-panel {
+    flex: 0 0 340px;
+    position: sticky;
+    top: 0;
+}
+
+.bracket-result-box {
+    border-radius: 14px;
+    padding: 1.25rem 1rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.bracket-result-box.bracket-result-filled {
+    padding: 1rem 1rem;
+}
+
+.bracket-result-placeholder {
+    background: linear-gradient(145deg, #2d2a26 0%, #1a1816 50%, #252220 100%);
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+}
+
+.bracket-result-placeholder .bracket-result-crown {
+    font-size: 3rem;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+    display: block;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+}
+
+.bracket-result-placeholder .bracket-result-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0 0 1rem;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.bracket-result-placeholder .bracket-result-message {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.bracket-result-filled {
+    background: linear-gradient(160deg, #1c1917 0%, #292524 35%, #1f1d1b 100%);
+    color: #fff;
+    border: 1px solid rgba(212, 175, 55, 0.25);
+}
+
+.bracket-result-glow {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, rgba(212, 175, 55, 0.12) 0%, transparent 55%);
+    pointer-events: none;
+}
+
+.bracket-result-filled .bracket-result-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin: 0 0 0.75rem;
+    color: rgba(255, 255, 255, 0.95);
+    text-align: center;
+    position: relative;
+    z-index: 1;
+}
+
+.bracket-result-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    position: relative;
+    z-index: 1;
+}
+
+.bracket-result-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+}
+
+.bracket-result-row.rank-1 { background: rgba(212, 175, 55, 0.2); }
+.bracket-result-row.rank-2 { background: rgba(255, 255, 255, 0.08); }
+.bracket-result-row.rank-3 { background: rgba(205, 127, 50, 0.18); }
+.bracket-result-row.rank-4 { background: rgba(255, 255, 255, 0.05); }
+
+.bracket-result-icon {
+    flex-shrink: 0;
+    font-size: 1rem;
+    width: 1.25em;
+    text-align: center;
+}
+
+.bracket-result-row.rank-4 .bracket-result-icon {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.bracket-result-text {
+    color: #fff;
+    flex: 1;
+    min-width: 0;
+}
+
+.bracket-result-meta {
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: normal;
+    font-size: 0.8em;
+}
+
+.bracket-result-actions {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.bracket-result-actions .btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.bracket-result-rest-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.bracket-result-rest-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* 5위 이하 순위보기 모달 */
+.bracket-rest-rank-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.bracket-rest-rank-modal {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    min-width: 280px;
+    max-width: 90vw;
+    max-height: 70vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.bracket-rest-rank-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #eee;
+    background: #f8f9fa;
+}
+
+.bracket-rest-rank-header h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.bracket-rest-rank-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: #666;
+    cursor: pointer;
+    padding: 0 0.25rem;
+}
+
+.bracket-rest-rank-close:hover {
+    color: #333;
+}
+
+.bracket-rest-rank-body {
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.bracket-rest-rank-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.9rem;
+}
+
+.bracket-rest-rank-group:last-child {
+    border-bottom: none;
+}
+
+.bracket-rest-rank-label {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: #555;
+    min-width: 5rem;
+}
+
+.bracket-rest-rank-names {
+    color: #333;
+}
+
+/* Legacy Tournament Winner Display (하위 호환) */
 .tournament-winner-display {
     text-align: center;
     background: white;

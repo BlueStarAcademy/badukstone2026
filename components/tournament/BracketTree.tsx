@@ -80,12 +80,18 @@ export const BracketTree = (props: BracketTreeProps) => {
                         <stop offset="0%" stopColor="var(--border-color)" />
                         <stop offset="100%" stopColor="var(--primary-color)" />
                     </linearGradient>
+                    <marker id="bracket-arrowhead" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                        <polygon points="0 0, 10 4, 0 8" fill="#999" />
+                    </marker>
+                    <marker id="bracket-arrowhead-winner" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                        <polygon points="0 0, 10 4, 0 8" fill="var(--primary-color)" />
+                    </marker>
                 </defs>
                 {paths.map((p, i) => (
-                    <path key={`conn-${i}`} d={p} fill="none" stroke="#ddd" strokeWidth="1.5" />
+                    <path key={`conn-${i}`} d={p} fill="none" stroke="#ddd" strokeWidth="1.5" markerEnd="url(#bracket-arrowhead)" />
                 ))}
                 {winnerPaths.map((p, i) => (
-                    <path key={`win-${i}`} d={p} fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round" />
+                    <path key={`win-${i}`} d={p} fill="none" stroke="var(--primary-color)" strokeWidth="2.5" strokeLinecap="round" markerEnd="url(#bracket-arrowhead-winner)" />
                 ))}
             </svg>
             <div className="bracket-tree-columns">
@@ -94,7 +100,7 @@ export const BracketTree = (props: BracketTreeProps) => {
                     const baseCount = rounds[0].matches.length;
                     const pow = Math.log2(baseCount);
                     return (
-                        <div key={roundIndex} className="bracket-round-col">
+                        <div key={roundIndex} className={`bracket-round-col ${isFinal ? 'is-final-round' : ''}`}>
                             <h4 className="bracket-round-title">{round.title}</h4>
                             <div 
                                 className="bracket-round-matches"
@@ -103,12 +109,23 @@ export const BracketTree = (props: BracketTreeProps) => {
                                     minHeight: baseCount * (SLOT_HEIGHT * 2 + MATCH_GAP)
                                 }}
                             >
+                                {isFinal && <div className="bracket-final-spacer" aria-hidden />}
                                 {round.matches.map((match, matchIndex) => {
                                     if (roundFilter && !roundFilter(roundIndex, matchIndex)) return null;
                                     const player1 = match.players[0];
                                     const player2 = match.players[1];
                                     const key = getMatchKey(roundIndex, matchIndex);
-                                    const yOffset = (2 * matchIndex + 1) * Math.pow(2, pow - 1 - roundIndex) * (SLOT_HEIGHT + MATCH_GAP / 2);
+                                    const nextRound = rounds[roundIndex + 1];
+                                    const numCur = round.matches.length;
+                                    const numNext = nextRound?.matches.length ?? 1;
+                                    const curY = (matchIndex + 0.5) / numCur;
+                                    const nextM = nextRound?.title.includes('결승')
+                                        ? (matchIndex < 2 ? 0 : 1)
+                                        : Math.floor(matchIndex / 2);
+                                    const nextY = nextRound?.title.includes('결승') && nextM === 0
+                                        ? 0.5
+                                        : (nextM + 0.5) / numNext;
+                                    const winnerArrow = nextY < curY ? '↗' : '↘';
                                     return (
                                         <div
                                             key={match.id}
@@ -119,19 +136,26 @@ export const BracketTree = (props: BracketTreeProps) => {
                                             {isFinal && (
                                                 <h5 className="bracket-match-label">{matchIndex === 0 ? '결승' : '3/4위전'}</h5>
                                             )}
-                                            <div className="bracket-match">
-                                                <div
-                                                    className={`bracket-player ${match.winnerId === (player1 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
-                                                    onClick={() => player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, (player1 as TournamentPlayer).studentId)}
-                                                >
-                                                    {player1 === 'BYE' ? '부전승' : player1?.name || '...'}
+                                            <div className="bracket-match-with-arrow">
+                                                <div className="bracket-match">
+                                                    <div
+                                                        className={`bracket-player ${match.winnerId === (player1 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
+                                                        onClick={() => player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, (player1 as TournamentPlayer).studentId)}
+                                                    >
+                                                        {player1 === 'BYE' ? '부전승' : player1?.name || ''}
+                                                    </div>
+                                                    <div
+                                                        className={`bracket-player ${match.winnerId === (player2 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
+                                                        onClick={() => player2 && player2 !== 'BYE' && player1 && player1 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, (player2 as TournamentPlayer).studentId)}
+                                                    >
+                                                        {player2 === 'BYE' ? '' : player2?.name || ''}
+                                                    </div>
                                                 </div>
-                                                <div
-                                                    className={`bracket-player ${match.winnerId === (player2 as TournamentPlayer)?.studentId ? 'winner' : ''} ${player1 && player1 !== 'BYE' && player2 && player2 !== 'BYE' ? 'clickable' : ''}`}
-                                                    onClick={() => player2 && player2 !== 'BYE' && player1 && player1 !== 'BYE' && handleSetMatchWinner(roundIndex, matchIndex, (player2 as TournamentPlayer).studentId)}
-                                                >
-                                                    {player2 === 'BYE' ? '' : player2?.name || '...'}
-                                                </div>
+                                                {roundIndex < rounds.length - 1 && (
+                                                    <div className="bracket-arrow-box" aria-hidden title="다음 라운드 방향">
+                                                        <span className="bracket-diagonal-arrow">{winnerArrow}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     );
