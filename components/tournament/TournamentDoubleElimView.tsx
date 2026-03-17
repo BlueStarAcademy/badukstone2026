@@ -44,8 +44,8 @@ function buildDoubleElim(participantIds: string[]): DoubleElimData {
 
         const grandFinal = createMatch();
         const built: DoubleElimData = { winnersRounds, losersRounds, grandFinal, playerIds: participantIds };
-        propagateAllWinners(built);
         applyByeWinners(built);
+        propagateAllWinners(built);
         return built;
     }
 
@@ -92,8 +92,8 @@ function buildDoubleElim(participantIds: string[]): DoubleElimData {
 
     const grandFinal = createMatch();
     const built: DoubleElimData = { winnersRounds, losersRounds, grandFinal, playerIds: participantIds };
-    propagateAllWinners(built);
     applyByeWinners(built);
+    propagateAllWinners(built);
     return built;
 }
 
@@ -191,6 +191,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
             if (bracket === 'grand') {
                 GF.winnerId = winnerId;
                 applyByeWinners(next);
+                propagateAllWinners(next);
                 return { ...prev, doubleElim: next };
             }
 
@@ -223,6 +224,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                     }
                 }
                 applyByeWinners(next);
+                propagateAllWinners(next);
                 return { ...prev, doubleElim: next };
             }
 
@@ -244,6 +246,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                     else GF.players[1] = null;
                 }
                 applyByeWinners(next);
+                propagateAllWinners(next);
                 return { ...prev, doubleElim: next };
             }
 

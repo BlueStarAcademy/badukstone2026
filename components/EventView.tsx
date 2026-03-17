@@ -86,14 +86,15 @@ const GachaRevealModal = ({ result, onClose }: GachaRevealModalProps) => {
     );
 };
 
-const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickingStudentId, remainingPrizes, students }: { 
+const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickingStudentId, remainingPrizes, students, revealAllUnpicked }: { 
     gachaData: GachaData, 
     gachaResult: { pickedNumber: number, prizeTier: number } | null, 
     eventSettings: EventSettings, 
     onCellClick: (num: number) => void, 
     pickingStudentId: string | null,
     remainingPrizes: Record<keyof EventSettings['gachaPrizeCounts'], number>,
-    students: Student[]
+    students: Student[],
+    revealAllUnpicked: boolean
 }) => {
     const pickedSet = useMemo(() => new Set(Object.values(gachaData.pickedNumbers).map(Number)), [gachaData.pickedNumbers]);
 
@@ -120,13 +121,15 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
                 <div className={`gacha-board ${gachaResult ? 'reveal' : ''}`}>
                     {Array.from({ length: 100 }, (_, i) => i + 1).map(num => {
                         const isPicked = pickedSet.has(num);
-                        const isClickable = !isPicked && !!pickingStudentId;
+                        const isClickable = !isPicked && !!pickingStudentId && !revealAllUnpicked;
                         const pickerName = pickerNameByNumber[num];
+                        const tier = getTierForNumber(num);
+                        const showUnpickedTier = !isPicked && revealAllUnpicked && tier && tier !== '?';
 
                         return (
                             <div
                                 key={num}
-                                className={`gacha-cell ${isPicked ? 'picked' : ''} ${gachaResult?.pickedNumber === num ? 'result' : ''}`}
+                                className={`gacha-cell ${isPicked ? 'picked' : ''} ${showUnpickedTier ? 'unpicked-revealed' : ''} ${gachaResult?.pickedNumber === num ? 'result' : ''}`}
                                 onClick={isClickable ? () => onCellClick(num) : undefined}
                                 role={isClickable ? 'button' : undefined}
                                 tabIndex={isClickable ? 0 : -1}
@@ -135,8 +138,13 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
                             >
                                 {isPicked ? (
                                     <span className="gacha-cell-picked">
-                                        <span className="gacha-cell-tier">{getTierForNumber(num)}등</span>
+                                        <span className="gacha-cell-tier">{tier}등</span>
                                         <span className="gacha-cell-picker">{pickerName ?? ''}</span>
+                                    </span>
+                                ) : showUnpickedTier ? (
+                                    <span className="gacha-cell-picked">
+                                        <span className="gacha-cell-tier">{tier}등</span>
+                                        <span className="gacha-cell-picker">미선택</span>
                                     </span>
                                 ) : (
                                     num
@@ -326,6 +334,14 @@ export const EventView = (props: EventViewProps) => {
         return initialCounts;
     }, [activeGachaData, eventSettings.gachaPrizeCounts]);
 
+    // 지난달 판 공개 여부: 지난달 탭 + 지난달에 '뽑기 가능했지만 아직 안 뽑은' 학생이 아무도 없을 때만 전체 공개
+    const shouldRevealPreviousBoard = useMemo(() => {
+        if (selectedMonth !== 'previous') return false;
+        // selectedMonth가 previous일 때의 studentStats는 이미 지난달 기준으로 계산됨
+        const hasUnpickedEligible = studentStats.some(s => s.isEligible && !s.eventParticipation);
+        return !hasUnpickedEligible;
+    }, [selectedMonth, studentStats]);
+
     const handleAction = (student: StudentWithStats) => {
         if (student.eventParticipation || !student.isEligible) return;
         setPickingStudentId(student.id);
@@ -380,6 +396,7 @@ export const EventView = (props: EventViewProps) => {
                     pickingStudentId={pickingStudentId} 
                     remainingPrizes={remainingPrizes}
                     students={students}
+                    revealAllUnpicked={shouldRevealPreviousBoard}
                 />
             </div>
             

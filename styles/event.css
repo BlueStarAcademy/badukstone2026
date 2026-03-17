@@ -84,6 +84,16 @@
     transform: none;
 }
 
+.gacha-cell.unpicked-revealed {
+    background: linear-gradient(145deg, #263238, #37474f);
+    color: #eceff1;
+    cursor: default;
+    font-size: 0.65rem;
+    border: none;
+    border-bottom: none;
+    box-shadow: inset 2px 2px 6px rgba(0,0,0,0.7);
+}
+
 .gacha-cell-picked {
     display: flex;
     flex-direction: column;
