@@ -37,8 +37,13 @@ function applyEventMonthlyStatsDelta(
     if (!next[monthKey]) next[monthKey] = {};
     const month = { ...next[monthKey] };
     const student = month[studentId] || { missions: 0, penalties: 0 };
-    const baseMissions = baseFromTx?.missions ?? student.missions ?? 0;
-    const basePenalties = baseFromTx?.penalties ?? student.penalties ?? 0;
+    const hasStored = month[studentId] !== undefined;
+    const baseMissions = hasStored
+        ? (student.missions ?? 0)
+        : (baseFromTx?.missions ?? student.missions ?? 0);
+    const basePenalties = hasStored
+        ? (student.penalties ?? 0)
+        : (baseFromTx?.penalties ?? student.penalties ?? 0);
     month[studentId] = {
         missions: Math.max(0, baseMissions + (delta.missions ?? 0)),
         penalties: Math.max(0, basePenalties + (delta.penalties ?? 0)),
