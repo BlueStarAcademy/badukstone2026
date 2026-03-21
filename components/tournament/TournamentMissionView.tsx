@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Student, TournamentData, TournamentSettings, MissionBadukPlayer, MissionBadukActiveMission, MissionBadukData } from '../../types';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 
@@ -272,19 +272,19 @@ const MissionFinishModal = ({ player, settings, onClose, onConfirm }: MissionFin
     const handleRollBonus = () => {
         setIsRolling(true);
         setStep('bonus');
-        
+
         const tiers = settings.missionBaduk?.bonusTiers || [];
         if (tiers.length === 0) {
             setBonusStones(0);
-            setRolledTier("보너스 없음");
+            setRolledTier('보너스 없음');
             setIsRolling(false);
             setStep('result');
             return;
         }
 
         let totalWeight = 0;
-        tiers.forEach(t => totalWeight += t.rate);
-        
+        tiers.forEach(t => { totalWeight += t.rate; });
+
         setTimeout(() => {
             const random = Math.random() * totalWeight;
             let currentWeight = 0;
@@ -305,59 +305,118 @@ const MissionFinishModal = ({ player, settings, onClose, onConfirm }: MissionFin
         }, 2000);
     };
 
-    return (
-        <div className="modal-overlay">
-            <div className="modal-content finish-modal-content" onClick={e => e.stopPropagation()}>
-                <h2>{player.name} 미션 종료</h2>
-                
-                <div className="finish-score-display">
-                    획득 점수: {player.score}점
-                </div>
-                
-                {step === 'base' && (
-                    <div>
-                        <p>기본 보상: {baseStones} 스톤</p>
-                        {player.score > 0 ? (
-                            <button className="btn primary" onClick={handleRollBonus}>보너스 뽑기 도전!</button>
-                        ) : (
-                            <div style={{marginTop: '1.5rem'}}>
-                                <p style={{color: '#888', marginBottom: '1.5rem'}}>획득 점수가 0점이라 보너스 기회가 없습니다.</p>
-                                <button className="btn primary" onClick={() => onConfirm(0)}>종료하기</button>
-                            </div>
-                        )}
-                        <div style={{marginTop: '1rem'}}>
-                            <button className="btn" onClick={onClose}>취소</button>
-                        </div>
-                    </div>
-                )}
+    const totalStones = baseStones + bonusStones;
 
-                {(step === 'bonus' || step === 'result') && (
-                    <div className="bonus-section">
-                        <div className={`bonus-slot-machine ${isRolling ? 'shaking' : ''}`}>
-                            <div className="bonus-slot-window">
-                                {isRolling ? (
-                                    <span className="slot-text spinning">???</span>
-                                ) : (
-                                    <span className="slot-text result">{rolledTier}</span>
+    return (
+        <div className="modal-overlay mission-finish-overlay" onClick={onClose} role="presentation">
+            <div
+                className="modal-content mission-finish-modal"
+                onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="mission-finish-title"
+            >
+                <div className="mission-finish-modal-glow" aria-hidden />
+                <header className="mission-finish-header">
+                    <span className="mission-finish-badge" aria-hidden>보상</span>
+                    <h2 id="mission-finish-title" className="mission-finish-title">
+                        미션바둑 시합 종료
+                    </h2>
+                    <p className="mission-finish-player">
+                        <span className="mission-finish-player-label">선수</span>
+                        <span className="mission-finish-player-name">{player.name}</span>
+                    </p>
+                </header>
+
+                <div className="mission-finish-summary">
+                    <div className="mission-finish-stat">
+                        <span className="mission-finish-stat-label">획득 점수</span>
+                        <span className="mission-finish-stat-value">{player.score}<small>점</small></span>
+                    </div>
+                    <div className="mission-finish-stat mission-finish-stat--gold">
+                        <span className="mission-finish-stat-label">기본 스톤</span>
+                        <span className="mission-finish-stat-value">{baseStones}<small>개</small></span>
+                    </div>
+                </div>
+
+                <div className="mission-finish-body">
+                    {step === 'base' && (
+                        <div className="mission-finish-step mission-finish-step--base">
+                            {player.score > 0 ? (
+                                <>
+                                    <p className="mission-finish-hint">
+                                        보너스 뽑기로 추가 스톤을 획득할 수 있습니다.
+                                    </p>
+                                    <button type="button" className="mission-finish-btn mission-finish-btn--primary" onClick={handleRollBonus}>
+                                        <span className="mission-finish-btn-icon" aria-hidden>✦</span>
+                                        보너스 뽑기 도전
+                                    </button>
+                                    <button type="button" className="mission-finish-btn mission-finish-btn--ghost" onClick={() => onConfirm(baseStones)}>
+                                        보너스 없이 기본만 지급
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="mission-finish-hint mission-finish-hint--muted">
+                                        획득 점수가 0점이어서 보너스 뽑기는 진행할 수 없습니다.
+                                    </p>
+                                    <button type="button" className="mission-finish-btn mission-finish-btn--primary" onClick={() => onConfirm(0)}>
+                                        종료하기
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {(step === 'bonus' || step === 'result') && (
+                        <div className="mission-finish-bonus-panel">
+                            <p className="mission-finish-bonus-label">
+                                {isRolling ? '보너스 등급을 뽑는 중…' : step === 'result' ? '뽑기 결과' : ''}
+                            </p>
+                            <div className={`mission-finish-slot ${isRolling ? 'mission-finish-slot--rolling' : ''}`}>
+                                <div className="mission-finish-slot-frame">
+                                    <div className="mission-finish-slot-inner">
+                                        {isRolling ? (
+                                            <span className="mission-finish-slot-text mission-finish-slot-text--spin">?</span>
+                                        ) : (
+                                            <span className="mission-finish-slot-text mission-finish-slot-text--result">{rolledTier}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                {isRolling && (
+                                    <div className="mission-finish-slot-shine" aria-hidden />
                                 )}
                             </div>
+                            {!isRolling && step === 'result' && (
+                                <div className="mission-finish-bonus-reward">
+                                    <span className="mission-finish-bonus-reward-label">보너스</span>
+                                    <span className="mission-finish-bonus-reward-value">+{bonusStones} 스톤</span>
+                                </div>
+                            )}
                         </div>
-                        {!isRolling && step === 'result' && (
-                            <div className="bonus-result-info">
-                                보너스: +{bonusStones} 스톤
-                            </div>
-                        )}
-                    </div>
-                )}
+                    )}
 
-                {step === 'result' && (
-                    <div className="total-reward-display">
-                        <p>최종 보상</p>
-                        <span className="total-reward-amount">{baseStones + bonusStones}</span>
-                        <div className="modal-actions" style={{justifyContent: 'center'}}>
-                            <button className="btn primary" onClick={() => onConfirm(baseStones + bonusStones)}>스톤 지급 및 종료</button>
+                    {step === 'result' && (
+                        <div className="mission-finish-total">
+                            <span className="mission-finish-total-label">최종 지급 스톤</span>
+                            <span className="mission-finish-total-amount">{totalStones}</span>
+                            <button
+                                type="button"
+                                className="mission-finish-btn mission-finish-btn--confirm"
+                                onClick={() => onConfirm(totalStones)}
+                            >
+                                스톤 지급 및 종료
+                            </button>
                         </div>
-                    </div>
+                    )}
+                </div>
+
+                {step !== 'result' && (
+                    <footer className="mission-finish-footer">
+                        <button type="button" className="mission-finish-btn mission-finish-btn--text" onClick={onClose}>
+                            취소
+                        </button>
+                    </footer>
                 )}
             </div>
         </div>
