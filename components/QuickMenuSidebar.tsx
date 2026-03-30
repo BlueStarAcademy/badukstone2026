@@ -925,7 +925,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                             <button
                                                                 className="btn-sm primary"
                                                                 onClick={() => onCompletePersonalMission(student.id, m.id)}
-                                                                disabled={student.stones >= student.maxStones}
+                                                                disabled={(m.stones || 0) <= 0}
                                                             >
                                                                 완료
                                                             </button>
@@ -1171,12 +1171,6 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                 currentStudentId={student.id}
                 students={students}
                 personalMissions={personalMissions}
-                onLoad={(missions) => {
-                    missions.forEach(m => {
-                        onAddPersonalMission(student.id, { ...m, missionType: m.missionType || 'continuous' });
-                    });
-                    setShowLoadMissionModal(false);
-                }}
                 onAddPersonalMission={onAddPersonalMission}
                 onUpdatePersonalMission={onUpdatePersonalMission}
                 onDeletePersonalMission={onDeletePersonalMission}

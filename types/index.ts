@@ -83,6 +83,10 @@ export interface Transaction {
     eventMonth?: string;
     couponsUsed?: UsedCouponInfo[];
     missionCountDelta?: number; // 미션 횟수 보정값 (+1, -1 등)
+    // 연속 개인 미션(continuous) 완료/취소 되돌림용 메타데이터
+    personalMissionId?: string;
+    personalMissionNoBefore?: number;
+    personalMissionNoAfter?: number;
 }
 
 export interface Coupon {

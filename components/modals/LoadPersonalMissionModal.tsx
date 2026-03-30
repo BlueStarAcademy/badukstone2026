@@ -8,7 +8,6 @@ interface LoadPersonalMissionModalProps {
     currentStudentId: string;
     students: { id: string }[];
     personalMissions: PersonalMissionsByStudent;
-    onLoad: (missions: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }[]) => void;
     onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => void;
     onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => void;
     onDeletePersonalMission: (studentId: string, missionId: string) => void;
@@ -17,7 +16,8 @@ interface LoadPersonalMissionModalProps {
 type MissionType = 'continuous' | 'weekly' | 'monthly' | 'achievement';
 
 function contentKey(m: PersonalMission): string {
-    return `${m.title}|${m.missionType || 'continuous'}|${m.stones}`;
+    // 연속 미션은 No가 의미 있으므로 key에 포함합니다.
+    return `${m.title}|${m.missionType || 'continuous'}|${m.stones}|${m.no}`;
 }
 
 export const LoadPersonalMissionModal = ({
@@ -26,12 +26,12 @@ export const LoadPersonalMissionModal = ({
     currentStudentId,
     students,
     personalMissions,
-    onLoad,
     onAddPersonalMission,
     onUpdatePersonalMission,
     onDeletePersonalMission
 }: LoadPersonalMissionModalProps) => {
     const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+    const [applyToAllStudents, setApplyToAllStudents] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [editTitle, setEditTitle] = useState('');
     const [editStones, setEditStones] = useState('');
@@ -323,6 +323,14 @@ export const LoadPersonalMissionModal = ({
                 </div>
                 <div className="modal-actions">
                     <button type="button" className="btn" onClick={onClose}>닫기</button>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={applyToAllStudents}
+                            onChange={(e) => setApplyToAllStudents(e.target.checked)}
+                        />
+                        모든 학생에게 추가
+                    </label>
                     <button
                         type="button"
                         className="btn primary"
@@ -336,11 +344,32 @@ export const LoadPersonalMissionModal = ({
                                     no: mission.no,
                                     missionType: mission.missionType || 'continuous',
                                 }));
-                            onLoad(missionsToLoad);
+
+                            const targetStudentIds = applyToAllStudents ? students.map(s => s.id) : [currentStudentId];
+
+                            const hasSameMission = (existing: PersonalMission, incoming: { title: string; stones: number; no: number; missionType: MissionType }) => {
+                                const existingType = (existing.missionType || 'continuous') as MissionType;
+                                return (
+                                    existing.title === incoming.title &&
+                                    existing.stones === incoming.stones &&
+                                    existing.no === incoming.no &&
+                                    existingType === incoming.missionType
+                                );
+                            };
+
+                            targetStudentIds.forEach(targetId => {
+                                const existing = personalMissions[targetId] || [];
+                                missionsToLoad.forEach(m => {
+                                    const incoming = { ...m, missionType: (m.missionType || 'continuous') as MissionType };
+                                    if (existing.some(ex => hasSameMission(ex, incoming))) return;
+                                    onAddPersonalMission(targetId, incoming);
+                                });
+                            });
+
                             onClose();
                         }}
                     >
-                        선택한 미션 불러오기 ({selectedKeys.size})
+                        선택한 미션 {applyToAllStudents ? '모든 학생에게 추가' : '불러오기'} ({selectedKeys.size})
                     </button>
                 </div>
             </div>

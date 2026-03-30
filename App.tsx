@@ -571,6 +571,16 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 missionType === 'achievement' ? '(업적)' :
                 '';
 
+            const isContinuous = missionType === 'continuous';
+            const nextNo = isContinuous ? (mission.no || 0) + 1 : undefined;
+            const transactionExtraForContinuous = isContinuous
+                ? {
+                    personalMissionId: mission.id,
+                    personalMissionNoBefore: mission.no,
+                    personalMissionNoAfter: nextNo,
+                }
+                : {};
+
             const transaction: Transaction = {
                 id: generateId(),
                 studentId,
@@ -581,6 +591,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 status: 'active',
                 stoneBalanceBefore: student.stones,
                 stoneBalanceAfter: newStones,
+                ...transactionExtraForContinuous,
             };
 
             const updatedStudents = prev.students.map(s => s.id === studentId ? { ...s, stones: newStones } : s);
@@ -591,10 +602,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { missions: 1 }, baseFromTx);
 
             const shouldSetCompletedAt = missionType === 'achievement' || missionType === 'weekly' || missionType === 'monthly';
-            const updatedList = shouldSetCompletedAt
-                ? list.map(m => m.id === missionId ? { ...m, completedAt: timestamp } : m)
-                : list;
-            const nextPersonalMissions = shouldSetCompletedAt
+            const updatedList = isContinuous
+                ? list.map(m => m.id === missionId ? { ...m, no: (m.no || 0) + 1 } : m)
+                : shouldSetCompletedAt
+                    ? list.map(m => m.id === missionId ? { ...m, completedAt: timestamp } : m)
+                    : list;
+
+            const nextPersonalMissions = isContinuous || shouldSetCompletedAt
                 ? { ...existing, [studentId]: updatedList }
                 : existing;
 
@@ -870,11 +884,21 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 }
             }
 
+            // [추가] 연속 개인 미션(continuous)의 No 자동 증가를 취소 시 원복
+            let newPersonalMissions = prev.personalMissions;
+            if (transaction.personalMissionId && transaction.personalMissionNoBefore !== undefined) {
+                const existing = prev.personalMissions || {};
+                const list = existing[transaction.studentId] || [];
+                const updatedList = list.map(m => m.id === transaction.personalMissionId ? { ...m, no: transaction.personalMissionNoBefore as number } : m);
+                newPersonalMissions = { ...existing, [transaction.studentId]: updatedList };
+            }
+
             return { 
                 ...prev, 
                 students: updatedStudents, 
                 transactions: updatedTransactions,
                 gachaState: newGachaState,
+                ...(newPersonalMissions !== prev.personalMissions && { personalMissions: newPersonalMissions }),
                 ...(newEventMonthlyStats !== prev.eventMonthlyStats && { eventMonthlyStats: newEventMonthlyStats }),
             };
         });
@@ -890,6 +914,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             let updatedStudents = [...prev.students];
             let newGachaState = prev.gachaState;
             let newEventMonthlyStats = prev.eventMonthlyStats;
+            let newPersonalMissions = prev.personalMissions;
 
             if (transaction.status === 'active') {
                 const studentIdx = updatedStudents.findIndex(s => s.id === transaction.studentId);
@@ -927,6 +952,15 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 if (transaction.type === 'gacha' && transaction.eventMonth) {
                     newEventMonthlyStats = setEventParticipated(prev.eventMonthlyStats, transaction.eventMonth, transaction.studentId, false);
                 }
+
+                // [추가] 연속 개인 미션(continuous) 완료를 삭제하는 경우 No 자동 증가 원복
+                if (transaction.personalMissionId && transaction.personalMissionNoBefore !== undefined) {
+                    const existing = prev.personalMissions || {};
+                    const list = existing[transaction.studentId] || [];
+                    const updatedList = list.map(m => m.id === transaction.personalMissionId ? { ...m, no: transaction.personalMissionNoBefore as number } : m);
+                    newPersonalMissions = { ...existing, [transaction.studentId]: updatedList };
+                }
+
                 const monthKey = getMonthKey(transaction.timestamp);
                 if (transaction.type === 'mission' || transaction.type === 'attendance' || transaction.type === 'special_mission') {
                     newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, transaction.studentId, { missions: -1 });
@@ -941,6 +975,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                         students: updatedStudents, 
                         transactions: prev.transactions.filter(t => t.id !== transactionId),
                         gachaState: newGachaState,
+                        ...(newPersonalMissions !== prev.personalMissions && { personalMissions: newPersonalMissions }),
                         eventMonthlyStats: newEventMonthlyStats,
                     };
                 }
@@ -951,6 +986,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 students: updatedStudents, 
                 transactions: prev.transactions.filter(t => t.id !== transactionId),
                 gachaState: newGachaState,
+                ...(newPersonalMissions !== prev.personalMissions && { personalMissions: newPersonalMissions }),
                 ...(newEventMonthlyStats !== prev.eventMonthlyStats && { eventMonthlyStats: newEventMonthlyStats }),
             };
         });
