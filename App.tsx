@@ -26,6 +26,33 @@ function getMonthKey(timestamp: string): string {
     return `${d.getFullYear()}-${d.getMonth()}`;
 }
 
+function pad2(n: number): string {
+    return String(n).padStart(2, '0');
+}
+
+function getKstYmdFromTimestamp(timestamp: string): { year: number; month: number; day: number } {
+    const s = new Date(timestamp).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul', hour12: false });
+    const datePart = s.split(' ')[0]; // YYYY-MM-DD
+    const [year, month, day] = datePart.split('-').map(Number);
+    return { year, month, day };
+}
+
+function getKstWeekKeyFromTimestamp(timestamp?: string): string | null {
+    if (!timestamp) return null;
+    const { year, month, day } = getKstYmdFromTimestamp(timestamp);
+    const date = new Date(year, month - 1, day);
+    const dayOfWeek = date.getDay(); // 0(Sun) - 6(Sat)
+    const diffToMonday = (dayOfWeek + 6) % 7; // Monday => 0
+    const monday = new Date(year, month - 1, day - diffToMonday);
+    return `${monday.getFullYear()}-${pad2(monday.getMonth() + 1)}-${pad2(monday.getDate())}`;
+}
+
+function getKstMonthKeyFromTimestamp(timestamp?: string): string | null {
+    if (!timestamp) return null;
+    const { year, month } = getKstYmdFromTimestamp(timestamp);
+    return `${year}-${month - 1}`; // 0-indexed month to match existing getMonthKey()
+}
+
 function applyEventMonthlyStatsDelta(
     prev: EventMonthlyStats | undefined,
     monthKey: string,
@@ -405,7 +432,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'achievement' }) => {
+    const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
             const existing = prev.personalMissions || {};
@@ -444,7 +471,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    const handleUpdatePersonalMission = useCallback((studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'achievement' }) => {
+    const handleUpdatePersonalMission = useCallback((studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
             const existing = prev.personalMissions || {};
@@ -500,7 +527,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const list = existing[studentId] || [];
             const mission = list.find(m => m.id === missionId);
             if (!mission) return prev;
-            if ((mission.missionType || 'continuous') === 'achievement' && mission.completedAt) return prev;
+            const missionType = mission.missionType || 'continuous';
 
             const student = prev.students.find(s => s.id === studentId);
             if (!student) return prev;
@@ -511,11 +538,24 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const newStones = Math.min(student.maxStones, (student.stones || 0) + give);
             const timestamp = new Date().toISOString();
 
+            // 주간/월간 미션은 “해당 기간” 중복 완료를 막고, 완료하면 completedAt을 갱신한다.
+            const currentWeekKey = getKstWeekKeyFromTimestamp(timestamp);
+            const currentMonthKey = getKstMonthKeyFromTimestamp(timestamp);
+            if (missionType === 'achievement' && mission.completedAt) return prev;
+            if (missionType === 'weekly' && mission.completedAt && getKstWeekKeyFromTimestamp(mission.completedAt) === currentWeekKey) return prev;
+            if (missionType === 'monthly' && mission.completedAt && getKstMonthKeyFromTimestamp(mission.completedAt) === currentMonthKey) return prev;
+
+            const missionTypeLabel =
+                missionType === 'weekly' ? '(주간)' :
+                missionType === 'monthly' ? '(월간)' :
+                missionType === 'achievement' ? '(업적)' :
+                '';
+
             const transaction: Transaction = {
                 id: generateId(),
                 studentId,
                 type: 'mission',
-                description: `[개인] ${mission.title}`,
+                description: `[개인] ${missionTypeLabel ? `${missionTypeLabel} ` : ''}${mission.title}`,
                 amount: give,
                 timestamp,
                 status: 'active',
@@ -530,11 +570,11 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const baseFromTx = countMonthMissionPenaltyFromTx(prev.transactions, monthKey, studentId);
             const newEventMonthlyStats = applyEventMonthlyStatsDelta(prev.eventMonthlyStats, monthKey, studentId, { missions: 1 }, baseFromTx);
 
-            const isAchievement = (mission.missionType || 'continuous') === 'achievement';
-            const updatedList = isAchievement
+            const shouldSetCompletedAt = missionType === 'achievement' || missionType === 'weekly' || missionType === 'monthly';
+            const updatedList = shouldSetCompletedAt
                 ? list.map(m => m.id === missionId ? { ...m, completedAt: timestamp } : m)
                 : list;
-            const nextPersonalMissions = isAchievement
+            const nextPersonalMissions = shouldSetCompletedAt
                 ? { ...existing, [studentId]: updatedList }
                 : existing;
 

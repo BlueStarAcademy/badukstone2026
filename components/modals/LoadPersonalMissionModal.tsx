@@ -8,13 +8,13 @@ interface LoadPersonalMissionModalProps {
     currentStudentId: string;
     students: { id: string }[];
     personalMissions: PersonalMissionsByStudent;
-    onLoad: (missions: { title: string; stones: number; no: number; missionType?: 'continuous' | 'achievement' }[]) => void;
-    onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'achievement' }) => void;
-    onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'achievement' }) => void;
+    onLoad: (missions: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }[]) => void;
+    onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => void;
+    onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => void;
     onDeletePersonalMission: (studentId: string, missionId: string) => void;
 }
 
-type MissionType = 'continuous' | 'achievement';
+type MissionType = 'continuous' | 'weekly' | 'monthly' | 'achievement';
 
 function contentKey(m: PersonalMission): string {
     return `${m.title}|${m.missionType || 'continuous'}|${m.stones}`;
@@ -137,7 +137,7 @@ export const LoadPersonalMissionModal = ({
                 <h2>개인 미션 불러오기</h2>
                 <div className="modal-body">
                     <p className="load-mission-modal-description">
-                        저장된 개인 미션(연속/업적)을 선택하여 불러올 수 있습니다. 같은 내용의 미션은 하나만 표시됩니다.
+                        저장된 개인 미션(연속/주간/월간/업적)을 선택하여 불러올 수 있습니다. 같은 내용의 미션은 하나만 표시됩니다.
                     </p>
                     {uniqueMissions.length > 0 && (
                         <div className="load-mission-bulk-select-row">
@@ -155,6 +155,20 @@ export const LoadPersonalMissionModal = ({
                                 onClick={() => selectAllByType('continuous')}
                             >
                                 연속 미션만
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-xs"
+                                onClick={() => selectAllByType('weekly')}
+                            >
+                                주간 미션만
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-xs"
+                                onClick={() => selectAllByType('monthly')}
+                            >
+                                월간 미션만
                             </button>
                             <button
                                 type="button"
@@ -185,6 +199,14 @@ export const LoadPersonalMissionModal = ({
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                         <input type="radio" checked={addType === 'continuous'} onChange={() => setAddType('continuous')} />
                                         연속 미션
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        <input type="radio" checked={addType === 'weekly'} onChange={() => setAddType('weekly')} />
+                                        주간 미션
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        <input type="radio" checked={addType === 'monthly'} onChange={() => setAddType('monthly')} />
+                                        월간 미션
                                     </label>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                         <input type="radio" checked={addType === 'achievement'} onChange={() => setAddType('achievement')} />
@@ -226,6 +248,14 @@ export const LoadPersonalMissionModal = ({
                                             연속 미션
                                         </label>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            <input type="radio" checked={editType === 'weekly'} onChange={() => setEditType('weekly')} />
+                                            주간 미션
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            <input type="radio" checked={editType === 'monthly'} onChange={() => setEditType('monthly')} />
+                                            월간 미션
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                             <input type="radio" checked={editType === 'achievement'} onChange={() => setEditType('achievement')} />
                                             업적 미션
                                         </label>
@@ -264,7 +294,13 @@ export const LoadPersonalMissionModal = ({
                                     <li key={key} className="load-mission-list-item">
                                         <div className="load-mission-info">
                                             <span className="load-mission-series-desc">
-                                                {(mission.missionType || 'continuous') === 'achievement' ? '업적' : `No.${mission.no}`} · {mission.title} · +{mission.stones}
+                                                {(mission.missionType || 'continuous') === 'achievement'
+                                                    ? '업적'
+                                                    : (mission.missionType || 'continuous') === 'weekly'
+                                                        ? '주간'
+                                                        : (mission.missionType || 'continuous') === 'monthly'
+                                                            ? '월간'
+                                                            : `No.${mission.no}`} · {mission.title} · +{mission.stones}
                                             </span>
                                         </div>
                                         <div className="load-mission-item-actions">

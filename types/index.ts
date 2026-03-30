@@ -38,7 +38,7 @@ export interface SpecialMission {
     isAtLeast?: boolean;   // 하위 그룹 노출 방지 (하급자가 어려운 미션 뽑기 제한)
 }
 
-export type PersonalMissionType = 'continuous' | 'achievement';
+export type PersonalMissionType = 'continuous' | 'weekly' | 'monthly' | 'achievement';
 
 export interface PersonalMission {
     id: string;
@@ -46,9 +46,16 @@ export interface PersonalMission {
     title: string;
     stones: number;
     no: number;
-    /** 연속 미션(번호 자동 증가) | 업적 미션(1회성). 없으면 continuous */
+    /**
+     * 연속 미션 | 주간 미션(월요일 초기화) | 월간 미션(매월 1일 초기화) | 업적 미션(1회성)
+     * missionType이 없으면 continuous
+     */
     missionType?: PersonalMissionType;
-    /** 업적 미션 완료 시각(ISO). 있으면 1회성 완료 처리됨 */
+    /**
+     * 미션 완료 시각(ISO).
+     * - 업적: 있으면 영구 완료 처리
+     * - 주간/월간: 완료 시각 기준으로 현재 기간(주/월) 중복 완료를 막음
+     */
     completedAt?: string;
 }
 

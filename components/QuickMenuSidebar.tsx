@@ -108,7 +108,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [editPersonalType, setEditPersonalType] = useState<PersonalMissionType>('continuous');
     const [draggedMissionId, setDraggedMissionId] = useState<string | null>(null);
     const [dragOverMissionId, setDragOverMissionId] = useState<string | null>(null);
-    const [personalMissionFilter, setPersonalMissionFilter] = useState<'all' | 'continuous' | 'achievement'>('all');
+    const [personalMissionFilter, setPersonalMissionFilter] = useState<'all' | 'continuous' | 'weekly' | 'monthly' | 'achievement'>('all');
 
     // 학생이 바뀌거나 사이드바가 닫힐 때 상태 초기화
     useEffect(() => {
@@ -275,7 +275,9 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         }
         // 미션 내용도 함께 저장
         if (onUpdateContinuousMissionName) {
-            onUpdateContinuousMissionName(student.id, missionNameInput);
+            if (personalMissionType === 'continuous') {
+                onUpdateContinuousMissionName(student.id, missionNameInput);
+            }
         }
         const trimmed = missionNameInput.trim();
         const score = parseInt(personalMissionScoreInput || String(generalSettings.josekiMissionValue), 10);
@@ -292,7 +294,39 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     };
 
     // --- Special Mission Logic ---
-    const todayStrInKST = useMemo(() => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0], []);
+    const getKstYmdFromTimestamp = (timestamp: string): { year: number; month: number; day: number } => {
+        const s = new Date(timestamp).toLocaleString('sv-SE', { timeZone: 'Asia/Seoul', hour12: false });
+        const datePart = s.split(' ')[0]; // YYYY-MM-DD
+        const [year, month, day] = datePart.split('-').map(Number);
+        return { year, month, day };
+    };
+
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const formatYmd = (y: number, m: number, d: number) => `${y}-${pad2(m)}-${pad2(d)}`;
+
+    const getKstWeekKeyFromTimestamp = (timestamp?: string): string | null => {
+        if (!timestamp) return null;
+        const { year, month, day } = getKstYmdFromTimestamp(timestamp);
+        const date = new Date(year, month - 1, day);
+        const dayOfWeek = date.getDay(); // 0(Sun) - 6(Sat)
+        const diffToMonday = (dayOfWeek + 6) % 7; // Monday => 0
+        const monday = new Date(year, month - 1, day - diffToMonday);
+        return formatYmd(monday.getFullYear(), monday.getMonth() + 1, monday.getDate());
+    };
+
+    const getKstMonthKeyFromTimestamp = (timestamp?: string): string | null => {
+        if (!timestamp) return null;
+        const { year, month } = getKstYmdFromTimestamp(timestamp);
+        return `${year}-${month - 1}`; // 0-indexed month to match existing getMonthKey()
+    };
+
+    const currentWeekKey = useMemo(() => getKstWeekKeyFromTimestamp(new Date().toISOString()), [dateKey]);
+    const currentMonthKey = useMemo(() => getKstMonthKeyFromTimestamp(new Date().toISOString()), [dateKey]);
+
+    const todayStrInKST = useMemo(
+        () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0],
+        [dateKey]
+    );
 
     const dailySpecialMission = useMemo(() => {
         if (!student || !student.dailySpecialMissionId || student.specialMissionDate !== todayStrInKST) return null;
@@ -664,6 +698,20 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </button>
                                         <button
                                             type="button"
+                                            className={`btn-sm ${personalMissionType === 'weekly' ? 'primary' : ''}`}
+                                            onClick={() => setPersonalMissionType('weekly')}
+                                        >
+                                            주간 미션
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`btn-sm ${personalMissionType === 'monthly' ? 'primary' : ''}`}
+                                            onClick={() => setPersonalMissionType('monthly')}
+                                        >
+                                            월간 미션
+                                        </button>
+                                        <button
+                                            type="button"
                                             className={`btn-sm ${personalMissionType === 'achievement' ? 'primary' : ''}`}
                                             onClick={() => setPersonalMissionType('achievement')}
                                         >
@@ -674,7 +722,15 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         <input 
                                             type="text" 
                                             className="mission-name-input"
-                                            placeholder={personalMissionType === 'continuous' ? '미션 내용 (예: 정석 외우기)' : '미션 내용 (예: 10단 대국 1승)'} 
+                                            placeholder={
+                                                personalMissionType === 'continuous'
+                                                    ? '미션 내용 (예: 정석 외우기)'
+                                                    : personalMissionType === 'weekly'
+                                                        ? '미션 내용 (예: 이번 주 3승 달성)'
+                                                        : personalMissionType === 'monthly'
+                                                            ? '미션 내용 (예: 이번 달 승률 80% 달성)'
+                                                            : '미션 내용 (예: 10단 대국 1승)'
+                                            }
                                             value={missionNameInput} 
                                             onChange={e => setMissionNameInput(e.target.value)} 
                                         />
@@ -712,24 +768,31 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     )}
                                 </div>
                                 <div className="personal-mission-filter-tabs" style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.75rem' }}>
-                                    {(['all', 'continuous', 'achievement'] as const).map(f => (
+                                    {(['all', 'continuous', 'weekly', 'monthly', 'achievement'] as const).map(f => (
                                         <button
                                             key={f}
                                             type="button"
                                             className={`btn-sm ${personalMissionFilter === f ? 'primary' : ''}`}
                                             onClick={() => setPersonalMissionFilter(f)}
                                         >
-                                            {f === 'all' ? '전체' : f === 'continuous' ? '연속' : '업적'}
+                                            {f === 'all'
+                                                ? '전체'
+                                                : f === 'continuous'
+                                                    ? '연속'
+                                                    : f === 'weekly'
+                                                        ? '주간'
+                                                        : f === 'monthly'
+                                                            ? '월간'
+                                                            : '업적'}
                                         </button>
                                     ))}
                                 </div>
                                 {(() => {
                                     const list = personalMissions[student.id] || [];
                                     const filteredList = list.filter(m => {
-                                        const type = m.missionType || 'continuous';
                                         if (personalMissionFilter === 'all') return true;
-                                        if (personalMissionFilter === 'continuous') return type === 'continuous';
-                                        return type === 'achievement';
+                                        const type = (m.missionType || 'continuous') as PersonalMissionType;
+                                        return type === personalMissionFilter;
                                     });
                                     const handleDragStart = (e: React.DragEvent, missionId: string) => {
                                         setDraggedMissionId(missionId);
@@ -771,7 +834,17 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     if (filteredList.length === 0) {
                                         return (
                                             <div className="personal-mission-empty">
-                                                <p>{personalMissionFilter === 'continuous' ? '연속 미션이 없습니다.' : personalMissionFilter === 'achievement' ? '업적 미션이 없습니다.' : '등록된 개인 미션이 없습니다.'}</p>
+                                                <p>
+                                                    {personalMissionFilter === 'continuous'
+                                                        ? '연속 미션이 없습니다.'
+                                                        : personalMissionFilter === 'weekly'
+                                                            ? '주간 미션이 없습니다.'
+                                                            : personalMissionFilter === 'monthly'
+                                                                ? '월간 미션이 없습니다.'
+                                                                : personalMissionFilter === 'achievement'
+                                                                    ? '업적 미션이 없습니다.'
+                                                                    : '등록된 개인 미션이 없습니다.'}
+                                                </p>
                                             </div>
                                         );
                                     }
@@ -790,10 +863,19 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                 >
                                                     <div className="personal-mission-card-handle" title="드래그하여 순서 변경">⋮⋮</div>
                                                     <div className="personal-mission-card-title">
-                                                        {(m.missionType || 'continuous') === 'achievement' ? (
-                                                            <span><span className="personal-mission-badge achievement">업적</span> {m.title}</span>
-                                                        ) : (
+                                                        {(m.missionType || 'continuous') === 'continuous' ? (
                                                             <>No.{m.no} - {m.title}</>
+                                                        ) : (
+                                                            <span>
+                                                                <span className={`personal-mission-badge ${(m.missionType || 'continuous')}`}>
+                                                                    {(m.missionType || 'continuous') === 'weekly'
+                                                                        ? '주간'
+                                                                        : (m.missionType || 'continuous') === 'monthly'
+                                                                            ? '월간'
+                                                                            : '업적'}
+                                                                </span>{' '}
+                                                                {m.title}
+                                                            </span>
                                                         )}
                                                     </div>
                                                     <div className="personal-mission-card-score">
@@ -812,6 +894,10 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                     <div className="personal-mission-card-actions">
                                                         {(m.missionType || 'continuous') === 'achievement' && m.completedAt ? (
                                                             <span className="personal-mission-completed-badge">완료됨</span>
+                                                        ) : (m.missionType || 'continuous') === 'weekly' && m.completedAt && getKstWeekKeyFromTimestamp(m.completedAt) === currentWeekKey ? (
+                                                            <span className="personal-mission-completed-badge">이번 주 완료됨</span>
+                                                        ) : (m.missionType || 'continuous') === 'monthly' && m.completedAt && getKstMonthKeyFromTimestamp(m.completedAt) === currentMonthKey ? (
+                                                            <span className="personal-mission-completed-badge">이번 달 완료됨</span>
                                                         ) : (
                                                             <button
                                                                 className="btn-sm primary"
@@ -1100,6 +1186,14 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                     <input type="radio" name="editPersonalType" checked={editPersonalType === 'continuous'} onChange={() => setEditPersonalType('continuous')} />
                                     연속 미션
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    <input type="radio" name="editPersonalType" checked={editPersonalType === 'weekly'} onChange={() => setEditPersonalType('weekly')} />
+                                    주간 미션
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    <input type="radio" name="editPersonalType" checked={editPersonalType === 'monthly'} onChange={() => setEditPersonalType('monthly')} />
+                                    월간 미션
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                     <input type="radio" name="editPersonalType" checked={editPersonalType === 'achievement'} onChange={() => setEditPersonalType('achievement')} />
