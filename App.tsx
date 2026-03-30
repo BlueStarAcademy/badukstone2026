@@ -432,6 +432,26 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
+    const handleUpdateStudentRank = useCallback((studentId: string, rank: string) => {
+        setAppState(prev => {
+            if (prev === 'error' || !prev) return prev;
+            const idx = prev.students.findIndex(s => s.id === studentId);
+            if (idx === -1) return prev;
+
+            const { group } = getGroupForRank(rank);
+            const maxStones = prev.groupSettings[group]?.maxStones || 50;
+            const currentStones = prev.students[idx].stones || 0;
+            const nextStones = Math.min(currentStones, maxStones);
+
+            const updatedStudents = prev.students.map(s => s.id === studentId
+                ? { ...s, rank, group, maxStones, stones: nextStones }
+                : s
+            );
+
+            return { ...prev, students: updatedStudents };
+        });
+    }, [setAppState]);
+
     const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
@@ -1251,6 +1271,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
                 })} onClearSpecialMission={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: undefined, specialMissionDate: undefined } : s) }))}
                 onAdjustMissionCount={handleAdjustMissionCount}
+                onUpdateStudentRank={handleUpdateStudentRank}
                 personalMissions={personalMissions}
                 onAddPersonalMission={handleAddPersonalMission}
                 onUpdatePersonalMissionScore={handleUpdatePersonalMissionScore}

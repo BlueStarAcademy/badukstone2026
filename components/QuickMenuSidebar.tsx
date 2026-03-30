@@ -34,6 +34,7 @@ interface QuickMenuSidebarProps {
     onUpdateJosekiProgress: (studentId: string, progress: number) => void;
     onCompleteJosekiMission: (studentId: string) => void;
     onUpdateContinuousMissionName?: (studentId: string, name: string) => void;
+    onUpdateStudentRank: (studentId: string, rank: string) => void;
     onAssignSpecialMission: (studentId: string, specificMissionId?: string) => void;
     onClearSpecialMission: (studentId: string) => void;
     onAdjustMissionCount: (studentId: string, delta: number) => void;
@@ -57,7 +58,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         isOpen, groupSettings, generalSettings, eventSettings, eventMonthlyStats, onClose, onAddTransaction, onUpdateTransaction, 
         onDeleteCoupon, onPurchase, onCancelTransaction, onDeleteTransaction, onTransferStones, 
         onUpdateJosekiProgress, onCompleteJosekiMission, onAssignSpecialMission, onClearSpecialMission,
-        onUpdateContinuousMissionName, onAdjustMissionCount,
+        onUpdateContinuousMissionName, onUpdateStudentRank, onAdjustMissionCount,
         personalMissions, onAddPersonalMission, onUpdatePersonalMissionScore, onUpdatePersonalMission, onDeletePersonalMission, onReorderPersonalMissions, onCompletePersonalMission,
         individualMissionSeries = [], studentMissionProgress = {},
         onAssignIndividualMission, onUnassignIndividualMission, onCompleteIndividualStep
@@ -110,6 +111,9 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [dragOverMissionId, setDragOverMissionId] = useState<string | null>(null);
     const [personalMissionFilter, setPersonalMissionFilter] = useState<'all' | 'continuous' | 'weekly' | 'monthly' | 'achievement'>('all');
 
+    const [isEditRankOpen, setIsEditRankOpen] = useState(false);
+    const [editRankValue, setEditRankValue] = useState('');
+
     // 학생이 바뀌거나 사이드바가 닫힐 때 상태 초기화
     useEffect(() => {
         if (student) {
@@ -117,6 +121,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setMissionNameInput(student.continuousMissionName || '');
             setPersonalMissionScoreInput(String(generalSettings.josekiMissionValue));
             setShowSpecialAnswer(false); 
+            setEditRankValue(student.rank);
         }
         if (!isOpen) {
             setActiveTab('missions');
@@ -137,6 +142,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setShowLoadMissionModal(false);
             setPersonalMissionScoreInput('');
             setEditingPersonalMission(null);
+            setIsEditRankOpen(false);
         }
     }, [isOpen, student?.id, generalSettings.josekiMissionValue]);
 
@@ -500,7 +506,24 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                     <div className="sidebar-header">
                         <button className="close-btn" onClick={onClose} aria-label="닫기">&times;</button>
                         <h2>{student.name}</h2>
-                        <p>{student.rank} ({groupSettings[student.group]?.name || student.group})</p>
+                        <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span>{student.rank}</span>
+                            <button
+                                type="button"
+                                className="btn-sm"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsEditRankOpen(true);
+                                    setEditRankValue(student.rank);
+                                }}
+                                title="급수 수정"
+                                aria-label="급수 수정"
+                                style={{ padding: '0 0.45rem', lineHeight: 1.6 }}
+                            >
+                                ✏️
+                            </button>
+                            <span>({groupSettings[student.group]?.name || student.group})</span>
+                        </p>
                         
                         <div className="header-stats-row" style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'rgba(255,255,255,0.15)', padding: '1rem', borderRadius: '12px' }}>
                              <div className="stat-item" style={{ flex: 1, textAlign: 'center' }}>
@@ -1239,6 +1262,43 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                         <div className="modal-actions">
                             <button type="button" className="btn" onClick={() => setEditingPersonalMission(null)}>취소</button>
                             <button type="submit" className="btn primary">저장</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+        {student && isEditRankOpen && (
+            <div className="modal-overlay" onClick={() => setIsEditRankOpen(false)}>
+                <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '380px' }}>
+                    <h2>급수 수정</h2>
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            const nextRank = editRankValue.trim();
+                            if (!nextRank) return;
+                            onUpdateStudentRank(student.id, nextRank);
+                            setIsEditRankOpen(false);
+                        }}
+                    >
+                        <div className="form-group">
+                            <label htmlFor="edit-rank">급수</label>
+                            <input
+                                id="edit-rank"
+                                type="text"
+                                value={editRankValue}
+                                onChange={(e) => setEditRankValue(e.target.value)}
+                                placeholder="예: 30급 / 1단 / 입문"
+                                required
+                                autoFocus
+                            />
+                        </div>
+                        <div className="modal-actions">
+                            <button type="button" className="btn" onClick={() => setIsEditRankOpen(false)}>
+                                취소
+                            </button>
+                            <button type="submit" className="btn primary">
+                                저장
+                            </button>
                         </div>
                     </form>
                 </div>
