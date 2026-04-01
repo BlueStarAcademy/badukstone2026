@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Student, Mission, ShopItem, SidebarTab, Transaction, ShopSettings, ShopCategory, ShopSortKey, Coupon, GroupSettings, GeneralSettings, SpecialMission, EventSettings, EventMonthlyStats, IndividualMissionSeries, IndividualMissionStep, StudentMissionProgress, PersonalMissionsByStudent, PersonalMission, PersonalMissionType } from '../types';
+import { MISSION_ALL_GROUPS, personalMissionAppliesToGroup } from '../utils/missionVisibility';
 import { useDateKey } from '../hooks/useDateKey';
 import { ConfirmationModal, ActionButton } from './modals/ConfirmationModal';
 import { AssignMissionModal } from './modals/AssignMissionModal';
@@ -39,9 +40,9 @@ interface QuickMenuSidebarProps {
     onClearSpecialMission: (studentId: string) => void;
     onAdjustMissionCount: (studentId: string, delta: number) => void;
     personalMissions: PersonalMissionsByStudent;
-    onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number; missionType?: PersonalMissionType }) => void;
+    onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number; missionType?: PersonalMissionType; targetGroups?: string[] }) => void;
     onUpdatePersonalMissionScore: (studentId: string, missionId: string, newStones: number) => void;
-    onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: PersonalMissionType }) => void;
+    onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: PersonalMissionType; targetGroups?: string[] }) => void;
     onDeletePersonalMission: (studentId: string, missionId: string) => void;
     onReorderPersonalMissions: (studentId: string, orderedMissionIds: string[]) => void;
     onCompletePersonalMission: (studentId: string, missionId: string) => void;
@@ -107,6 +108,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [editPersonalStones, setEditPersonalStones] = useState('');
     const [editPersonalNo, setEditPersonalNo] = useState('');
     const [editPersonalType, setEditPersonalType] = useState<PersonalMissionType>('continuous');
+    const [personalMissionTargetGroups, setPersonalMissionTargetGroups] = useState<string[]>([MISSION_ALL_GROUPS]);
+    const [editPersonalTargetGroups, setEditPersonalTargetGroups] = useState<string[]>([MISSION_ALL_GROUPS]);
     const [draggedMissionId, setDraggedMissionId] = useState<string | null>(null);
     const [dragOverMissionId, setDragOverMissionId] = useState<string | null>(null);
     const [personalMissionFilter, setPersonalMissionFilter] = useState<'all' | 'continuous' | 'weekly' | 'monthly' | 'achievement'>('all');
@@ -143,6 +146,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setPersonalMissionScoreInput('');
             setEditingPersonalMission(null);
             setIsEditRankOpen(false);
+            setPersonalMissionTargetGroups([MISSION_ALL_GROUPS]);
+            setEditPersonalTargetGroups([MISSION_ALL_GROUPS]);
         }
     }, [isOpen, student?.id, generalSettings.josekiMissionValue]);
 
@@ -290,11 +295,15 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         const isValid = trimmed && !isNaN(score) && score > 0;
         const validNo = personalMissionType === 'continuous' ? (!isNaN(newProgress) && newProgress > 0) : true;
         if (isValid && validNo) {
+            const tg = personalMissionTargetGroups.includes(MISSION_ALL_GROUPS)
+                ? [MISSION_ALL_GROUPS]
+                : [...new Set(personalMissionTargetGroups)];
             onAddPersonalMission(student.id, {
                 title: trimmed,
                 stones: score,
                 no: personalMissionType === 'continuous' ? newProgress : 0,
                 missionType: personalMissionType,
+                targetGroups: tg.length ? tg : [MISSION_ALL_GROUPS],
             });
         }
     };
@@ -741,7 +750,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             업적 미션 (1회성)
                                         </button>
                                     </div>
-                                    <div className="continuous-mission-line">
+                                    <div className="continuous-mission-line" style={{ flexWrap: 'wrap' }}>
                                         <input 
                                             type="text" 
                                             className="mission-name-input"
@@ -780,6 +789,35 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         />
                                         <button className="btn-sm" onClick={handleUpdateJoseki}>저장</button>
                                     </div>
+                                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem 0.75rem', alignItems: 'center', fontSize: '0.8rem' }}>
+                                        <span style={{ fontWeight: 600, marginRight: '0.25rem' }}>노출 반:</span>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', fontWeight: 600 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={personalMissionTargetGroups.includes(MISSION_ALL_GROUPS)}
+                                                onChange={e => setPersonalMissionTargetGroups(e.target.checked ? [MISSION_ALL_GROUPS] : (generalSettings.groupOrder[0] ? [generalSettings.groupOrder[0]] : [MISSION_ALL_GROUPS]))}
+                                            />
+                                            공동
+                                        </label>
+                                        {generalSettings.groupOrder.map(gk => (
+                                            <label key={gk} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!personalMissionTargetGroups.includes(MISSION_ALL_GROUPS) && personalMissionTargetGroups.includes(gk)}
+                                                    onChange={() => {
+                                                        if (personalMissionTargetGroups.includes(MISSION_ALL_GROUPS)) {
+                                                            setPersonalMissionTargetGroups([gk]);
+                                                        } else {
+                                                            const has = personalMissionTargetGroups.includes(gk);
+                                                            const next = has ? personalMissionTargetGroups.filter(x => x !== gk) : [...personalMissionTargetGroups, gk];
+                                                            setPersonalMissionTargetGroups(next.length === 0 ? [MISSION_ALL_GROUPS] : next);
+                                                        }
+                                                    }}
+                                                />
+                                                {groupSettings[gk]?.name || gk}
+                                            </label>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1.2rem', marginBottom: '0.5rem' }}>
@@ -790,6 +828,9 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </button>
                                     )}
                                 </div>
+                                <p style={{ fontSize: '0.78rem', color: '#888', margin: '0 0 0.75rem', lineHeight: 1.45 }}>
+                                    위 폼에서 추가하는 미션은 이 학생 전용입니다. 반마다 기본으로 붙이는 미션은 관리자 → 단체 미션 탭 → 「그룹 기본 개인 미션」에서 설정합니다.
+                                </p>
                                 <div className="personal-mission-filter-tabs" style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.75rem' }}>
                                     {(['all', 'continuous', 'weekly', 'monthly', 'achievement'] as const).map(f => (
                                         <button
@@ -812,7 +853,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 </div>
                                 {(() => {
                                     const list = personalMissions[student.id] || [];
-                                    const filteredList = list.filter(m => {
+                                    const forStudentGroup = list.filter(m => personalMissionAppliesToGroup(m.targetGroups, student.group));
+                                    const filteredList = forStudentGroup.filter(m => {
                                         if (personalMissionFilter === 'all') return true;
                                         const type = (m.missionType || 'continuous') as PersonalMissionType;
                                         return type === personalMissionFilter;
@@ -851,6 +893,13 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         return (
                                             <div className="personal-mission-empty">
                                                 <p>등록된 개인 미션이 없습니다.</p>
+                                            </div>
+                                        );
+                                    }
+                                    if (forStudentGroup.length === 0) {
+                                        return (
+                                            <div className="personal-mission-empty">
+                                                <p>이 반에 노출되도록 설정된 개인 미션이 없습니다. (다른 반 전용 미션만 있는 경우)</p>
                                             </div>
                                         );
                                     }
@@ -900,6 +949,13 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                                 {m.title}
                                                             </span>
                                                         )}
+                                                        <span style={{ display: 'block', fontSize: '0.72rem', color: '#888', marginTop: '2px' }}>
+                                                            {m.templateId
+                                                                ? '그룹 기본 (관리자 템플릿)'
+                                                                : (!m.targetGroups || m.targetGroups.includes(MISSION_ALL_GROUPS))
+                                                                    ? '공동'
+                                                                    : (m.targetGroups.map(g => groupSettings[g]?.name || g).join(', '))}
+                                                        </span>
                                                     </div>
                                                     <div className="personal-mission-card-score">
                                                         <input
@@ -930,7 +986,15 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                                 완료
                                                             </button>
                                                         )}
-                                                        <button type="button" className="btn-sm" onClick={() => { setEditingPersonalMission(m); setEditPersonalTitle(m.title); setEditPersonalStones(String(m.stones)); setEditPersonalNo(String(m.no)); setEditPersonalType((m.missionType || 'continuous')); }}>수정</button>
+                                                        <button type="button" className="btn-sm" onClick={() => {
+                                                            setEditingPersonalMission(m);
+                                                            setEditPersonalTitle(m.title);
+                                                            setEditPersonalStones(String(m.stones));
+                                                            setEditPersonalNo(String(m.no));
+                                                            setEditPersonalType((m.missionType || 'continuous'));
+                                                            const tg = m.targetGroups && m.targetGroups.length > 0 ? [...m.targetGroups] : [MISSION_ALL_GROUPS];
+                                                            setEditPersonalTargetGroups(tg.includes(MISSION_ALL_GROUPS) ? [MISSION_ALL_GROUPS] : tg);
+                                                        }}>수정</button>
                                                         <button type="button" className="btn-sm danger" onClick={() => confirm(`"${m.title}" 미션을 삭제하시겠습니까?`) && onDeletePersonalMission(student.id, m.id)}>삭제</button>
                                                     </div>
                                                 </div>
@@ -1170,6 +1234,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                 onClose={() => setShowLoadMissionModal(false)}
                 currentStudentId={student.id}
                 students={students}
+                groupOrder={generalSettings.groupOrder}
+                groupSettings={groupSettings}
                 personalMissions={personalMissions}
                 onAddPersonalMission={onAddPersonalMission}
                 onUpdatePersonalMission={onUpdatePersonalMission}
@@ -1180,67 +1246,85 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             <div className="modal-overlay" onClick={() => setEditingPersonalMission(null)}>
                 <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
                     <h2>개인 미션 수정</h2>
+                    {editingPersonalMission.templateId && (
+                        <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+                            그룹 기본 미션입니다. 내용·유형·No·노출 반은 관리자 → 「그룹 기본 개인 미션」에서 수정할 수 있습니다. 여기서는 점수만 바꿀 수 있습니다.
+                        </p>
+                    )}
                     <form
                         onSubmit={e => {
                             e.preventDefault();
                             const stones = parseInt(editPersonalStones, 10);
                             const no = editPersonalType === 'continuous' ? parseInt(editPersonalNo, 10) : 0;
-                            if (editPersonalTitle.trim() && !Number.isNaN(stones) && stones >= 0) {
-                                if (editPersonalType === 'continuous' && (Number.isNaN(no) || no < 1)) return;
-                                onUpdatePersonalMission(student.id, editingPersonalMission.id, {
-                                    title: editPersonalTitle.trim(),
-                                    stones,
-                                    no: editPersonalType === 'continuous' ? no : 0,
-                                    missionType: editPersonalType,
-                                });
+                            if (Number.isNaN(stones) || stones < 0) return;
+                            if (editingPersonalMission.templateId) {
+                                onUpdatePersonalMission(student.id, editingPersonalMission.id, { stones });
                                 setEditingPersonalMission(null);
+                                return;
                             }
+                            if (!editPersonalTitle.trim()) return;
+                            if (editPersonalType === 'continuous' && (Number.isNaN(no) || no < 1)) return;
+                            const tg = editPersonalTargetGroups.includes(MISSION_ALL_GROUPS)
+                                ? [MISSION_ALL_GROUPS]
+                                : [...new Set(editPersonalTargetGroups)];
+                            onUpdatePersonalMission(student.id, editingPersonalMission.id, {
+                                title: editPersonalTitle.trim(),
+                                stones,
+                                no: editPersonalType === 'continuous' ? no : 0,
+                                missionType: editPersonalType,
+                                targetGroups: tg.length ? tg : [MISSION_ALL_GROUPS],
+                            });
+                            setEditingPersonalMission(null);
                         }}
                     >
-                        <div className="form-group">
-                            <label>미션 방식</label>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'nowrap' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                    <input type="radio" name="editPersonalType" checked={editPersonalType === 'continuous'} onChange={() => setEditPersonalType('continuous')} />
-                                    연속 미션
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                    <input type="radio" name="editPersonalType" checked={editPersonalType === 'weekly'} onChange={() => setEditPersonalType('weekly')} />
-                                    주간 미션
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                    <input type="radio" name="editPersonalType" checked={editPersonalType === 'monthly'} onChange={() => setEditPersonalType('monthly')} />
-                                    월간 미션
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                    <input type="radio" name="editPersonalType" checked={editPersonalType === 'achievement'} onChange={() => setEditPersonalType('achievement')} />
-                                    업적 미션 (1회성)
-                                </label>
-                            </div>
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="edit-personal-title">미션 내용</label>
-                            <input
-                                type="text"
-                                id="edit-personal-title"
-                                value={editPersonalTitle}
-                                onChange={e => setEditPersonalTitle(e.target.value)}
-                                placeholder="미션 내용"
-                                required
-                            />
-                        </div>
-                        {editPersonalType === 'continuous' && (
-                            <div className="form-group">
-                                <label htmlFor="edit-personal-no">No.</label>
-                                <input
-                                    type="number"
-                                    id="edit-personal-no"
-                                    value={editPersonalNo}
-                                    onChange={e => setEditPersonalNo(e.target.value)}
-                                    min={1}
-                                    required
-                                />
-                            </div>
+                        {!editingPersonalMission.templateId && (
+                            <>
+                                <div className="form-group">
+                                    <label>미션 방식</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'nowrap' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            <input type="radio" name="editPersonalType" checked={editPersonalType === 'continuous'} onChange={() => setEditPersonalType('continuous')} />
+                                            연속 미션
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            <input type="radio" name="editPersonalType" checked={editPersonalType === 'weekly'} onChange={() => setEditPersonalType('weekly')} />
+                                            주간 미션
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            <input type="radio" name="editPersonalType" checked={editPersonalType === 'monthly'} onChange={() => setEditPersonalType('monthly')} />
+                                            월간 미션
+                                        </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                            <input type="radio" name="editPersonalType" checked={editPersonalType === 'achievement'} onChange={() => setEditPersonalType('achievement')} />
+                                            업적 미션 (1회성)
+                                        </label>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label htmlFor="edit-personal-title">미션 내용</label>
+                                    <input
+                                        type="text"
+                                        id="edit-personal-title"
+                                        value={editPersonalTitle}
+                                        onChange={e => setEditPersonalTitle(e.target.value)}
+                                        placeholder="미션 내용"
+                                        required
+                                    />
+                                </div>
+                                {editPersonalType === 'continuous' && (
+                                    <div className="form-group">
+                                        <label htmlFor="edit-personal-no">No.</label>
+                                        <input
+                                            type="number"
+                                            id="edit-personal-no"
+                                            value={editPersonalNo}
+                                            onChange={e => setEditPersonalNo(e.target.value)}
+                                            min={1}
+                                            required
+                                        />
+                                    </div>
+                                )}
+                            </>
                         )}
                         <div className="form-group">
                             <label htmlFor="edit-personal-stones">점수</label>
@@ -1253,6 +1337,39 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 required
                             />
                         </div>
+                        {!editingPersonalMission.templateId && (
+                            <div className="form-group">
+                                <label>노출 반</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem 0.75rem', marginTop: '0.35rem' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', fontWeight: 600 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={editPersonalTargetGroups.includes(MISSION_ALL_GROUPS)}
+                                            onChange={e => setEditPersonalTargetGroups(e.target.checked ? [MISSION_ALL_GROUPS] : (generalSettings.groupOrder[0] ? [generalSettings.groupOrder[0]] : [MISSION_ALL_GROUPS]))}
+                                        />
+                                        공동
+                                    </label>
+                                    {generalSettings.groupOrder.map(gk => (
+                                        <label key={gk} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!editPersonalTargetGroups.includes(MISSION_ALL_GROUPS) && editPersonalTargetGroups.includes(gk)}
+                                                onChange={() => {
+                                                    if (editPersonalTargetGroups.includes(MISSION_ALL_GROUPS)) {
+                                                        setEditPersonalTargetGroups([gk]);
+                                                    } else {
+                                                        const has = editPersonalTargetGroups.includes(gk);
+                                                        const next = has ? editPersonalTargetGroups.filter(x => x !== gk) : [...editPersonalTargetGroups, gk];
+                                                        setEditPersonalTargetGroups(next.length === 0 ? [MISSION_ALL_GROUPS] : next);
+                                                    }
+                                                }}
+                                            />
+                                            {groupSettings[gk]?.name || gk}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                         <div className="modal-actions">
                             <button type="button" className="btn" onClick={() => setEditingPersonalMission(null)}>취소</button>
                             <button type="submit" className="btn primary">저장</button>

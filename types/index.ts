@@ -30,12 +30,16 @@ export interface Mission {
 export interface SpecialMission {
     id: string;
     content: string;
-    group: string;
+    /** 레거시 호환(visibleGroups 없을 때 뽑기 규칙에 사용) */
+    group?: string;
+    /** 노출 반 키 배열. '__all__' 포함 시 전체 반 */
+    visibleGroups?: string[];
     stars: number;
     stones: number;
     answer?: string;
-    isExclusive?: boolean; // 상위 그룹 노출 방지 (상급자가 쉬운 미션 뽑기 제한)
-    isAtLeast?: boolean;   // 하위 그룹 노출 방지 (하급자가 어려운 미션 뽑기 제한)
+    /** 레거시: visibleGroups 도입 이전 데이터용 */
+    isExclusive?: boolean;
+    isAtLeast?: boolean;
 }
 
 export type PersonalMissionType = 'continuous' | 'weekly' | 'monthly' | 'achievement';
@@ -43,6 +47,8 @@ export type PersonalMissionType = 'continuous' | 'weekly' | 'monthly' | 'achieve
 export interface PersonalMission {
     id: string;
     ownerStudentId: string;
+    /** 그룹 기본 개인 미션 템플릿에서 생성된 카드이면 템플릿 id */
+    templateId?: string;
     title: string;
     stones: number;
     no: number;
@@ -57,10 +63,23 @@ export interface PersonalMission {
      * - 주간/월간: 완료 시각 기준으로 현재 기간(주/월) 중복 완료를 막음
      */
     completedAt?: string;
+    /** 노출 반. 없으면 전체. '__all__' 포함 시 전체 반 */
+    targetGroups?: string[];
 }
 
 export interface PersonalMissionsByStudent {
     [studentId: string]: PersonalMission[];
+}
+
+/** 반별로 자동 부여되는 개인 미션 정의(학생 카드에는 templateId로 연결된 인스턴스가 붙음) */
+export interface PersonalMissionTemplate {
+    id: string;
+    title: string;
+    stones: number;
+    no: number;
+    missionType?: PersonalMissionType;
+    /** 노출 반. 없으면 전체. '__all__' 포함 시 전체 반 */
+    targetGroups?: string[];
 }
 
 export interface UsedCouponInfo {
@@ -412,6 +431,10 @@ export interface AppData {
     eventMonthlyStats?: EventMonthlyStats;
     /** 학생별 개인 미션 카드 (개인 연속 미션에서 생성되는 템플릿) */
     personalMissions?: PersonalMissionsByStudent;
+    /** 그룹(반) 기본 개인 미션 — 해당 반 학생에게 자동으로 카드 부여 */
+    personalMissionTemplates?: PersonalMissionTemplate[];
+    /** 학생이 그룹 기본 미션 카드를 삭제한 템플릿 id — 다시 자동 부여하지 않음 */
+    personalMissionTemplateDismissals?: { [studentId: string]: string[] };
 }
 
 export interface ChessMatch {

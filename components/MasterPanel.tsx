@@ -28,6 +28,8 @@ const getInitialDataForNewUser = (): AppData => ({
     lastBirthdayCouponMonth: null,
     individualMissionSeries: [],
     studentMissionProgress: {},
+    personalMissions: {},
+    personalMissionTemplates: [],
 });
 
 const MASTER_DATA_PATH = 'master/app_data';

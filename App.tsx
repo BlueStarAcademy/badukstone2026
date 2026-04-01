@@ -4,8 +4,16 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, firebaseError, isDemoMode } from './firebase';
 import { useFirestoreState } from './hooks/useFirestoreState';
 import { INITIAL_STUDENTS, INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from './data/initialData';
-import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, SpecialMission, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress } from './types';
+import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress, PersonalMissionTemplate } from './types';
 import { generateId, getGroupForRank } from './utils';
+import { pickSpecialMissionForStudent } from './utils/specialMissionPick';
+import {
+    addTemplateDismissal,
+    ensurePersonalMissionInstancesForStudent,
+    ensurePersonalMissionInstancesForAllStudents,
+    syncStudentMissionInstancesFromTemplate,
+    deleteTemplateAndInstances,
+} from './utils/personalMissionTemplateSync';
 import { calculateNewElo } from './utils/elo';
 
 import { StudentView } from './components/StudentView';
@@ -20,6 +28,8 @@ import { AccountSettingsModal } from './components/modals/SettingsModal';
 
 const MAX_TRANSACTIONS = 1000;
 const MAX_CHESS_MATCHES = 500;
+
+const EMPTY_PERSONAL_MISSION_TEMPLATES: PersonalMissionTemplate[] = [];
 
 function getMonthKey(timestamp: string): string {
     const d = new Date(timestamp);
@@ -133,6 +143,7 @@ const getInitialData = (): AppData => ({
     studentMissionProgress: {},
     eventMonthlyStats: {},
     personalMissions: {},
+    personalMissionTemplates: [],
 });
 
 const AppLoader = ({ message, showLogout, onLogout }: { message: string, showLogout?: boolean, onLogout?: () => void }) => (
@@ -229,6 +240,12 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
     const eventMonthlyStats = (appState && appState !== 'error') ? appState.eventMonthlyStats : undefined;
     const personalMissions = (appState && appState !== 'error') ? (appState.personalMissions || {}) : {};
+    const personalMissionTemplates = useMemo(
+        () => (appState && appState !== 'error'
+            ? (appState.personalMissionTemplates ?? EMPTY_PERSONAL_MISSION_TEMPLATES)
+            : EMPTY_PERSONAL_MISSION_TEMPLATES),
+        [appState]
+    );
     const individualMissionSeries = (appState && appState !== 'error') ? appState.individualMissionSeries || [] : [];
     const studentMissionProgress = (appState && appState !== 'error') ? appState.studentMissionProgress || {} : {};
 
@@ -236,6 +253,14 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         if (!selectedStudent) return null;
         return students.find(s => s.id === selectedStudent.id) || null;
     }, [students, selectedStudent]);
+
+    useEffect(() => {
+        if (!isSidebarOpen || !freshSelectedStudent || !appState || appState === 'error') return;
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            return ensurePersonalMissionInstancesForStudent(prev, freshSelectedStudent.id);
+        });
+    }, [isSidebarOpen, freshSelectedStudent?.id, personalMissionTemplates, setAppState]);
 
     useEffect(() => {
         if (!appState || appState === 'error') return;
@@ -452,7 +477,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => {
+    const handleAddPersonalMission = useCallback((studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement'; targetGroups?: string[] }) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
             const existing = prev.personalMissions || {};
@@ -464,6 +489,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 stones: mission.stones,
                 no: mission.no,
                 missionType: mission.missionType || 'continuous',
+                ...(mission.targetGroups && mission.targetGroups.length > 0 ? { targetGroups: mission.targetGroups } : {}),
             };
             return {
                 ...prev,
@@ -491,12 +517,16 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
-    const handleUpdatePersonalMission = useCallback((studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => {
+    const handleUpdatePersonalMission = useCallback((studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement'; targetGroups?: string[] }) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
             const existing = prev.personalMissions || {};
             const list = existing[studentId] || [];
-            const updated = list.map(m => m.id === missionId ? { ...m, ...payload } : m);
+            const mission = list.find(m => m.id === missionId);
+            const safePayload = mission?.templateId
+                ? (payload.stones !== undefined ? { stones: payload.stones } : {})
+                : payload;
+            const updated = list.map(m => m.id === missionId ? { ...m, ...safePayload } : m);
             return {
                 ...prev,
                 personalMissions: {
@@ -511,14 +541,40 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
             const existing = prev.personalMissions || {};
-            const list = (existing[studentId] || []).filter(m => m.id !== missionId);
-            return {
+            const list = existing[studentId] || [];
+            const mission = list.find(m => m.id === missionId);
+            const nextList = list.filter(m => m.id !== missionId);
+            let next: AppData = {
                 ...prev,
                 personalMissions: {
                     ...existing,
-                    [studentId]: list,
+                    [studentId]: nextList,
                 },
             };
+            if (mission?.templateId) {
+                next = addTemplateDismissal(next, studentId, mission.templateId);
+            }
+            return next;
+        });
+    }, [setAppState]);
+
+    const handleUpsertPersonalMissionTemplate = useCallback((template: PersonalMissionTemplate) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const list = prev.personalMissionTemplates || [];
+            const exists = list.some(t => t.id === template.id);
+            const nextList = exists ? list.map(t => (t.id === template.id ? template : t)) : [...list, template];
+            let next: AppData = { ...prev, personalMissionTemplates: nextList };
+            next = syncStudentMissionInstancesFromTemplate(next, template);
+            next = ensurePersonalMissionInstancesForAllStudents(next);
+            return next;
+        });
+    }, [setAppState]);
+
+    const handleDeletePersonalMissionTemplate = useCallback((templateId: string) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            return deleteTemplateAndInstances(prev, templateId);
         });
     }, [setAppState]);
 
@@ -1173,6 +1229,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     {view === 'admin' && (
                         <AdminPanel 
                             students={students} missions={missions} chessMissions={chessMissions} specialMissions={specialMissions}
+                            personalMissionTemplates={personalMissionTemplates}
+                            onUpsertPersonalMissionTemplate={handleUpsertPersonalMissionTemplate}
+                            onDeletePersonalMissionTemplate={handleDeletePersonalMissionTemplate}
                             shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} groupSettings={groupSettings} generalSettings={generalSettings}
                             setMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, missions: typeof m === 'function' ? m(prev!.missions) : m }))}
                             setChessMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, chessMissions: typeof m === 'function' ? m(prev!.chessMissions) : m }))}
@@ -1201,7 +1260,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                                         stones: 0,
                                         chessRating: prev.generalSettings.nonChessPlayerRating || 1000 
                                     };
-                                    return { ...prev, students: [...prev.students, newStudent] };
+                                    let next: AppData = { ...prev, students: [...prev.students, newStudent] };
+                                    next = ensurePersonalMissionInstancesForStudent(next, newStudent.id);
+                                    return next;
                                 });
                             }}
                             onDeleteStudent={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.filter(s => s.id !== id) }))}
@@ -1233,7 +1294,12 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                                 setAppState(prev => {
                                     if (prev === 'error' || !prev) return prev;
                                     const studentsWithIds = data.map(s => ({ ...s, id: generateId(), group: getGroupForRank(s.rank).group, maxStones: prev.groupSettings[getGroupForRank(s.rank).group]?.maxStones || 50, stones: s.stones || 0 }));
-                                    return { ...prev, students: mode === 'replace' ? studentsWithIds : [...prev.students, ...studentsWithIds] };
+                                    let next: AppData = {
+                                        ...prev,
+                                        students: mode === 'replace' ? studentsWithIds : [...prev.students, ...studentsWithIds],
+                                    };
+                                    next = ensurePersonalMissionInstancesForAllStudents(next);
+                                    return next;
                                 });
                             }}
                             onImportMissions={() => {}} onImportShopItems={() => {}}
@@ -1257,52 +1323,15 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                     if (!prev || prev === 'error') return prev;
                     const student = prev.students.find(s => s.id === id);
                     if (!student) return prev;
-                    
+
                     const groupOrder = prev.generalSettings.groupOrder;
-                    const studentGroupIdx = groupOrder.indexOf(student.group);
-                    
-                    // 1. 가용 미션 필터링
-                    const available = prev.specialMissions.filter(m => {
-                        const missionGroupIdx = groupOrder.indexOf(m.group);
-                        if (missionGroupIdx === -1 || studentGroupIdx === -1) return true;
-
-                        // 상위 그룹 제한 (Exclusive): 학생이 미션 그룹보다 상급자(index가 작음)이면 필터링
-                        if (m.isExclusive && studentGroupIdx < missionGroupIdx) return false;
-
-                        // 하위 그룹 제한 (AtLeast): 학생이 미션 그룹보다 하급자(index가 큼)이면 필터링
-                        if (m.isAtLeast && studentGroupIdx > missionGroupIdx) return false;
-
-                        return true;
-                    });
-                    
-                    if (available.length === 0) return prev;
-
-                    // 2. 가중치(확률) 기반 추출 로직
-                    const weights = (prev.generalSettings.specialMissionWeights && prev.generalSettings.specialMissionWeights[student.group]) 
-                        ? prev.generalSettings.specialMissionWeights[student.group] 
+                    const weights = (prev.generalSettings.specialMissionWeights && prev.generalSettings.specialMissionWeights[student.group])
+                        ? prev.generalSettings.specialMissionWeights[student.group]
                         : { 1: 20, 2: 20, 3: 20, 4: 20, 5: 20 };
 
-                    // 먼저 출현할 '별 개수'를 가중치에 따라 결정
-                    const starPool: number[] = [];
-                    Object.entries(weights).forEach(([stars, weight]) => {
-                        // 해당 별 개수의 미션이 하나라도 있는 경우에만 풀에 추가
-                        if (available.some(m => m.stars === parseInt(stars))) {
-                            // FIX: Cast weight to number to avoid comparison with unknown errors.
-                            for (let i = 0; i < (weight as number); i++) starPool.push(parseInt(stars));
-                        }
-                    });
+                    const randomMission = pickSpecialMissionForStudent(prev.specialMissions, student.group, groupOrder, weights);
+                    if (!randomMission) return prev;
 
-                    // 만약 가중치 설정된 별 개수의 미션이 하나도 없다면 전체에서 완전 무작위 추출
-                    if (starPool.length === 0) {
-                        const randomMission = available[Math.floor(Math.random() * available.length)];
-                        const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
-                        return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
-                    }
-
-                    const selectedStars = starPool[Math.floor(Math.random() * starPool.length)];
-                    const starMissions = available.filter(m => m.stars === selectedStars);
-                    const randomMission = starMissions[Math.floor(Math.random() * starMissions.length)];
-                    
                     const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];
                     return { ...prev, students: prev.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: randomMission.id, specialMissionDate: today } : s) };
                 })} onClearSpecialMission={(id) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, students: prev!.students.map(s => s.id === id ? { ...s, dailySpecialMissionId: undefined, specialMissionDate: undefined } : s) }))}

@@ -1,23 +1,26 @@
 import React, { useMemo, useState } from 'react';
-import type { PersonalMissionsByStudent } from '../../types';
+import type { GroupSettings, PersonalMissionsByStudent } from '../../types';
 import type { PersonalMission } from '../../types';
+import { MISSION_ALL_GROUPS, personalMissionAppliesToGroup, targetGroupsKey } from '../../utils/missionVisibility';
 
 interface LoadPersonalMissionModalProps {
     isOpen: boolean;
     onClose: () => void;
     currentStudentId: string;
-    students: { id: string }[];
+    students: { id: string; group: string }[];
+    groupOrder: string[];
+    groupSettings: GroupSettings;
     personalMissions: PersonalMissionsByStudent;
-    onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => void;
-    onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement' }) => void;
+    onAddPersonalMission: (studentId: string, mission: { title: string; stones: number; no: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement'; targetGroups?: string[] }) => void;
+    onUpdatePersonalMission: (studentId: string, missionId: string, payload: { title?: string; stones?: number; no?: number; missionType?: 'continuous' | 'weekly' | 'monthly' | 'achievement'; targetGroups?: string[] }) => void;
     onDeletePersonalMission: (studentId: string, missionId: string) => void;
 }
 
 type MissionType = 'continuous' | 'weekly' | 'monthly' | 'achievement';
 
 function contentKey(m: PersonalMission): string {
-    // 연속 미션은 No가 의미 있으므로 key에 포함합니다.
-    return `${m.title}|${m.missionType || 'continuous'}|${m.stones}|${m.no}`;
+    const tid = m.templateId || '';
+    return `${m.title}|${m.missionType || 'continuous'}|${m.stones}|${m.no}|${tid}|${targetGroupsKey(m.targetGroups)}`;
 }
 
 export const LoadPersonalMissionModal = ({
@@ -25,6 +28,8 @@ export const LoadPersonalMissionModal = ({
     onClose,
     currentStudentId,
     students,
+    groupOrder,
+    groupSettings,
     personalMissions,
     onAddPersonalMission,
     onUpdatePersonalMission,
@@ -42,20 +47,13 @@ export const LoadPersonalMissionModal = ({
     const [addStones, setAddStones] = useState('');
     const [addNo, setAddNo] = useState('1');
     const [addType, setAddType] = useState<MissionType>('continuous');
+    const [addTargetGroups, setAddTargetGroups] = useState<string[]>([MISSION_ALL_GROUPS]);
+    const [editTargetGroups, setEditTargetGroups] = useState<string[]>([MISSION_ALL_GROUPS]);
 
-    const selectAllByType = (mode: 'all' | MissionType) => {
-        setSelectedKeys(() => {
-            if (mode === 'all') {
-                return new Set(uniqueMissions.map(m => m.key));
-            }
-            const next = new Set<string>();
-            uniqueMissions.forEach(({ key, mission }) => {
-                const t: MissionType = (mission.missionType as MissionType) || 'continuous';
-                if (t === mode) next.add(key);
-            });
-            return next;
-        });
-    };
+    const currentStudentGroup = useMemo(
+        () => students.find(s => s.id === currentStudentId)?.group ?? '',
+        [students, currentStudentId]
+    );
 
     const uniqueMissions = useMemo(() => {
         const byKey = new Map<string, { mission: PersonalMission; instances: { studentId: string; missionId: string }[] }>();
@@ -72,7 +70,62 @@ export const LoadPersonalMissionModal = ({
             });
         });
         return Array.from(byKey.entries()).map(([key, { mission, instances }]) => ({ key, mission, instances }));
-    }, [currentStudentId, students, personalMissions]);
+    }, [students, personalMissions]);
+
+    const visibleUniqueMissions = useMemo(
+        () => uniqueMissions.filter(({ mission }) => personalMissionAppliesToGroup(mission.targetGroups, currentStudentGroup)),
+        [uniqueMissions, currentStudentGroup]
+    );
+
+    const selectAllByType = (mode: 'all' | MissionType) => {
+        setSelectedKeys(() => {
+            if (mode === 'all') {
+                return new Set(visibleUniqueMissions.map(m => m.key));
+            }
+            const next = new Set<string>();
+            visibleUniqueMissions.forEach(({ key, mission }) => {
+                const t: MissionType = (mission.missionType as MissionType) || 'continuous';
+                if (t === mode) next.add(key);
+            });
+            return next;
+        });
+    };
+
+    const renderTargetGroupPickers = (value: string[], onChange: (next: string[]) => void) => {
+        const isAll = value.includes(MISSION_ALL_GROUPS);
+        return (
+            <div className="load-mission-edit-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                <label>노출 반</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem 0.75rem', alignItems: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', fontWeight: 600 }}>
+                        <input
+                            type="checkbox"
+                            checked={isAll}
+                            onChange={e => onChange(e.target.checked ? [MISSION_ALL_GROUPS] : (groupOrder[0] ? [groupOrder[0]] : [MISSION_ALL_GROUPS]))}
+                        />
+                        공동(전체)
+                    </label>
+                    {groupOrder.map(gk => (
+                        <label key={gk} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                            <input
+                                type="checkbox"
+                                checked={!isAll && value.includes(gk)}
+                                onChange={() => {
+                                    if (isAll) onChange([gk]);
+                                    else {
+                                        const has = value.includes(gk);
+                                        const next = has ? value.filter(x => x !== gk) : [...value, gk];
+                                        onChange(next.length === 0 ? [MISSION_ALL_GROUPS] : next);
+                                    }
+                                }}
+                            />
+                            {groupSettings[gk]?.name || gk}
+                        </label>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     const toggleKey = (key: string) => {
         setSelectedKeys(prev => {
@@ -89,6 +142,8 @@ export const LoadPersonalMissionModal = ({
         setEditStones(String(mission.stones));
         setEditNo(String(mission.no));
         setEditType((mission.missionType as MissionType) || 'continuous');
+        const tg = mission.targetGroups && mission.targetGroups.length > 0 ? [...mission.targetGroups] : [MISSION_ALL_GROUPS];
+        setEditTargetGroups(tg.includes(MISSION_ALL_GROUPS) ? [MISSION_ALL_GROUPS] : tg);
     };
 
     const saveEdit = () => {
@@ -97,9 +152,24 @@ export const LoadPersonalMissionModal = ({
         if (!item) return;
         const stones = parseInt(editStones, 10);
         const no = editType === 'continuous' ? parseInt(editNo, 10) : 0;
-        if (!editTitle.trim() || Number.isNaN(stones) || stones < 0) return;
+        if (Number.isNaN(stones) || stones < 0) return;
+        if (item.mission.templateId) {
+            item.instances.forEach(({ studentId, missionId }) => {
+                onUpdatePersonalMission(studentId, missionId, { stones });
+            });
+            setEditingKey(null);
+            return;
+        }
+        if (!editTitle.trim()) return;
         if (editType === 'continuous' && (Number.isNaN(no) || no < 1)) return;
-        const payload = { title: editTitle.trim(), stones, no, missionType: editType };
+        const tg = editTargetGroups.includes(MISSION_ALL_GROUPS) ? [MISSION_ALL_GROUPS] : [...new Set(editTargetGroups)];
+        const payload = {
+            title: editTitle.trim(),
+            stones,
+            no,
+            missionType: editType,
+            targetGroups: tg.length ? tg : [MISSION_ALL_GROUPS],
+        };
         item.instances.forEach(({ studentId, missionId }) => {
             onUpdatePersonalMission(studentId, missionId, payload);
         });
@@ -121,11 +191,19 @@ export const LoadPersonalMissionModal = ({
         const no = addType === 'continuous' ? parseInt(addNo, 10) : 0;
         if (!title || Number.isNaN(stones) || stones < 0) return;
         if (addType === 'continuous' && (Number.isNaN(no) || no < 1)) return;
-        onAddPersonalMission(currentStudentId, { title, stones, no, missionType: addType });
+        const tg = addTargetGroups.includes(MISSION_ALL_GROUPS) ? [MISSION_ALL_GROUPS] : [...new Set(addTargetGroups)];
+        onAddPersonalMission(currentStudentId, {
+            title,
+            stones,
+            no,
+            missionType: addType,
+            targetGroups: tg.length ? tg : [MISSION_ALL_GROUPS],
+        });
         setAddTitle('');
         setAddStones('');
         setAddNo('1');
         setAddType('continuous');
+        setAddTargetGroups([MISSION_ALL_GROUPS]);
         setShowAddForm(false);
     };
 
@@ -138,8 +216,9 @@ export const LoadPersonalMissionModal = ({
                 <div className="modal-body">
                     <p className="load-mission-modal-description">
                         저장된 개인 미션(연속/주간/월간/업적)을 선택하여 불러올 수 있습니다. 같은 내용의 미션은 하나만 표시됩니다.
+                        그룹 기본으로 붙은 카드는 관리자 탭의 「그룹 기본 개인 미션」에서 수정하고, 여기서는 점수만 바꿀 수 있습니다.
                     </p>
-                    {uniqueMissions.length > 0 && (
+                    {visibleUniqueMissions.length > 0 && (
                         <div className="load-mission-bulk-select-row">
                             <span className="load-mission-bulk-label">빠른 선택:</span>
                             <button
@@ -228,8 +307,9 @@ export const LoadPersonalMissionModal = ({
                                 <label>점수</label>
                                 <input type="number" value={addStones} onChange={e => setAddStones(e.target.value)} min={0} placeholder="0" style={{ width: '80px' }} />
                             </div>
+                            {renderTargetGroupPickers(addTargetGroups, setAddTargetGroups)}
                             <div className="load-mission-edit-actions">
-                                <button type="button" className="btn" onClick={() => { setShowAddForm(false); setAddTitle(''); setAddStones(''); setAddNo('1'); }}>취소</button>
+                                <button type="button" className="btn" onClick={() => { setShowAddForm(false); setAddTitle(''); setAddStones(''); setAddNo('1'); setAddTargetGroups([MISSION_ALL_GROUPS]); }}>취소</button>
                                 <button type="button" className="btn primary" onClick={saveNewMission}>저장</button>
                             </div>
                         </div>
@@ -237,44 +317,55 @@ export const LoadPersonalMissionModal = ({
                     {editingKey && (() => {
                         const item = uniqueMissions.find(x => x.key === editingKey);
                         if (!item) return null;
+                        const fromTemplate = !!item.mission.templateId;
                         return (
                             <div className="load-mission-edit-panel">
                                 <h4>미션 수정</h4>
-                                <div className="load-mission-edit-row">
-                                    <label>방식</label>
-                                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'nowrap' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                            <input type="radio" checked={editType === 'continuous'} onChange={() => setEditType('continuous')} />
-                                            연속 미션
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                            <input type="radio" checked={editType === 'weekly'} onChange={() => setEditType('weekly')} />
-                                            주간 미션
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                            <input type="radio" checked={editType === 'monthly'} onChange={() => setEditType('monthly')} />
-                                            월간 미션
-                                        </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                            <input type="radio" checked={editType === 'achievement'} onChange={() => setEditType('achievement')} />
-                                            업적 미션
-                                        </label>
-                                    </div>
-                                </div>
-                                <div className="load-mission-edit-row">
-                                    <label>내용</label>
-                                    <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="미션 내용" />
-                                </div>
-                                {editType === 'continuous' && (
-                                    <div className="load-mission-edit-row">
-                                        <label>No.</label>
-                                        <input type="number" value={editNo} onChange={e => setEditNo(e.target.value)} min={1} style={{ width: '80px' }} />
-                                    </div>
+                                {fromTemplate && (
+                                    <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.75rem' }}>
+                                        그룹 기본 미션입니다. 제목·유형·No·노출 반은 관리자 탭 「그룹 기본 개인 미션」에서 바꿀 수 있습니다.
+                                    </p>
+                                )}
+                                {!fromTemplate && (
+                                    <>
+                                        <div className="load-mission-edit-row">
+                                            <label>방식</label>
+                                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'nowrap' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                                    <input type="radio" checked={editType === 'continuous'} onChange={() => setEditType('continuous')} />
+                                                    연속 미션
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                                    <input type="radio" checked={editType === 'weekly'} onChange={() => setEditType('weekly')} />
+                                                    주간 미션
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                                    <input type="radio" checked={editType === 'monthly'} onChange={() => setEditType('monthly')} />
+                                                    월간 미션
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                                    <input type="radio" checked={editType === 'achievement'} onChange={() => setEditType('achievement')} />
+                                                    업적 미션
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div className="load-mission-edit-row">
+                                            <label>내용</label>
+                                            <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="미션 내용" />
+                                        </div>
+                                        {editType === 'continuous' && (
+                                            <div className="load-mission-edit-row">
+                                                <label>No.</label>
+                                                <input type="number" value={editNo} onChange={e => setEditNo(e.target.value)} min={1} style={{ width: '80px' }} />
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                                 <div className="load-mission-edit-row">
                                     <label>점수</label>
                                     <input type="number" value={editStones} onChange={e => setEditStones(e.target.value)} min={0} style={{ width: '80px' }} />
                                 </div>
+                                {!fromTemplate && renderTargetGroupPickers(editTargetGroups, setEditTargetGroups)}
                                 <div className="load-mission-edit-actions">
                                     <button type="button" className="btn" onClick={() => setEditingKey(null)}>취소</button>
                                     <button type="button" className="btn primary" onClick={saveEdit}>저장</button>
@@ -288,9 +379,14 @@ export const LoadPersonalMissionModal = ({
                                 <p className="load-mission-empty-title">불러올 수 있는 개인 미션이 없습니다.</p>
                                 <p className="load-mission-empty-hint">먼저 개인 미션을 추가해 저장해 두면 여기에서 불러올 수 있습니다.</p>
                             </div>
+                        ) : visibleUniqueMissions.length === 0 ? (
+                            <div className="load-mission-empty">
+                                <p className="load-mission-empty-title">이 반에 맞는 저장 미션이 없습니다.</p>
+                                <p className="load-mission-empty-hint">다른 반 전용으로만 설정된 미션은 목록에 나오지 않습니다.</p>
+                            </div>
                         ) : (
                             <ul className="load-mission-list-ul">
-                                {uniqueMissions.map(({ key, mission }) => (
+                                {visibleUniqueMissions.map(({ key, mission }) => (
                                     <li key={key} className="load-mission-list-item">
                                         <div className="load-mission-info">
                                             <span className="load-mission-series-desc">
@@ -301,6 +397,14 @@ export const LoadPersonalMissionModal = ({
                                                         : (mission.missionType || 'continuous') === 'monthly'
                                                             ? '월간'
                                                             : `No.${mission.no}`} · {mission.title} · +{mission.stones}
+                                                {' '}
+                                                <span style={{ fontSize: '0.78rem', color: '#888' }}>
+                                                    {mission.templateId
+                                                        ? '[그룹 기본]'
+                                                        : (!mission.targetGroups || mission.targetGroups.includes(MISSION_ALL_GROUPS))
+                                                            ? '[공동]'
+                                                            : `[${mission.targetGroups!.map(g => groupSettings[g]?.name || g).join(', ')}]`}
+                                                </span>
                                             </span>
                                         </div>
                                         <div className="load-mission-item-actions">
@@ -343,23 +447,31 @@ export const LoadPersonalMissionModal = ({
                                     stones: mission.stones,
                                     no: mission.no,
                                     missionType: mission.missionType || 'continuous',
+                                    targetGroups: mission.targetGroups && mission.targetGroups.length > 0
+                                        ? mission.targetGroups
+                                        : [MISSION_ALL_GROUPS],
                                 }));
 
                             const targetStudentIds = applyToAllStudents ? students.map(s => s.id) : [currentStudentId];
 
-                            const hasSameMission = (existing: PersonalMission, incoming: { title: string; stones: number; no: number; missionType: MissionType }) => {
+                            const hasSameMission = (existing: PersonalMission, incoming: { title: string; stones: number; no: number; missionType: MissionType; targetGroups: string[] }) => {
                                 const existingType = (existing.missionType || 'continuous') as MissionType;
                                 return (
+                                    (existing.templateId || '') === '' &&
                                     existing.title === incoming.title &&
                                     existing.stones === incoming.stones &&
                                     existing.no === incoming.no &&
-                                    existingType === incoming.missionType
+                                    existingType === incoming.missionType &&
+                                    targetGroupsKey(existing.targetGroups) === targetGroupsKey(incoming.targetGroups)
                                 );
                             };
 
                             targetStudentIds.forEach(targetId => {
+                                const stu = students.find(s => s.id === targetId);
+                                const g = stu?.group ?? '';
                                 const existing = personalMissions[targetId] || [];
                                 missionsToLoad.forEach(m => {
+                                    if (!personalMissionAppliesToGroup(m.targetGroups, g)) return;
                                     const incoming = { ...m, missionType: (m.missionType || 'continuous') as MissionType };
                                     if (existing.some(ex => hasSameMission(ex, incoming))) return;
                                     onAddPersonalMission(targetId, incoming);

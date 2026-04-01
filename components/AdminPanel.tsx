@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 // FIX: Corrected import path for type definitions.
-import type { Student, Mission, ShopItem, AdminTab, ShopSettings, Coupon, GroupSettings, GeneralSettings, ShopCategory, AppData, SpecialMission } from '../types';
+import type { Student, Mission, ShopItem, AdminTab, ShopSettings, Coupon, GroupSettings, GeneralSettings, ShopCategory, AppData, SpecialMission, PersonalMissionTemplate } from '../types';
 import { generateId, parseRank } from '../utils';
 import { exportDataToExcel, importDataFromExcel } from '../utils/excelUtils';
 import { StudentFormModal } from './modals/StudentFormModal';
@@ -13,6 +13,7 @@ import { CouponFormModal } from './modals/CouponFormModal';
 import { GroupSettingsModal } from './modals/GroupSettingsModal';
 import { ShopSettingsModal } from './modals/ShopSettingsModal';
 import { SpecialMissionManagerModal } from './modals/SpecialMissionManagerModal';
+import { PersonalMissionTemplateModal } from './modals/PersonalMissionTemplateModal';
 
 type StudentStatus = '재원' | '휴원';
 
@@ -128,6 +129,9 @@ interface AdminPanelProps {
     missions: Mission[];
     chessMissions: Mission[];
     specialMissions: SpecialMission[];
+    personalMissionTemplates: PersonalMissionTemplate[];
+    onUpsertPersonalMissionTemplate: (template: PersonalMissionTemplate) => void;
+    onDeletePersonalMissionTemplate: (templateId: string) => void;
     shopItems: ShopItem[];
     shopSettings: ShopSettings;
     shopCategories: ShopCategory[];
@@ -165,7 +169,7 @@ const SHOP_ITEM_HEADER_MAP = { name: '상품명', price: '가격', category: '�
 
 export const AdminPanel = (props: AdminPanelProps) => {
     const { 
-        students, missions, chessMissions, specialMissions, shopItems, shopSettings, shopCategories, groupSettings, generalSettings,
+        students, missions, chessMissions, specialMissions, personalMissionTemplates, onUpsertPersonalMissionTemplate, onDeletePersonalMissionTemplate, shopItems, shopSettings, shopCategories, groupSettings, generalSettings,
         setMissions, setChessMissions, setSpecialMissions, setShopItems, setShopSettings, setShopCategories,
         onSaveStudent, onDeleteStudent, onUpdateGroupSettings, onUpdateGeneralSettings,
         onBulkAddTransaction, onBulkUpdateStudents, onAddCoupon,
@@ -188,6 +192,7 @@ export const AdminPanel = (props: AdminPanelProps) => {
     const [isGroupSettingsModalOpen, setIsGroupSettingsModalOpen] = useState(false);
     const [isShopSettingsModalOpen, setIsShopSettingsModalOpen] = useState(false);
     const [isSpecialMissionModalOpen, setIsSpecialMissionModalOpen] = useState(false);
+    const [isPersonalMissionTemplateModalOpen, setIsPersonalMissionTemplateModalOpen] = useState(false);
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode; actions: ActionButton[] } | null>(null);
     
@@ -679,6 +684,7 @@ export const AdminPanel = (props: AdminPanelProps) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                             <h2 style={{ margin: 0 }}>단체 미션 관리</h2>
                             <button className="btn-sm" onClick={() => setIsSpecialMissionModalOpen(true)}>✨ 특별 미션 관리</button>
+                            <button className="btn-sm" onClick={() => setIsPersonalMissionTemplateModalOpen(true)}>📋 그룹 기본 개인 미션</button>
                         </div>
                     </div>
 
@@ -833,6 +839,17 @@ export const AdminPanel = (props: AdminPanelProps) => {
                     // FIX: Passed missing properties generalSettings and onUpdateGeneralSettings.
                     generalSettings={generalSettings}
                     onUpdateGeneralSettings={onUpdateGeneralSettings}
+                />
+            )}
+            {isPersonalMissionTemplateModalOpen && (
+                <PersonalMissionTemplateModal
+                    isOpen={isPersonalMissionTemplateModalOpen}
+                    onClose={() => setIsPersonalMissionTemplateModalOpen(false)}
+                    templates={personalMissionTemplates}
+                    onUpsert={onUpsertPersonalMissionTemplate}
+                    onDelete={onDeletePersonalMissionTemplate}
+                    groupSettings={groupSettings}
+                    groupOrder={generalSettings.groupOrder}
                 />
             )}
             {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
