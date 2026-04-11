@@ -21,6 +21,19 @@ function sanitizeForFirestore<T>(data: T): T {
             );
         }
     }
+    // 조별 스위스: 각 group.rounds 도 SwissMatch[][] 이므로 동일하게 평탄화 (Firestore 중첩 배열 금지)
+    if (out.tournamentData?.swiss?.groups && Array.isArray(out.tournamentData.swiss.groups)) {
+        out.tournamentData = { ...out.tournamentData };
+        out.tournamentData.swiss = { ...out.tournamentData.swiss };
+        out.tournamentData.swiss.groups = out.tournamentData.swiss.groups.map((g: any) => {
+            const next = { ...g };
+            const gr = next.rounds;
+            if (gr && Array.isArray(gr) && gr.length > 0 && Array.isArray(gr[0])) {
+                next.rounds = gr.map((r: any[], i: number) => ({ roundIndex: i, matches: r }));
+            }
+            return next;
+        });
+    }
     // tournamentData.hybrid.preliminaryGroups: SwissMatch[][] → { groupIndex, matches }[]
     if (out.tournamentData?.hybrid?.preliminaryGroups && Array.isArray(out.tournamentData.hybrid.preliminaryGroups)) {
         const groups = out.tournamentData.hybrid.preliminaryGroups;
@@ -49,6 +62,21 @@ function restoreFromFirestore<T>(data: any): T {
                 .sort((a: any, b: any) => (a.roundIndex ?? 0) - (b.roundIndex ?? 0))
                 .map((r: any) => r.matches || []);
         }
+    }
+    // 조별 스위스: group.rounds 복원
+    if (out.tournamentData?.swiss?.groups && Array.isArray(out.tournamentData.swiss.groups)) {
+        out.tournamentData = { ...out.tournamentData };
+        out.tournamentData.swiss = { ...out.tournamentData.swiss };
+        out.tournamentData.swiss.groups = out.tournamentData.swiss.groups.map((g: any) => {
+            const next = { ...g };
+            const gr = next.rounds;
+            if (gr && Array.isArray(gr) && gr.length > 0 && gr[0] && typeof gr[0] === 'object' && 'matches' in gr[0]) {
+                next.rounds = gr
+                    .sort((a: any, b: any) => (a.roundIndex ?? 0) - (b.roundIndex ?? 0))
+                    .map((r: any) => r.matches || []);
+            }
+            return next;
+        });
     }
     // hybrid.preliminaryGroups: { groupIndex, matches }[] → SwissMatch[][]
     if (out.tournamentData?.hybrid?.preliminaryGroups && Array.isArray(out.tournamentData.hybrid.preliminaryGroups)) {
