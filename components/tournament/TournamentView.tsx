@@ -1,6 +1,18 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentData, TournamentSettings, SwissPlayer, MissionBadukPlayer, TournamentPlayer, SwissMatch, FullLeagueMatch, FullLeagueData, DoubleElimData } from '../../types';
+import type {
+    Student,
+    TournamentData,
+    TournamentSettings,
+    SwissPlayer,
+    SwissGroupData,
+    MissionBadukPlayer,
+    TournamentPlayer,
+    SwissMatch,
+    FullLeagueMatch,
+    FullLeagueData,
+    TournamentSwissGroupPrizes,
+} from '../../types';
 import { TournamentRelayView } from './TournamentRelayView';
 import { TournamentBracketView } from './TournamentBracketView';
 import { TournamentSwissView } from './TournamentSwissView';
@@ -10,8 +22,37 @@ import { TournamentDoubleElimView } from './TournamentDoubleElimView';
 import { TournamentMissionView } from './TournamentMissionView';
 import { TournamentPlayerManagementModal } from './TournamentPlayerManagementModal';
 import { TournamentSettingsModal } from '../modals/TournamentSettingsModal';
-import { TournamentSwissPrizeModal } from './TournamentSwissPrizeModal';
+import { TournamentSwissPrizeModal, type SwissPrizeAwardEntry } from './TournamentSwissPrizeModal';
 import { generateId, parseRank, sortSwissPlayers } from '../../utils';
+import { DEFAULT_BYE_PRIORITY, pickSwissOddByePoolIndex, pickSwissByeSortedIndex } from '../../utils/byePlacement';
+import { buildDoubleElim } from '../../utils/doubleElimBracket';
+import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
+
+/** orderedPool: 대진 순서(같은 SwissPlayer 객체 참조). 부전승 시 객체를 수정함. [0]이 최강(또는 무작위 시드의 앞쪽). */
+function buildSwissFirstRoundMatches(orderedPool: SwissPlayer[], byePriority = DEFAULT_BYE_PRIORITY): SwissMatch[] {
+    const firstRoundMatches: SwissMatch[] = [];
+    const pool = [...orderedPool];
+    if (pool.length % 2 !== 0) {
+        const byePlayerIndex = pickSwissOddByePoolIndex(pool.length, byePriority);
+        const byePlayer = pool[byePlayerIndex];
+        byePlayer.score += 1;
+        byePlayer.opponents.push('BYE');
+        firstRoundMatches.push({
+            id: generateId(),
+            players: [byePlayer.studentId, 'BYE'],
+            winnerId: byePlayer.studentId,
+        });
+        pool.splice(byePlayerIndex, 1);
+    }
+    for (let i = 0; i < pool.length; i += 2) {
+        firstRoundMatches.push({
+            id: generateId(),
+            players: [pool[i].studentId, pool[i + 1].studentId],
+            winnerId: null,
+        });
+    }
+    return firstRoundMatches;
+}
 
 interface TournamentViewProps {
     students: Student[];
@@ -81,33 +122,17 @@ export const TournamentView = (props: TournamentViewProps) => {
             alert('더블엘리미네이션을 시작하려면 최소 2명이 필요합니다.');
             return;
         }
-        const size = Math.pow(2, Math.ceil(Math.log2(Math.max(2, list.length))));
-        const players = [...list];
-        while (players.length < size) players.push('BYE');
-        const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
-        const shuffled = shuffle(players);
-        const createMatch = (): { id: string; players: (string | 'BYE' | null)[]; winnerId: string | null } => ({ id: generateId(), players: [null, null], winnerId: null });
-        const winnersRounds: { title: string; matches: DoubleElimData['winnersRounds'][0]['matches'] }[] = [];
-        let prev: typeof winnersRounds[0]['matches'] = [];
-        const half = size / 2;
-        for (let i = 0; i < half; i++) {
-            const m = createMatch();
-            m.players = [shuffled[i * 2], shuffled[i * 2 + 1]];
-            if (m.players[0] === 'BYE') m.winnerId = m.players[1] as string;
-            else if (m.players[1] === 'BYE') m.winnerId = m.players[0] as string;
-            prev.push(m);
-        }
-        winnersRounds.push({ title: size === 2 ? '결승' : size === 4 ? '준결승' : `${size}강`, matches: prev });
-        let roundSize = half;
-        while (roundSize > 1) {
-            const next: typeof prev = [];
-            for (let i = 0; i < roundSize / 2; i++) next.push(createMatch());
-            winnersRounds.push({ title: roundSize === 2 ? '승자 결승' : `${roundSize}강`, matches: next });
-            roundSize = roundSize / 2;
-        }
-        const losersRounds = winnersRounds.map((_, i) => ({ title: `패자조 R${i + 1}`, matches: winnersRounds[i].matches.map(() => createMatch()) }));
-        const grandFinal = createMatch();
-        setData(prev => ({ ...prev, doubleElimParticipantIds: list, doubleElim: { winnersRounds, losersRounds, grandFinal, playerIds: list } }));
+        const sorted = [...list].sort((a, b) => {
+            const ra = students.find(s => s.id === a);
+            const rb = students.find(s => s.id === b);
+            return parseRank(rb?.rank || '') - parseRank(ra?.rank || '');
+        });
+        const prio = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
+        setData(prev => ({
+            ...prev,
+            doubleElimParticipantIds: sorted,
+            doubleElim: buildDoubleElim(sorted, prio),
+        }));
         setIsPlayerManagementModalOpen(false);
     };
 
@@ -170,9 +195,71 @@ export const TournamentView = (props: TournamentViewProps) => {
         const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
-        
+
         if (participants.length === 0) {
             alert('참가 선수가 없습니다.');
+            return;
+        }
+
+        const useGroups = settings.swissUseGroups === true;
+        const groupSizes = parseSwissGroupSizes(settings.swissGroupSizes);
+        const groupSum = groupSizes.reduce((a, b) => a + b, 0);
+
+        if (useGroups) {
+            if (groupSizes.length === 0) {
+                alert('대회 설정에서 조 인원을 입력해 주세요. (예: 4,4,8)');
+                return;
+            }
+            if (groupSum !== participants.length) {
+                alert(
+                    `조별 스위스: 조 인원 합(${groupSum}명)이 참가자 수(${participants.length}명)와 같아야 합니다.\n` +
+                        `대회 설정 → 스위스 리그에서 조 인원을 수정하거나 참가자를 조정해 주세요.`
+                );
+                return;
+            }
+        }
+
+        let orderedStudents = [...participants];
+        if (mode === 'ranked') {
+            orderedStudents.sort((a, b) => parseRank(b.rank || '') - parseRank(a.rank || ''));
+        } else {
+            orderedStudents.sort(() => 0.5 - Math.random());
+        }
+
+        if (useGroups && groupSizes.length > 0) {
+            const groups: SwissGroupData[] = [];
+            let offset = 0;
+            groupSizes.forEach((size, idx) => {
+                const slice = orderedStudents.slice(offset, offset + size);
+                offset += size;
+                const groupPlayers: SwissPlayer[] = slice.map(p => ({
+                    studentId: p.id,
+                    name: p.name,
+                    score: 0,
+                    opponents: [],
+                    sos: 0,
+                    sosos: 0,
+                }));
+                const firstRound = buildSwissFirstRoundMatches(groupPlayers, settings.byePriority ?? DEFAULT_BYE_PRIORITY);
+                groups.push({
+                    id: generateId(),
+                    label: `${idx + 1}조 (${size}명)`,
+                    players: groupPlayers,
+                    rounds: [firstRound],
+                });
+            });
+            const allPlayers = groups.flatMap(g => g.players);
+            setData(prev => ({
+                ...prev,
+                swissParticipantIds: participantIdsToUse,
+                swiss: {
+                    status: 'in_progress',
+                    players: allPlayers,
+                    rounds: [],
+                    groups,
+                },
+            }));
+            setIsPlayerManagementModalOpen(false);
             return;
         }
 
@@ -187,7 +274,7 @@ export const TournamentView = (props: TournamentViewProps) => {
 
         let sortedPlayers: SwissPlayer[] = [...swissPlayers];
         if (mode === 'ranked') {
-             sortedPlayers.sort((a, b) => {
+            sortedPlayers.sort((a, b) => {
                 const sA = students.find(s => s.id === a.studentId);
                 const sB = students.find(s => s.id === b.studentId);
                 return parseRank(sB?.rank || '') - parseRank(sA?.rank || '');
@@ -195,28 +282,8 @@ export const TournamentView = (props: TournamentViewProps) => {
         } else {
             sortedPlayers.sort(() => 0.5 - Math.random());
         }
-        
-        const firstRoundMatches: any[] = [];
-        if (sortedPlayers.length % 2 !== 0) {
-            const byePlayerIndex = sortedPlayers.length - 1; 
-            const byePlayer = sortedPlayers[byePlayerIndex];
-            byePlayer.score += 1;
-            byePlayer.opponents.push('BYE');
-            firstRoundMatches.push({
-                id: generateId(),
-                players: [byePlayer.studentId, 'BYE'],
-                winnerId: byePlayer.studentId
-            });
-            sortedPlayers.splice(byePlayerIndex, 1);
-        }
 
-        for (let i = 0; i < sortedPlayers.length; i += 2) {
-            firstRoundMatches.push({
-                id: generateId(),
-                players: [sortedPlayers[i].studentId, sortedPlayers[i + 1].studentId],
-                winnerId: null
-            });
-        }
+        const firstRoundMatches = buildSwissFirstRoundMatches(sortedPlayers, settings.byePriority ?? DEFAULT_BYE_PRIORITY);
 
         setData(prev => ({
             ...prev,
@@ -224,8 +291,8 @@ export const TournamentView = (props: TournamentViewProps) => {
             swiss: {
                 status: 'in_progress',
                 players: swissPlayers,
-                rounds: [firstRoundMatches]
-            }
+                rounds: [firstRoundMatches],
+            },
         }));
         setIsPlayerManagementModalOpen(false);
     };
@@ -322,7 +389,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                     name: p.name,
                     status: 'waiting' as const,
                     score: 0,
-                    matches: []
+                    matches: [],
+                    prizeGroupIndex: 0,
                 };
             });
 
@@ -337,27 +405,37 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleSetSwissWinner = (roundIndex: number, matchId: string, winnerId: string | null) => {
-         setData(prev => {
+    const handleSetSwissWinner = (groupIndex: number | undefined, roundIndex: number, matchId: string, winnerId: string | null) => {
+        setData(prev => {
             if (!prev.swiss) return prev;
             const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
-            const match = newSwiss.rounds[roundIndex].find((m: any) => m.id === matchId);
+            const targetRounds =
+                groupIndex !== undefined && newSwiss.groups?.[groupIndex]
+                    ? newSwiss.groups[groupIndex].rounds
+                    : newSwiss.rounds;
+            const targetPlayers =
+                groupIndex !== undefined && newSwiss.groups?.[groupIndex]
+                    ? newSwiss.groups[groupIndex].players
+                    : newSwiss.players;
+
+            const match = targetRounds[roundIndex]?.find((m: any) => m.id === matchId);
             if (match) {
                 match.winnerId = winnerId;
-                
-                newSwiss.players.forEach((p: SwissPlayer) => p.score = 0);
-                newSwiss.rounds.flat().forEach((m: any) => {
+
+                targetPlayers.forEach((p: SwissPlayer) => (p.score = 0));
+                targetRounds.flat().forEach((m: any) => {
                     if (m.winnerId && m.winnerId !== 'BYE') {
-                        const winner = newSwiss.players.find((p: SwissPlayer) => p.studentId === m.winnerId);
+                        const winner = targetPlayers.find((p: SwissPlayer) => p.studentId === m.winnerId);
                         if (winner) winner.score += 1;
                     }
                 });
             }
             return { ...prev, swiss: newSwiss };
-         });
+        });
     };
 
     const generatePairings = (players: SwissPlayer[], existingRounds: any[][]) => {
+         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
          const sorted = [...players].sort((a, b) => {
              if (b.score !== a.score) return b.score - a.score;
              return 0.5 - Math.random(); 
@@ -368,16 +446,7 @@ export const TournamentView = (props: TournamentViewProps) => {
          
          const remainingPlayers = sorted.filter(p => !pairedIds.has(p.studentId));
          if (remainingPlayers.length % 2 !== 0) {
-             let byeCandidateIndex = remainingPlayers.length - 1;
-             while (byeCandidateIndex >= 0) {
-                 const p = remainingPlayers[byeCandidateIndex];
-                 if (!p.opponents.includes('BYE')) {
-                     break;
-                 }
-                 byeCandidateIndex--;
-             }
-             if (byeCandidateIndex < 0) byeCandidateIndex = remainingPlayers.length - 1;
-             
+             const byeCandidateIndex = pickSwissByeSortedIndex(remainingPlayers, byePriority);
              const byePlayer = remainingPlayers[byeCandidateIndex];
              pairedIds.add(byePlayer.studentId);
              
@@ -435,89 +504,145 @@ export const TournamentView = (props: TournamentViewProps) => {
          return nextRoundMatches;
     };
 
-    const handleGenerateNextRoundSwiss = () => {
+    const handleGenerateNextRoundSwiss = (groupIndex?: number) => {
         setData(prev => {
-             if (!prev.swiss) return prev;
-             const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
-             const nextRoundMatches = generatePairings(newSwiss.players, newSwiss.rounds);
-             newSwiss.rounds.push(nextRoundMatches);
-             return { ...prev, swiss: newSwiss };
+            if (!prev.swiss) return prev;
+            const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
+                const g = newSwiss.groups[groupIndex];
+                const nextRoundMatches = generatePairings(g.players, g.rounds);
+                g.rounds.push(nextRoundMatches);
+            } else {
+                const nextRoundMatches = generatePairings(newSwiss.players, newSwiss.rounds);
+                newSwiss.rounds.push(nextRoundMatches);
+            }
+            return { ...prev, swiss: newSwiss };
         });
     };
 
-    const handleCancelLastRoundSwiss = () => {
+    const handleCancelLastRoundSwiss = (groupIndex?: number) => {
         setData(prev => {
-             if (!prev.swiss || prev.swiss.rounds.length <= 1) return prev;
-             const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
-             const lastRound = newSwiss.rounds.pop();
-             
-             lastRound.forEach((m: any) => {
-                 const [id1, id2] = m.players;
-                 const p1 = newSwiss.players.find((p: any) => p.studentId === id1);
-                 const p2 = id2 !== 'BYE' ? newSwiss.players.find((p: any) => p.studentId === id2) : null;
-                 
-                 if (m.winnerId) {
-                     const winner = newSwiss.players.find((p: any) => p.studentId === m.winnerId);
-                     if (winner) winner.score -= 1;
-                 }
-                 
-                 if (p1 && id2) {
-                    p1.opponents = p1.opponents.filter((oid: string) => oid !== id2);
-                 }
-                 if (p2 && id1) {
-                    p2.opponents = p2.opponents.filter((oid: string) => oid !== id1);
-                 }
-             });
-             
-             return { ...prev, swiss: newSwiss };
-        });
-    };
-    
-    const handleRematchSwiss = () => {
-        setData(prev => {
-             if (!prev.swiss || prev.swiss.rounds.length === 0) return prev;
-             const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
-             const lastRound = newSwiss.rounds.pop();
-             lastRound.forEach((m: any) => {
-                 const [id1, id2] = m.players;
-                 const p1 = newSwiss.players.find((p: any) => p.studentId === id1);
-                 const p2 = id2 !== 'BYE' ? newSwiss.players.find((p: any) => p.studentId === id2) : null;
-                 
-                 if (m.winnerId) {
-                     const winner = newSwiss.players.find((p: any) => p.studentId === m.winnerId);
-                     if (winner) winner.score -= 1;
-                 }
-                 
-                 if (p1 && id2) {
-                    p1.opponents = p1.opponents.filter((oid: string) => oid !== id2);
-                 }
-                 if (p2 && id1) {
-                    p2.opponents = p2.opponents.filter((oid: string) => oid !== id1);
-                 }
-             });
+            if (!prev.swiss) return prev;
+            const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            const targetRounds =
+                groupIndex !== undefined && newSwiss.groups?.[groupIndex]
+                    ? newSwiss.groups[groupIndex].rounds
+                    : newSwiss.rounds;
+            const targetPlayers =
+                groupIndex !== undefined && newSwiss.groups?.[groupIndex]
+                    ? newSwiss.groups[groupIndex].players
+                    : newSwiss.players;
 
-             const nextRoundMatches = generatePairings(newSwiss.players, newSwiss.rounds);
-             newSwiss.rounds.push(nextRoundMatches);
-             
-             return { ...prev, swiss: newSwiss };
+            if (targetRounds.length <= 1) return prev;
+            const lastRound = targetRounds.pop();
+
+            lastRound.forEach((m: any) => {
+                const [id1, id2] = m.players;
+                const p1 = targetPlayers.find((p: any) => p.studentId === id1);
+                const p2 = id2 !== 'BYE' ? targetPlayers.find((p: any) => p.studentId === id2) : null;
+
+                if (m.winnerId) {
+                    const winner = targetPlayers.find((p: any) => p.studentId === m.winnerId);
+                    if (winner) winner.score -= 1;
+                }
+
+                if (p1 && id2) {
+                    p1.opponents = p1.opponents.filter((oid: string) => oid !== id2);
+                }
+                if (p2 && id1) {
+                    p2.opponents = p2.opponents.filter((oid: string) => oid !== id1);
+                }
+            });
+
+            return { ...prev, swiss: newSwiss };
         });
     };
     
-    const handleSwissAwardPrizes = (prizes: { first: number, second: number, third: number, participant: number }) => {
+    const handleRematchSwiss = (groupIndex?: number) => {
+        setData(prev => {
+            if (!prev.swiss) return prev;
+            const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            const targetRounds =
+                groupIndex !== undefined && newSwiss.groups?.[groupIndex]
+                    ? newSwiss.groups[groupIndex].rounds
+                    : newSwiss.rounds;
+            const targetPlayers =
+                groupIndex !== undefined && newSwiss.groups?.[groupIndex]
+                    ? newSwiss.groups[groupIndex].players
+                    : newSwiss.players;
+
+            if (targetRounds.length === 0) return prev;
+            const lastRound = targetRounds.pop();
+            lastRound.forEach((m: any) => {
+                const [id1, id2] = m.players;
+                const p1 = targetPlayers.find((p: any) => p.studentId === id1);
+                const p2 = id2 !== 'BYE' ? targetPlayers.find((p: any) => p.studentId === id2) : null;
+
+                if (m.winnerId) {
+                    const winner = targetPlayers.find((p: any) => p.studentId === m.winnerId);
+                    if (winner) winner.score -= 1;
+                }
+
+                if (p1 && id2) {
+                    p1.opponents = p1.opponents.filter((oid: string) => oid !== id2);
+                }
+                if (p2 && id1) {
+                    p2.opponents = p2.opponents.filter((oid: string) => oid !== id1);
+                }
+            });
+
+            const nextRoundMatches = generatePairings(targetPlayers, targetRounds);
+            targetRounds.push(nextRoundMatches);
+
+            return { ...prev, swiss: newSwiss };
+        });
+    };
+    
+    const handleSwissAwardPrizes = (entries: SwissPrizeAwardEntry[]) => {
         if (!data.swiss) return;
-        const sorted = sortSwissPlayers(data.swiss.players, data.swiss.rounds);
-        
-        if (sorted.length > 0 && prizes.first > 0) onBulkAddTransaction([sorted[0].studentId], '스위스 리그 1위', prizes.first);
-        if (sorted.length > 1 && prizes.second > 0) onBulkAddTransaction([sorted[1].studentId], '스위스 리그 2위', prizes.second);
-        if (sorted.length > 2 && prizes.third > 0) onBulkAddTransaction([sorted[2].studentId], '스위스 리그 3위', prizes.third);
-        
-        const participants = sorted.slice(3).map(p => p.studentId);
-        if (participants.length > 0 && prizes.participant > 0) {
-            onBulkAddTransaction(participants, '스위스 리그 참가상', prizes.participant);
+
+        const awardGroup = (sorted: SwissPlayer[], labelPrefix: string, prizes: TournamentSwissGroupPrizes) => {
+            forEachSwissStylePayout(sorted, prizes, settings, labelPrefix, (ids, desc, amt) =>
+                onBulkAddTransaction(ids, desc, amt)
+            );
+        };
+
+        if (data.swiss.groups?.length) {
+            entries.forEach(entry => {
+                const g = data.swiss!.groups![entry.groupIndex];
+                if (!g) return;
+                const sorted = sortSwissPlayers(g.players, g.rounds);
+                const shortLabel = g.label.replace(/\s*\([^)]*\)\s*$/, '');
+                awardGroup(sorted, `스위스 리그 ${shortLabel}`, entry.prizes);
+            });
+        } else {
+            const sorted = sortSwissPlayers(data.swiss.players, data.swiss.rounds);
+            const prizes = entries[0]?.prizes ?? defaultSwissGroupPrize(settings);
+            awardGroup(sorted, '스위스 리그', prizes);
         }
-        
+
         setIsSwissPrizeModalOpen(false);
         alert('시상이 완료되었습니다.');
+    };
+
+    const canResetSwiss =
+        (data.swissParticipantIds?.length ?? 0) > 0 || data.swiss != null;
+
+    const handleResetSwiss = () => {
+        if (!canResetSwiss) return;
+        if (
+            !confirm(
+                '스위스 리그를 초기화할까요?\n대진표와 참가자 선택이 모두 지워지며, 이 작업은 되돌릴 수 없습니다.'
+            )
+        ) {
+            return;
+        }
+        setIsSwissPrizeModalOpen(false);
+        setData(prev => ({
+            ...prev,
+            swissParticipantIds: [],
+            swiss: undefined,
+        }));
     };
 
     return (
@@ -557,10 +682,11 @@ export const TournamentView = (props: TournamentViewProps) => {
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                     />
                 )}
-                 {activeTab === 'swiss' && (
+                {activeTab === 'swiss' && (
                     <TournamentSwissView
                         swissData={data.swiss}
-                        onStartSwiss={(mode) => handleStartSwiss(mode, getTabParticipantIds('swiss'))}
+                        canResetSwiss={canResetSwiss}
+                        onResetSwiss={handleResetSwiss}
                         onSetWinner={handleSetSwissWinner}
                         onGenerateNextRound={handleGenerateNextRoundSwiss}
                         onCancelLastRound={handleCancelLastRoundSwiss}
@@ -595,7 +721,9 @@ export const TournamentView = (props: TournamentViewProps) => {
                         data={data}
                         students={students}
                         setData={setData}
+                        settings={settings}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
+                        onBulkAddTransaction={onBulkAddTransaction}
                     />
                 )}
                 {activeTab === 'mission' && (
@@ -619,6 +747,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                     onUpdateParticipants={handleUpdateParticipants}
                     onAssignTeams={handleAssignTeams}
                     currentView={activeTab}
+                    tournamentSettings={settings}
                     onStartSwiss={handleStartSwiss}
                     onInitMission={handleInitMissionBaduk}
                     onInitHybrid={handleInitHybrid}

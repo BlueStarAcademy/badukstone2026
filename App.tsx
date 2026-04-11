@@ -235,7 +235,9 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const eventSettings = (appState && appState !== 'error') ? appState.eventSettings || INITIAL_EVENT_SETTINGS : INITIAL_EVENT_SETTINGS;
     const shopSettings = (appState && appState !== 'error') ? appState.shopSettings || { bulkPurchaseDiscountRate: 0 } : { bulkPurchaseDiscountRate: 0 };
     const tournamentData = (appState && appState !== 'error') ? appState.tournamentData || { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [], mannerPenalties: 0 }, { name: 'B', players: [], mannerPenalties: 0 }] } : { ...INITIAL_TOURNAMENT_DATA, teams: [{ name: 'A', players: [], mannerPenalties: 0 }, { name: 'B', players: [], mannerPenalties: 0 }] };
-    const tournamentSettings = (appState && appState !== 'error') ? appState.tournamentSettings || INITIAL_TOURNAMENT_SETTINGS : INITIAL_TOURNAMENT_SETTINGS;
+    const tournamentSettings = (appState && appState !== 'error')
+        ? { ...INITIAL_TOURNAMENT_SETTINGS, ...(appState.tournamentSettings || {}) }
+        : INITIAL_TOURNAMENT_SETTINGS;
     const chessMatches = (appState && appState !== 'error') ? appState.chessMatches || [] : [];
     const gachaState = (appState && appState !== 'error') ? appState.gachaState || INITIAL_GACHA_STATES : INITIAL_GACHA_STATES;
     const eventMonthlyStats = (appState && appState !== 'error') ? appState.eventMonthlyStats : undefined;

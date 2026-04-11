@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Student, TournamentData, TournamentSettings, MissionBadukPlayer, MissionBadukActiveMission, MissionBadukData } from '../../types';
+import { getMissionPrizeRow, missionPrizeGroupCount } from '../../utils/tournamentPrizes';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 
 interface TournamentMissionViewProps {
@@ -195,6 +196,23 @@ const MissionPlayerRow: React.FC<MissionPlayerRowProps> = ({
                     <button className="row-delete-btn" onClick={(e) => { e.stopPropagation(); onRemove(player.studentId); }} title="명단에서 제거">×</button>
                     <div className="mission-left-info">
                         <div className="mission-row-name">{player.name}</div>
+                        {missionPrizeGroupCount(settings) > 1 && (
+                            <select
+                                className="mission-prize-group-select"
+                                value={player.prizeGroupIndex ?? 0}
+                                onChange={e =>
+                                    onUpdate(player.studentId, { prizeGroupIndex: Number(e.target.value) })
+                                }
+                                title="상금 조"
+                                style={{ marginTop: 4, fontSize: '0.8rem', maxWidth: '100%' }}
+                            >
+                                {Array.from({ length: missionPrizeGroupCount(settings) }, (_, i) => (
+                                    <option key={i} value={i}>
+                                        상금 {i + 1}조
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                         <div className="mission-row-score">{player.score}점</div>
                     </div>
                     <div className="mission-row-status-btns">
@@ -263,7 +281,8 @@ interface MissionFinishModalProps {
 
 const MissionFinishModal = ({ player, settings, onClose, onConfirm }: MissionFinishModalProps) => {
     const ratio = settings.missionBaduk?.scoreToStoneRatio || 1;
-    const baseStones = player.score * ratio;
+    const flatBonus = getMissionPrizeRow(settings, player.prizeGroupIndex ?? 0).finishFlatBonus;
+    const baseStones = player.score * ratio + flatBonus;
     const [bonusStones, setBonusStones] = useState(0);
     const [isRolling, setIsRolling] = useState(false);
     const [rolledTier, setRolledTier] = useState<string | null>(null);
@@ -335,8 +354,16 @@ const MissionFinishModal = ({ player, settings, onClose, onConfirm }: MissionFin
                     </div>
                     <div className="mission-finish-stat mission-finish-stat--gold">
                         <span className="mission-finish-stat-label">기본 스톤</span>
-                        <span className="mission-finish-stat-value">{baseStones}<small>개</small></span>
+                        <span className="mission-finish-stat-value">
+                            {baseStones}
+                            <small>개</small>
+                        </span>
                     </div>
+                    {flatBonus > 0 && (
+                        <p className="mission-finish-hint mission-finish-hint--muted" style={{ marginTop: '0.35rem' }}>
+                            (점수 환산 + 조별 고정 보너스 {flatBonus}스톤)
+                        </p>
+                    )}
                 </div>
 
                 <div className="mission-finish-body">
@@ -498,6 +525,24 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
         }
     };
 
+    const handleBulkMissionParticipant = (groupIndex: number) => {
+        if (!data.missionBaduk) return;
+        const amount = getMissionPrizeRow(settings, groupIndex).participantPrize;
+        if (amount <= 0) {
+            alert('해당 조의 참가상 금액이 0입니다. 대회 설정에서 조별 상금을 확인하세요.');
+            return;
+        }
+        const ids = data.missionBaduk.players
+            .filter(p => (p.prizeGroupIndex ?? 0) === groupIndex)
+            .map(p => p.studentId);
+        if (ids.length === 0) {
+            alert(`상금 ${groupIndex + 1}조로 지정된 선수가 없습니다.`);
+            return;
+        }
+        if (!confirm(`상금 ${groupIndex + 1}조 선수 ${ids.length}명에게 참가상 ${amount}스톤을 지급할까요?`)) return;
+        onBulkAddTransaction(ids, `미션 바둑 ${groupIndex + 1}조 참가상`, amount);
+    };
+
     const handleClearFinished = () => {
         saveHistory();
         setData(prev => {
@@ -534,10 +579,23 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
 
     return (
         <div className="mission-baduk-view">
-            <div className="view-header-actions">
-                <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                <button className="btn" onClick={handleUndo} disabled={history.length === 0}>되돌리기</button>
-                <button className="btn danger" onClick={handleClearFinished}>완료 학생 제거</button>
+            <div className="view-header-actions" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
+                <button className="btn" onClick={onOpenPlayerManagement}>
+                    선수 관리
+                </button>
+                <button className="btn" onClick={handleUndo} disabled={history.length === 0}>
+                    되돌리기
+                </button>
+                <button className="btn danger" onClick={handleClearFinished}>
+                    완료 학생 제거
+                </button>
+                {settings.missionPrizesByGroup &&
+                    settings.missionPrizesByGroup.length > 0 &&
+                    settings.missionPrizesByGroup.map((row, gi) => (
+                        <button key={gi} type="button" className="btn-sm" onClick={() => handleBulkMissionParticipant(gi)}>
+                            {gi + 1}조 참가상 일괄 ({row.participantPrize}스톤)
+                        </button>
+                    ))}
             </div>
 
             <div className="mission-integrated-view">

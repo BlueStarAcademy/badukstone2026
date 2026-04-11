@@ -1,7 +1,21 @@
 
 import React, { useState } from 'react';
-import type { TournamentSettings, MissionBadukMatchMissionDef, MissionBadukWearableMissionDef } from '../../types';
+import type {
+    TournamentSettings,
+    TournamentByePriority,
+    MissionBadukMatchMissionDef,
+    MissionBadukWearableMissionDef,
+} from '../../types';
 import { generateId } from '../../utils';
+import {
+    BracketGroupPrizesEditor,
+    SwissGroupPrizesEditor,
+    RelayGroupPrizesEditor,
+    HybridPrelimGroupPrizesEditor,
+    HybridBracketGroupPrizesEditor,
+    MissionGroupPrizesEditor,
+} from './TournamentGroupPrizeEditors';
+import { parseSwissGroupSizes, SWISS_PAID_RANK_MAX } from '../../utils/tournamentPrizes';
 
 interface TournamentSettingsModalProps {
     isOpen: boolean;
@@ -144,6 +158,26 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
                     activeTab === 'doubleelim' ? '더블엘리미네이션' : '미션 바둑'
                 })</h2>
                 <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+
+                    {(activeTab === 'bracket' || activeTab === 'swiss' || activeTab === 'hybrid' || activeTab === 'doubleelim') && (
+                        <div className="settings-form-section">
+                            <h3>부전승 우선순위</h3>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label htmlFor="bye-priority">모드</label></div>
+                                <select
+                                    id="bye-priority"
+                                    value={settings.byePriority ?? 'min_byes'}
+                                    onChange={e =>
+                                        handleSettingChange('byePriority', e.target.value as TournamentByePriority)
+                                    }
+                                >
+                                    <option value="min_byes">① 부전승 최소화</option>
+                                    <option value="min_matches">② 시합 판수 최소화</option>
+                                    <option value="max_matches">③ 시합 판수 최대화</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
                     
                     {activeTab === 'relay' && (
                         <div className="settings-form-section">
@@ -201,53 +235,144 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
                                 <div className="label-group"><label>예절 감점 (1회당)</label></div>
                                 <div className="input-group"><input type="number" value={settings.relayMannerPenalty} onChange={e => handleSettingChange('relayMannerPenalty', Number(e.target.value))} /><span>점</span></div>
                             </div>
+                            <RelayGroupPrizesEditor settings={settings} onChange={handleSettingChange} />
                         </div>
                     )}
 
-                    {(activeTab === 'bracket' || activeTab === 'swiss') && (
+                    {(activeTab === 'bracket' || activeTab === 'fullleague' || activeTab === 'doubleelim') && (
                         <div className="settings-form-section">
-                            <h3>상금 설정</h3>
-                            {activeTab === 'bracket' ? (
-                                <>
-                                    <div className="settings-form-row">
-                                        <div className="label-group"><label>우승</label></div>
-                                        <div className="input-group"><input type="number" value={settings.championPrize} onChange={e => handleSettingChange('championPrize', Number(e.target.value))} /><span>스톤</span></div>
-                                    </div>
-                                    <div className="settings-form-row">
-                                        <div className="label-group"><label>준우승</label></div>
-                                        <div className="input-group"><input type="number" value={settings.runnerUpPrize} onChange={e => handleSettingChange('runnerUpPrize', Number(e.target.value))} /><span>스톤</span></div>
-                                    </div>
-                                    <div className="settings-form-row">
-                                        <div className="label-group"><label>3-4위</label></div>
-                                        <div className="input-group"><input type="number" value={settings.semiFinalistPrize} onChange={e => handleSettingChange('semiFinalistPrize', Number(e.target.value))} /><span>스톤</span></div>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="settings-form-row">
-                                        <div className="label-group"><label>1위</label></div>
-                                        <div className="input-group"><input type="number" value={settings.swiss1stPrize} onChange={e => handleSettingChange('swiss1stPrize', Number(e.target.value))} /><span>스톤</span></div>
-                                    </div>
-                                    <div className="settings-form-row">
-                                        <div className="label-group"><label>2위</label></div>
-                                        <div className="input-group"><input type="number" value={settings.swiss2ndPrize} onChange={e => handleSettingChange('swiss2ndPrize', Number(e.target.value))} /><span>스톤</span></div>
-                                    </div>
-                                    <div className="settings-form-row">
-                                        <div className="label-group"><label>3위</label></div>
-                                        <div className="input-group"><input type="number" value={settings.swiss3rdPrize} onChange={e => handleSettingChange('swiss3rdPrize', Number(e.target.value))} /><span>스톤</span></div>
-                                    </div>
-                                </>
-                            )}
+                            <h3>상금 설정 (기본값)</h3>
+                            <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
+                                조별 상금을 쓰지 않을 때 시상 화면에 채워지는 기본값입니다.
+                            </p>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label>우승</label></div>
+                                <div className="input-group"><input type="number" value={settings.championPrize} onChange={e => handleSettingChange('championPrize', Number(e.target.value))} /><span>스톤</span></div>
+                            </div>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label>준우승</label></div>
+                                <div className="input-group"><input type="number" value={settings.runnerUpPrize} onChange={e => handleSettingChange('runnerUpPrize', Number(e.target.value))} /><span>스톤</span></div>
+                            </div>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label>3-4위</label></div>
+                                <div className="input-group"><input type="number" value={settings.semiFinalistPrize} onChange={e => handleSettingChange('semiFinalistPrize', Number(e.target.value))} /><span>스톤</span></div>
+                            </div>
                             <div className="settings-form-row">
                                 <div className="label-group"><label>참가상</label></div>
                                 <div className="input-group"><input type="number" value={settings.participantPrize} onChange={e => handleSettingChange('participantPrize', Number(e.target.value))} /><span>스톤</span></div>
                             </div>
+                            <BracketGroupPrizesEditor settings={settings} onChange={handleSettingChange} />
+                        </div>
+                    )}
+
+                    {activeTab === 'swiss' && (
+                        <div className="settings-form-section">
+                            <h3>상금 설정 (기본값)</h3>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label>1위</label></div>
+                                <div className="input-group"><input type="number" value={settings.swiss1stPrize} onChange={e => handleSettingChange('swiss1stPrize', Number(e.target.value))} /><span>스톤</span></div>
+                            </div>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label>2위</label></div>
+                                <div className="input-group"><input type="number" value={settings.swiss2ndPrize} onChange={e => handleSettingChange('swiss2ndPrize', Number(e.target.value))} /><span>스톤</span></div>
+                            </div>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label>3위</label></div>
+                                <div className="input-group"><input type="number" value={settings.swiss3rdPrize} onChange={e => handleSettingChange('swiss3rdPrize', Number(e.target.value))} /><span>스톤</span></div>
+                            </div>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label>참가상</label></div>
+                                <div className="input-group"><input type="number" value={settings.participantPrize} onChange={e => handleSettingChange('participantPrize', Number(e.target.value))} /><span>스톤</span></div>
+                            </div>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label htmlFor="swiss-paid-rank-count">순위 상금 (몇 등까지)</label></div>
+                                <div className="input-group">
+                                    <input
+                                        id="swiss-paid-rank-count"
+                                        type="number"
+                                        min={1}
+                                        max={SWISS_PAID_RANK_MAX}
+                                        value={settings.swissPaidRankCount ?? 3}
+                                        onChange={e =>
+                                            handleSettingChange(
+                                                'swissPaidRankCount',
+                                                Math.min(
+                                                    SWISS_PAID_RANK_MAX,
+                                                    Math.max(1, Math.floor(Number(e.target.value)) || 3)
+                                                )
+                                            )
+                                        }
+                                    />
+                                    <span>등까지 (참가상 별도)</span>
+                                </div>
+                            </div>
+                            <h4 style={{ marginTop: '1.25rem' }}>조별 진행</h4>
+                            <p style={{ fontSize: '0.9rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
+                                켜면 참가자를 급수 순(또는 무작위)으로 정렬한 뒤, 아래 인원만큼 앞에서부터 1조·2조…로 나누어 각 조에서만 스위스를 진행합니다. 조 인원 합은 반드시 참가자 수와 같아야 합니다.
+                            </p>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label htmlFor="swiss-use-groups">조별 스위스</label></div>
+                                <div className="input-group">
+                                    <input
+                                        id="swiss-use-groups"
+                                        type="checkbox"
+                                        checked={settings.swissUseGroups}
+                                        onChange={e => handleSettingChange('swissUseGroups', e.target.checked)}
+                                    />
+                                </div>
+                            </div>
+                            {settings.swissUseGroups && (
+                                <>
+                                    <div className="settings-form-row">
+                                        <div className="label-group"><label htmlFor="swiss-group-sizes">조 인원 (초기값)</label></div>
+                                        <div className="input-group" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
+                                            <input
+                                                id="swiss-group-sizes"
+                                                type="text"
+                                                placeholder="4,4,8"
+                                                value={settings.swissGroupSizes}
+                                                onChange={e => handleSettingChange('swissGroupSizes', e.target.value)}
+                                                style={{ minWidth: '140px' }}
+                                            />
+                                            <span style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)' }}>
+                                                쉼표 구분. 아래 탭에서 조마다 수정 가능 (합계 {parseSwissGroupSizes(settings.swissGroupSizes).reduce((a, b) => a + b, 0) || '—'}명)
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginTop: '-0.25rem' }}>
+                                        조별 상금·인원은 「조별 상금」카드의 탭에서 설정합니다.
+                                    </p>
+                                </>
+                            )}
+                            <SwissGroupPrizesEditor settings={settings} onChange={handleSettingChange} />
                         </div>
                     )}
 
                     {activeTab === 'hybrid' && (
                         <div className="settings-form-section">
                             <h3>예선+본선 설정</h3>
+                            <div className="settings-form-row">
+                                <div className="label-group"><label htmlFor="hybrid-swiss-paid-rank-count">순위 상금 (몇 등까지)</label></div>
+                                <div className="input-group">
+                                    <input
+                                        id="hybrid-swiss-paid-rank-count"
+                                        type="number"
+                                        min={1}
+                                        max={SWISS_PAID_RANK_MAX}
+                                        value={settings.swissPaidRankCount ?? 3}
+                                        onChange={e =>
+                                            handleSettingChange(
+                                                'swissPaidRankCount',
+                                                Math.min(
+                                                    SWISS_PAID_RANK_MAX,
+                                                    Math.max(1, Math.floor(Number(e.target.value)) || 3)
+                                                )
+                                            )
+                                        }
+                                    />
+                                    <span>등까지 (예선 시상·스위스 공통, 참가상 별도)</span>
+                                </div>
+                            </div>
                             <div className="settings-form-row">
                                 <div className="label-group"><label>본선 진출 인원</label></div>
                                 <div className="input-group"><input type="number" value={settings.hybridAdvanceCount || 8} onChange={e => handleSettingChange('hybridAdvanceCount', Number(e.target.value))} /><span>명</span></div>
@@ -263,6 +388,8 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
                                     <option value="random">무작위</option>
                                 </select>
                             </div>
+                            <HybridPrelimGroupPrizesEditor settings={settings} onChange={handleSettingChange} />
+                            <HybridBracketGroupPrizesEditor settings={settings} onChange={handleSettingChange} />
                         </div>
                     )}
 
@@ -337,6 +464,8 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
                                     </div>
                                 </div>
                             </div>
+
+                            <MissionGroupPrizesEditor settings={settings} onChange={handleSettingChange} />
 
                             <div className="settings-card">
                                 <h4>📋 미션 목록 관리</h4>

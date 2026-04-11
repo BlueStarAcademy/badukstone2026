@@ -198,6 +198,8 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                 isOpen={isPrizeModalOpen}
                 onClose={() => setIsPrizeModalOpen(false)}
                 settings={settings}
+                prizeKey="bracket"
+                mode="fullleague"
                 onAwardPrizes={handleAwardPrizes}
             />
         </div>

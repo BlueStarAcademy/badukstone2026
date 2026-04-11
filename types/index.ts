@@ -232,10 +232,20 @@ export interface SwissMatch {
     winnerId: string | null;
 }
 
+/** 조별 스위스: 각 조가 독립된 대진·순위를 가짐 */
+export interface SwissGroupData {
+    id: string;
+    label: string;
+    players: SwissPlayer[];
+    rounds: SwissMatch[][];
+}
+
 export interface SwissData {
     status: 'not_started' | 'in_progress' | 'finished';
     players: SwissPlayer[];
+    /** 단일 리그. `groups`가 있으면 비워 둠 */
     rounds: SwissMatch[][];
+    groups?: SwissGroupData[];
 }
 
 export interface MissionBadukMatchMissionDef {
@@ -265,6 +275,8 @@ export interface MissionBadukPlayer {
     studentId: string;
     name: string;
     status: 'waiting' | 'active' | 'finished';
+    /** missionPrizesByGroup 행 인덱스 (기본 0) */
+    prizeGroupIndex?: number;
     score: number;
     startTime?: string;
     timeAdded?: number;
@@ -327,6 +339,45 @@ export interface TournamentData {
 export type GameKey = 'game1' | 'game2' | 'game3';
 export type GameSelection = GameKey | 'none';
 
+/** 토너먼트·풀리그·더블엘리·예선+본선(본선) 시상 (조별 행) */
+export interface TournamentBracketGroupPrizes {
+    champion: number;
+    runnerUp: number;
+    semiFinalist: number;
+    participant: number;
+}
+
+/** 스위스·예선+본선(예선) 시상 (조별 행) */
+export interface TournamentSwissGroupPrizes {
+    first: number;
+    second: number;
+    third: number;
+    participant: number;
+    /** 4위 이상 상금. 길이 = (설정의 순위 상금 개수 − 3) 이상이면 됨 */
+    extraRanks?: number[];
+}
+
+/** 팀 대항전: 팀별(1조=A, 2조=B) 시상 기본액 */
+export interface TournamentRelayGroupPrizes {
+    winPrize: number;
+    losePrize: number;
+    participantPrize: number;
+}
+
+/** 미션 바둑 조별 (선수에 prizeGroupIndex 부여) */
+export interface TournamentMissionGroupPrizes {
+    participantPrize: number;
+    finishFlatBonus: number;
+}
+
+/**
+ * 부전승·홀수 대진 시 우선순위 (대회 설정에서 선택).
+ * - min_byes: 2^n 껍데기에서 부전승 개수는 최소로 두고, 부전승 대상을 순위에 고르게 분산.
+ * - min_matches: 강한 시드가 부전승을 우선 → 상위 선수의 실제 대국 수 감소.
+ * - max_matches: 약한 시드가 부전승을 우선 → 상위끼리 대국이 많아짐.
+ */
+export type TournamentByePriority = 'min_byes' | 'min_matches' | 'max_matches';
+
 export interface TournamentSettings {
     games: GameSelection[];
     game1SameRankHandicap: number;
@@ -343,6 +394,12 @@ export interface TournamentSettings {
     swiss1stPrize: number;
     swiss2ndPrize: number;
     swiss3rdPrize: number;
+    /** 1위부터 몇 등까지 순위 상금 칸을 둘지 (기본 3). 참가상은 별도 */
+    swissPaidRankCount?: number;
+    /** true면 스위스 시작 시 조별로 나눔 (인원은 swissGroupSizes 합과 일치해야 함) */
+    swissUseGroups: boolean;
+    /** 쉼표로 구분, 예: "4,4,8" — 급수 순/무작위 시드 후 앞에서부터 조에 배정 */
+    swissGroupSizes: string;
     missionBaduk?: {
         timeLimit: number;
         scoreToStoneRatio: number;
@@ -373,6 +430,15 @@ export interface TournamentSettings {
     hybridAdvanceCount?: number;
     hybridGroupCount?: number;
     hybridMode?: 'rank' | 'random';
+    /** 비어 있으면 championPrize 등 단일 필드 사용 */
+    bracketPrizesByGroup?: TournamentBracketGroupPrizes[];
+    swissPrizesByGroup?: TournamentSwissGroupPrizes[];
+    relayPrizesByGroup?: TournamentRelayGroupPrizes[];
+    hybridPrelimPrizesByGroup?: TournamentSwissGroupPrizes[];
+    hybridBracketPrizesByGroup?: TournamentBracketGroupPrizes[];
+    missionPrizesByGroup?: TournamentMissionGroupPrizes[];
+    /** 토너먼트·스위스·예선+본선·더블엘리 1라운드 등 부전승 배정 */
+    byePriority?: TournamentByePriority;
 }
 
 export interface IndividualMissionStep {

@@ -7,6 +7,7 @@ import { PlayerSwapModal } from './PlayerSwapModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { TournamentAwardModal } from './TournamentAwardModal';
 import { parseRank } from '../../utils';
+import { getRelayPrizeRow } from '../../utils/tournamentPrizes';
 
 interface TournamentRelayViewProps {
     data: TournamentData;
@@ -277,7 +278,20 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                 />
             )}
              {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
-             {awardModal && <TournamentAwardModal isOpen={!!awardModal} onClose={() => setAwardModal(null)} {...awardModal} onAward={handleAward} />}
+            {awardModal && (
+                <TournamentAwardModal
+                    isOpen={!!awardModal}
+                    onClose={() => setAwardModal(null)}
+                    teamName={awardModal.teamName}
+                    teamType={awardModal.teamType}
+                    onAward={handleAward}
+                    defaultStoneAmount={
+                        awardModal.teamType === 'winner'
+                            ? getRelayPrizeRow(settings, awardModal.teamName === 'A' ? 0 : 1).winPrize
+                            : getRelayPrizeRow(settings, awardModal.teamName === 'A' ? 0 : 1).losePrize
+                    }
+                />
+            )}
         </div>
     );
 };

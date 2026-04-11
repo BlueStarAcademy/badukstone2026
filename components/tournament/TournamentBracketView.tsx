@@ -4,6 +4,8 @@ import type { Student, TournamentBracket, TournamentData, TournamentSettings, To
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { parseRank, generateId } from '../../utils';
+import { buildElimRoundOneSlotOrder, DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
+import type { BracketPrizeSettingsKey, TournamentBracketPrizeModalMode } from '../../utils/tournamentPrizes';
 import { BracketTree } from './BracketTree';
 
 interface TournamentBracketViewProps {
@@ -13,6 +15,9 @@ interface TournamentBracketViewProps {
     settings: TournamentSettings;
     onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
     onOpenPlayerManagement: () => void;
+    /** 시상 시 조별 상금 출처 (예선+본선 본선은 hybridBracket) */
+    bracketPrizeKey?: BracketPrizeSettingsKey;
+    prizeModalMode?: TournamentBracketPrizeModalMode;
 }
 
 /** 상대가 없을 때(부전승): 한 명만 있으면 그 선수를 승자로 설정 */
@@ -157,7 +162,16 @@ const TournamentResultPanel = ({
 
 
 export const TournamentBracketView = (props: TournamentBracketViewProps) => {
-    const { data, students, setData, settings, onBulkAddTransaction, onOpenPlayerManagement } = props;
+    const {
+        data,
+        students,
+        setData,
+        settings,
+        onBulkAddTransaction,
+        onOpenPlayerManagement,
+        bracketPrizeKey = 'bracket',
+        prizeModalMode = 'bracket',
+    } = props;
     const { bracket: bracketData, bracketParticipantIds } = data;
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
@@ -175,35 +189,14 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
             return;
         }
 
-        const numPlayers = participants.length;
-        const bracketSize = Math.pow(2, Math.ceil(Math.log2(numPlayers)));
-        const numByes = bracketSize - numPlayers;
-
         const tournamentPlayers: TournamentPlayer[] = participants.map(p => ({
             studentId: p.id, name: p.name, rank: p.rank,
             game1Handicap: 0, game1Color: 'black', game1Result: null,
             game2Score: null, game2LastStone: false, game3Score: null,
         }));
-        
-        const topSeeds = tournamentPlayers.slice(0, numByes);
-        const otherPlayers = tournamentPlayers.slice(numByes);
 
-        let playersForRound1: (TournamentPlayer | 'BYE')[] = [];
-        
-        const otherPlayersShuffled = [...otherPlayers].sort(() => Math.random() - 0.5);
-
-        let topSeedIdx = 0;
-        let otherPlayerIdx = 0;
-
-        for (let i = 0; i < bracketSize / 2; i++) {
-            if (topSeedIdx < numByes) {
-                playersForRound1.push(topSeeds[topSeedIdx++]);
-                playersForRound1.push('BYE');
-            } else {
-                playersForRound1.push(otherPlayersShuffled[otherPlayerIdx++]);
-                playersForRound1.push(otherPlayersShuffled[otherPlayerIdx++]);
-            }
-        }
+        const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
+        const { bracketSize, slots: playersForRound1 } = buildElimRoundOneSlotOrder(tournamentPlayers, byePriority, true);
         
         const firstRoundMatches: TournamentMatch[] = [];
         for (let i = 0; i < playersForRound1.length; i += 2) {
@@ -457,7 +450,16 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
                     onOpenPrizeModal={isFinished ? () => setIsPrizeModalOpen(true) : undefined}
                 />
             </div>
-            {isPrizeModalOpen && <TournamentPrizeModal isOpen={isPrizeModalOpen} onClose={() => setIsPrizeModalOpen(false)} settings={settings} onAwardPrizes={handleAwardPrizes} />}
+            {isPrizeModalOpen && (
+                <TournamentPrizeModal
+                    isOpen={isPrizeModalOpen}
+                    onClose={() => setIsPrizeModalOpen(false)}
+                    settings={settings}
+                    prizeKey={bracketPrizeKey}
+                    mode={prizeModalMode}
+                    onAwardPrizes={handleAwardPrizes}
+                />
+            )}
             {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
         </div>
     );

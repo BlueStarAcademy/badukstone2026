@@ -213,6 +213,94 @@
     font-weight: 500;
 }
 
+.player-mgmt-item-text {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.player-mgmt-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.player-mgmt-rank {
+    flex-shrink: 0;
+    color: var(--text-color-secondary, #7f8c8d);
+    font-size: 0.85em;
+}
+
+.player-mgmt-check {
+    flex-shrink: 0;
+    margin-left: 0.25rem;
+}
+
+/* 대회 선수 관리 모달 */
+.tournament-player-mgmt-modal.modal-content {
+    max-height: 92vh;
+}
+
+.tournament-player-mgmt-body.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.tournament-player-mgmt-modal .player-mgmt-container {
+    height: auto;
+    min-height: 280px;
+    max-height: min(48vh, 460px);
+    flex: 1 1 auto;
+}
+
+.tournament-player-mgmt-hint {
+    font-size: 0.88rem;
+    color: var(--text-color-secondary, #7f8c8d);
+    line-height: 1.45;
+    padding: 0.5rem 0.65rem;
+    background: var(--surface-color-hover, #f1f5f9);
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.tournament-player-mgmt-hint-warn {
+    color: var(--danger-color, #c0392b);
+    font-weight: 600;
+}
+
+.tournament-player-mgmt-actions {
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.tournament-player-mgmt-actions-main,
+.tournament-player-mgmt-actions-finalize {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.tournament-player-mgmt-assign {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.tournament-player-mgmt-assign label {
+    white-space: nowrap;
+}
+
 @media (max-width: 768px) {
     .student-grid {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -235,10 +323,16 @@
     .player-mgmt-container {
         flex-direction: column;
         height: auto;
-        max-height: 60vh;
+        max-height: none;
+    }
+
+    .tournament-player-mgmt-modal .player-mgmt-container {
+        max-height: none;
+        min-height: 200px;
     }
     
     .player-mgmt-col {
-        height: 250px;
+        height: 240px;
+        min-height: 200px;
     }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface TournamentAwardModalProps {
     isOpen: boolean;
@@ -6,11 +6,28 @@ interface TournamentAwardModalProps {
     teamName: string;
     teamType: 'winner' | 'loser';
     onAward: (amount: number, reason: string) => void;
+    /** 대회 설정 조별 상금에서 가져온 기본 스톤 */
+    defaultStoneAmount?: number;
+    defaultReason?: string;
 }
 
-export const TournamentAwardModal = ({ isOpen, onClose, teamName, teamType, onAward }: TournamentAwardModalProps) => {
-    const [amount, setAmount] = useState(0);
-    const [reason, setReason] = useState('');
+export const TournamentAwardModal = ({
+    isOpen,
+    onClose,
+    teamName,
+    teamType,
+    onAward,
+    defaultStoneAmount = 0,
+    defaultReason,
+}: TournamentAwardModalProps) => {
+    const [amount, setAmount] = useState(defaultStoneAmount);
+    const [reason, setReason] = useState(defaultReason ?? '');
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setAmount(defaultStoneAmount);
+        setReason(defaultReason ?? (teamType === 'winner' ? '대회 우승 보상' : '대회 참가·격려 보상'));
+    }, [isOpen, defaultStoneAmount, defaultReason, teamType]);
 
     if (!isOpen) return null;
 

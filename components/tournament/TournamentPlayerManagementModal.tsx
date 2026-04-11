@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import type { Student } from '../../types';
+import type { Student, TournamentSettings } from '../../types';
 import { parseRank } from '../../utils';
+import { parseSwissGroupSizes } from '../../utils/tournamentPrizes';
 
 interface TournamentPlayerManagementModalProps {
     isOpen: boolean;
@@ -11,6 +12,7 @@ interface TournamentPlayerManagementModalProps {
     onUpdateParticipants: (ids: string[]) => void;
     onAssignTeams: (mode: 'random' | 'ranked', ids: string[]) => void;
     currentView: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
+    tournamentSettings?: TournamentSettings;
     onStartSwiss: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitMission?: (ids: string[]) => void;
     onInitHybrid?: (ids: string[]) => void;
@@ -19,9 +21,20 @@ interface TournamentPlayerManagementModalProps {
 }
 
 export const TournamentPlayerManagementModal = (props: TournamentPlayerManagementModalProps) => {
-    const { 
-        isOpen, onClose, allStudents, participantIds, 
-        onUpdateParticipants, onAssignTeams, currentView, onStartSwiss, onInitMission, onInitHybrid, onInitFullLeague, onInitDoubleElim
+    const {
+        isOpen,
+        onClose,
+        allStudents,
+        participantIds,
+        onUpdateParticipants,
+        onAssignTeams,
+        currentView,
+        tournamentSettings,
+        onStartSwiss,
+        onInitMission,
+        onInitHybrid,
+        onInitFullLeague,
+        onInitDoubleElim,
     } = props;
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -107,6 +120,13 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     const showFinalizeButton = currentView === 'relay' || currentView === 'swiss' || currentView === 'mission' || currentView === 'hybrid' || currentView === 'fullleague' || currentView === 'doubleelim';
     const showAssignmentOptions = currentView === 'relay' || currentView === 'swiss';
 
+    const swissGroupHint = useMemo(() => {
+        if (currentView !== 'swiss' || !tournamentSettings?.swissUseGroups) return null;
+        const sizes = parseSwissGroupSizes(tournamentSettings.swissGroupSizes);
+        const sum = sizes.reduce((a, b) => a + b, 0);
+        return { sizes, sum };
+    }, [currentView, tournamentSettings?.swissUseGroups, tournamentSettings?.swissGroupSizes]);
+
     let finalizeButtonText = '시작';
     if (currentView === 'relay') finalizeButtonText = '배정';
     else if (currentView === 'swiss') finalizeButtonText = '스위스 리그 시작';
@@ -116,10 +136,10 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     else if (currentView === 'doubleelim') finalizeButtonText = '더블엘리미네이션 시작';
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{maxWidth: '900px'}}>
+        <div className="modal-overlay">
+            <div className="modal-content tournament-player-mgmt-modal" style={{ maxWidth: 'min(920px, 96vw)', width: '96vw' }}>
                 <h2>대회 선수 관리</h2>
-                <div className="modal-body">
+                <div className="modal-body tournament-player-mgmt-body">
                     <div className="form-group">
                         <input
                             type="text"
@@ -129,7 +149,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                             autoFocus
                         />
                     </div>
-                    
+
                     <div className="player-mgmt-container">
                         <div className="player-mgmt-col">
                             <div className="player-mgmt-header">
@@ -145,8 +165,11 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                                         className={`player-mgmt-item ${selectedIds.has(student.id) ? 'selected' : ''}`}
                                         onClick={() => handleToggleStudent(student.id)}
                                     >
-                                        <span>{student.name} <small>({student.rank})</small></span>
-                                        {selectedIds.has(student.id) && <span>✔️</span>}
+                                        <span className="player-mgmt-item-text" title={`${student.name} (${student.rank})`}>
+                                            <span className="player-mgmt-name">{student.name}</span>
+                                            <small className="player-mgmt-rank">({student.rank})</small>
+                                        </span>
+                                        {selectedIds.has(student.id) && <span className="player-mgmt-check" aria-hidden>✔</span>}
                                     </li>
                                 ))}
                             </ul>
@@ -162,8 +185,10 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                             <ul className="player-mgmt-list">
                                 {selectedStudentsList.map(student => (
                                     <li key={student.id} className="player-mgmt-item" onClick={() => handleToggleStudent(student.id)}>
-                                        <span>{student.name}</span>
-                                        <small>({student.rank})</small>
+                                        <span className="player-mgmt-item-text" title={`${student.name} (${student.rank})`}>
+                                            <span className="player-mgmt-name">{student.name}</span>
+                                            <small className="player-mgmt-rank">({student.rank})</small>
+                                        </span>
                                     </li>
                                 ))}
                                 {selectedStudentsList.length === 0 && (
@@ -172,27 +197,45 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                             </ul>
                         </div>
                     </div>
+
+                    {showFinalizeButton && swissGroupHint && (
+                        <div className="tournament-player-mgmt-hint">
+                            조별 스위스: 대회 설정 조 인원 합 <strong>{swissGroupHint.sum}</strong>명 — 참가 예정{' '}
+                            <strong>{selectedIds.size}</strong>명
+                            {swissGroupHint.sum !== selectedIds.size ? (
+                                <span className="tournament-player-mgmt-hint-warn"> (합이 같아야 시작할 수 있습니다)</span>
+                            ) : null}
+                        </div>
+                    )}
                 </div>
-                <div className="modal-actions">
-                    <button type="button" className="btn" onClick={onClose}>취소</button>
-                    <button type="button" className="btn" onClick={handleSaveAndClose} disabled={isUnchanged}>
-                        참가자 목록 저장
-                    </button>
-                    {showFinalizeButton && (
-                        <>
-                        {showAssignmentOptions && (
-                            <div className="form-group inline-group" style={{alignItems: 'center', marginRight: 'auto', marginLeft: '1rem'}}>
-                                <label htmlFor="assignment-mode">배정/시드 방식:</label>
-                                <select id="assignment-mode" value={assignmentMode} onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}>
-                                    <option value="ranked">급수 순</option>
-                                    <option value="random">무작위</option>
-                                </select>
-                            </div>
-                        )}
-                        <button type="button" className="btn primary" onClick={handleFinalize}>
-                            {finalizeButtonText} ({selectedIds.size}명)
+                <div className="modal-actions tournament-player-mgmt-actions">
+                    <div className="tournament-player-mgmt-actions-main">
+                        <button type="button" className="btn" onClick={onClose}>
+                            취소
                         </button>
-                        </>
+                        <button type="button" className="btn" onClick={handleSaveAndClose} disabled={isUnchanged}>
+                            참가자 목록 저장
+                        </button>
+                    </div>
+                    {showFinalizeButton && (
+                        <div className="tournament-player-mgmt-actions-finalize">
+                            {showAssignmentOptions && (
+                                <div className="form-group inline-group tournament-player-mgmt-assign">
+                                    <label htmlFor="assignment-mode">배정/시드</label>
+                                    <select
+                                        id="assignment-mode"
+                                        value={assignmentMode}
+                                        onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                                    >
+                                        <option value="ranked">급수 순</option>
+                                        <option value="random">무작위</option>
+                                    </select>
+                                </div>
+                            )}
+                            <button type="button" className="btn primary" onClick={handleFinalize}>
+                                {finalizeButtonText} ({selectedIds.size}명)
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

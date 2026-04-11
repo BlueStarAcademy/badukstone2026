@@ -104,6 +104,10 @@ export const INITIAL_TOURNAMENT_SETTINGS: TournamentSettings = {
     swiss1stPrize: 50,
     swiss2ndPrize: 30,
     swiss3rdPrize: 20,
+    swissPaidRankCount: 3,
+    swissUseGroups: false,
+    swissGroupSizes: '4,4,8',
+    byePriority: 'min_byes',
     missionBaduk: {
         timeLimit: 50,
         scoreToStoneRatio: 1,

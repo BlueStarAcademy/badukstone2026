@@ -1,8 +1,21 @@
 
 import React, { useState, useMemo } from 'react';
-import type { Student, TournamentData, TournamentSettings, SwissPlayer, SwissMatch, TournamentPlayer, TournamentBracket, TournamentMatch } from '../../types';
+import type {
+    Student,
+    TournamentData,
+    TournamentSettings,
+    SwissPlayer,
+    SwissMatch,
+    TournamentPlayer,
+    TournamentBracket,
+    TournamentMatch,
+    TournamentSwissGroupPrizes,
+} from '../../types';
 import { parseRank, generateId } from '../../utils';
+import { buildElimRoundOneSlotOrder, DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
+import { computeStandingsInPreliminaryGroup, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
 import { TournamentBracketView } from './TournamentBracketView';
+import { HybridPrelimPrizeModal } from './HybridPrelimPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 
 interface TournamentHybridViewProps {
@@ -19,9 +32,10 @@ interface PreliminaryGroupViewProps {
     groupIndex: number;
     players: SwissPlayer[];
     onSetWinner: (matchId: string, winnerId: string) => void;
+    onOpenPrize?: (groupIndex: number) => void;
 }
 
-const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, groupIndex, players, onSetWinner }) => {
+const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, groupIndex, players, onSetWinner, onOpenPrize }) => {
     const getPlayer = (id: string) => players.find(p => p.studentId === id);
 
     const groupPlayers = useMemo(() => {
@@ -31,7 +45,14 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
 
     return (
         <div className="swiss-round" style={{border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', background: 'var(--surface-color-hover)'}}>
-            <h3>{groupIndex + 1}조</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <h3 style={{ margin: 0 }}>{groupIndex + 1}조</h3>
+                {onOpenPrize && (
+                    <button type="button" className="btn-sm primary" onClick={() => onOpenPrize(groupIndex)}>
+                        이 조 예선 시상
+                    </button>
+                )}
+            </div>
             <table className="swiss-standings-table" style={{marginBottom: '1rem'}}>
                 <thead><tr><th>선수</th><th>승점</th></tr></thead>
                 <tbody>
@@ -73,6 +94,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
     const [groupTab, setGroupTab] = useState(0);
+    const [prelimPrizeGroupIndex, setPrelimPrizeGroupIndex] = useState<number | null>(null);
 
     const handleGeneratePreliminaries = () => {
         const participants = (hybridParticipantIds || [])
@@ -166,6 +188,19 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         });
     };
 
+    const handlePrelimPrizeAward = (prizes: TournamentSwissGroupPrizes) => {
+        if (prelimPrizeGroupIndex === null || !data.hybrid) return;
+        const gi = prelimPrizeGroupIndex;
+        const group = data.hybrid.preliminaryGroups[gi];
+        const sorted = computeStandingsInPreliminaryGroup(group, data.hybrid.players);
+        const label = `예선 ${gi + 1}조`;
+        forEachSwissStylePayout(sorted, prizes, settings, label, (ids, desc, amt) =>
+            onBulkAddTransaction(ids, desc, amt)
+        );
+        setPrelimPrizeGroupIndex(null);
+        alert('예선 시상이 완료되었습니다.');
+    };
+
     const handleAdvanceToBracket = () => {
         if (!data.hybrid) return;
 
@@ -173,10 +208,6 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         const qualifiedPlayers = [...data.hybrid.players]
             .sort((a, b) => b.score - a.score)
             .slice(0, advanceCount);
-
-        const numPlayers = qualifiedPlayers.length;
-        const bracketSize = Math.pow(2, Math.ceil(Math.log2(numPlayers)));
-        const numByes = bracketSize - numPlayers;
 
         const createPlayer = (p: SwissPlayer): TournamentPlayer => {
             const student = students.find(s => s.id === p.studentId);
@@ -188,23 +219,8 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         };
         const tournamentPlayers = qualifiedPlayers.map(createPlayer);
 
-        let playersForRound1: (TournamentPlayer | 'BYE')[] = [];
-        const topSeeds = tournamentPlayers.slice(0, numByes);
-        const otherPlayers = tournamentPlayers.slice(numByes);
-
-        let topSeedIdx = 0;
-        let otherPlayerIdx = 0;
-        const otherPlayersShuffled = [...otherPlayers].sort(() => Math.random() - 0.5);
-
-        for (let i = 0; i < bracketSize / 2; i++) {
-            if (topSeedIdx < numByes) {
-                playersForRound1.push(topSeeds[topSeedIdx++]);
-                playersForRound1.push('BYE');
-            } else {
-                playersForRound1.push(otherPlayersShuffled[otherPlayerIdx++]);
-                playersForRound1.push(otherPlayersShuffled[otherPlayerIdx++]);
-            }
-        }
+        const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
+        const { bracketSize, slots: playersForRound1 } = buildElimRoundOneSlotOrder(tournamentPlayers, byePriority, true);
         
         const firstRoundMatches: TournamentMatch[] = [];
         for (let i = 0; i < playersForRound1.length; i += 2) {
@@ -328,13 +344,21 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                         groupIndex={activeGroupTab}
                         players={data.hybrid.players}
                         onSetWinner={handleSetPreliminaryWinner}
+                        onOpenPrize={setPrelimPrizeGroupIndex}
                     />
                 </div>
             </div>
         ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
                 {data.hybrid.preliminaryGroups.map((group, i) => (
-                    <PreliminaryGroupView key={i} group={group} groupIndex={i} players={data.hybrid!.players} onSetWinner={handleSetPreliminaryWinner} />
+                    <PreliminaryGroupView
+                        key={i}
+                        group={group}
+                        groupIndex={i}
+                        players={data.hybrid!.players}
+                        onSetWinner={handleSetPreliminaryWinner}
+                        onOpenPrize={setPrelimPrizeGroupIndex}
+                    />
                 ))}
             </div>
         );
@@ -348,6 +372,18 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 </div>
                 <p>각 조의 모든 경기를 진행한 후, '본선 대진표 생성' 버튼을 누르세요. 상위 {hybridAdvanceCount || 8}명이 진출합니다.</p>
                 {content}
+                {prelimPrizeGroupIndex !== null && data.hybrid && (
+                    <HybridPrelimPrizeModal
+                        isOpen
+                        onClose={() => setPrelimPrizeGroupIndex(null)}
+                        settings={settings}
+                        groupIndex={prelimPrizeGroupIndex}
+                        groupLabel={`${prelimPrizeGroupIndex + 1}조`}
+                        groupMatches={data.hybrid.preliminaryGroups[prelimPrizeGroupIndex]}
+                        allPlayers={data.hybrid.players}
+                        onAward={handlePrelimPrizeAward}
+                    />
+                )}
             </div>
         );
     }
@@ -355,12 +391,14 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     if (data.hybrid && data.hybrid.bracket) {
          return (
             <TournamentBracketView
-                data={{...data, bracket: data.hybrid.bracket}}
+                data={{ ...data, bracket: data.hybrid.bracket }}
                 students={students}
                 setData={handleBracketDataUpdate}
                 settings={settings}
                 onBulkAddTransaction={onBulkAddTransaction}
                 onOpenPlayerManagement={onOpenPlayerManagement}
+                bracketPrizeKey="hybridBracket"
+                prizeModalMode="hybridBracket"
             />
         );
     }
