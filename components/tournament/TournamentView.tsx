@@ -27,6 +27,7 @@ import { generateId, parseRank, sortSwissPlayers } from '../../utils';
 import { DEFAULT_BYE_PRIORITY, pickSwissOddByePoolIndex, pickSwissByeSortedIndex } from '../../utils/byePlacement';
 import { buildDoubleElim } from '../../utils/doubleElimBracket';
 import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
+import { swapSwissPlayersBetweenGroups } from '../../utils/swissGroupSwap';
 
 /** orderedPool: 대진 순서(같은 SwissPlayer 객체 참조). 부전승 시 객체를 수정함. [0]이 최강(또는 무작위 시드의 앞쪽). */
 function buildSwissFirstRoundMatches(orderedPool: SwissPlayer[], byePriority = DEFAULT_BYE_PRIORITY): SwissMatch[] {
@@ -645,6 +646,23 @@ export const TournamentView = (props: TournamentViewProps) => {
         }));
     };
 
+    const handleSwissGroupPlayerSwap = (
+        groupIndexA: number,
+        studentIdA: string,
+        groupIndexB: number,
+        studentIdB: string
+    ) => {
+        setData(prev => {
+            if (!prev.swiss?.groups) return prev;
+            const r = swapSwissPlayersBetweenGroups(prev.swiss, groupIndexA, studentIdA, groupIndexB, studentIdB);
+            if (!r.ok) {
+                alert(r.message);
+                return prev;
+            }
+            return { ...prev, swiss: r.data };
+        });
+    };
+
     return (
         <div className="tournament-view">
             <div className="view-header-actions">
@@ -694,6 +712,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         onOpenPrizeModal={() => setIsSwissPrizeModalOpen(true)}
                         onPlayerSwap={setData}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
+                        onSwapGroupPlayers={handleSwissGroupPlayerSwap}
                     />
                 )}
                 {activeTab === 'hybrid' && (

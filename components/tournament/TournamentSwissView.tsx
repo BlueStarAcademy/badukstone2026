@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { SwissData, SwissMatch, TournamentData, SwissPlayer } from '../../types';
 import { sortSwissPlayers } from '../../utils';
+import { SwissGroupPlayerSwapModal } from './SwissGroupPlayerSwapModal';
 
 interface TournamentSwissViewProps {
     swissData?: SwissData;
@@ -14,6 +15,8 @@ interface TournamentSwissViewProps {
     onOpenPrizeModal: () => void;
     onPlayerSwap: React.Dispatch<React.SetStateAction<TournamentData>>;
     onOpenPlayerManagement: () => void;
+    /** 조별 스위스: 서로 다른 조 선수 맞교환 */
+    onSwapGroupPlayers?: (groupIndexA: number, studentIdA: string, groupIndexB: number, studentIdB: string) => void;
 }
 
 export const TournamentSwissView = (props: TournamentSwissViewProps) => {
@@ -28,8 +31,10 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         onOpenPrizeModal,
         onPlayerSwap,
         onOpenPlayerManagement,
+        onSwapGroupPlayers,
     } = props;
 
+    const [swapModalOpen, setSwapModalOpen] = useState(false);
     const [draggedItem, setDraggedItem] = useState<{ matchId: string; playerId: string; playerIndex: 0 | 1 } | null>(null);
     const [roundTab, setRoundTab] = useState(0);
     const [swissGroupTab, setSwissGroupTab] = useState(0);
@@ -48,21 +53,43 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         swissData.status !== 'not_started' &&
         (useGroups ? swissData.groups!.some(g => g.rounds.length > 0) : swissData.rounds.length > 0);
 
+    const canShowGroupSwap = !!(
+        onSwapGroupPlayers &&
+        useGroups &&
+        swissData?.groups &&
+        swissData.groups.length >= 2
+    );
+
     if (!swissStarted) {
         return (
-            <div className="tournament-swiss-view" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button className="btn" onClick={onOpenPlayerManagement}>
-                        선수 관리
-                    </button>
-                    <button type="button" className="btn danger" onClick={onResetSwiss} disabled={!canResetSwiss}>
-                        스위스 리그 초기화
-                    </button>
+            <>
+                {canShowGroupSwap && (
+                    <SwissGroupPlayerSwapModal
+                        isOpen={swapModalOpen}
+                        onClose={() => setSwapModalOpen(false)}
+                        groups={swissData!.groups!}
+                        onSwap={(gA, idA, gB, idB) => onSwapGroupPlayers!(gA, idA, gB, idB)}
+                    />
+                )}
+                <div className="tournament-swiss-view" style={{ textAlign: 'center', padding: '3rem' }}>
+                    <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                        <button className="btn" onClick={onOpenPlayerManagement}>
+                            선수 관리
+                        </button>
+                        {canShowGroupSwap && (
+                            <button type="button" className="btn" onClick={() => setSwapModalOpen(true)}>
+                                조 간 선수 교체
+                            </button>
+                        )}
+                        <button type="button" className="btn danger" onClick={onResetSwiss} disabled={!canResetSwiss}>
+                            스위스 리그 초기화
+                        </button>
+                    </div>
+                    <p style={{ marginBottom: '1rem' }}>
+                        스위스 리그 대진표가 없습니다. 대회 설정에서 조별 진행을 켠 경우 조 인원 합이 참가자 수와 같아야 합니다. '선수 관리'에서 참가자를 선택하고 리그를 시작하세요.
+                    </p>
                 </div>
-                <p style={{ marginBottom: '1rem' }}>
-                    스위스 리그 대진표가 없습니다. 대회 설정에서 조별 진행을 켠 경우 조 인원 합이 참가자 수와 같아야 합니다. '선수 관리'에서 참가자를 선택하고 리그를 시작하세요.
-                </p>
-            </div>
+            </>
         );
     }
 
@@ -197,7 +224,20 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                 <button type="button" className="btn danger" onClick={onResetSwiss} disabled={!canResetSwiss}>
                     스위스 리그 초기화
                 </button>
+                {canShowGroupSwap && (
+                    <button type="button" className="btn" onClick={() => setSwapModalOpen(true)}>
+                        조 간 선수 교체
+                    </button>
+                )}
             </div>
+            {canShowGroupSwap && (
+                <SwissGroupPlayerSwapModal
+                    isOpen={swapModalOpen}
+                    onClose={() => setSwapModalOpen(false)}
+                    groups={swissData!.groups!}
+                    onSwap={(gA, idA, gB, idB) => onSwapGroupPlayers!(gA, idA, gB, idB)}
+                />
+            )}
             {useGroups && swissData!.groups!.length > 0 && (
                 <div className="group-tab-buttons" style={{ marginBottom: '1rem' }}>
                     {swissData!.groups!.map((g, i) => (
