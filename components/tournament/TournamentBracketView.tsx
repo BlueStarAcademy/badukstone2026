@@ -386,9 +386,11 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
                 </div>
                 <div className="bracket-view-body">
                     <div className="bracket-main">
-                        <div className="bracket-wrapper" style={{ textAlign: 'center', padding: '3rem' }}>
-                            <p style={{ marginBottom: '1rem' }}>대진표가 없습니다. '선수 관리'에서 참가자를 선택하고 대진표를 생성해주세요.</p>
-                            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+                        <div className="bracket-wrapper tournament-empty-state">
+                            <span className="tournament-empty-kicker">BRACKET SETUP</span>
+                            <h3>대진표 준비</h3>
+                            <p>대진표가 없습니다. '선수 관리'에서 참가자를 선택하고 대진표를 생성해주세요.</p>
+                            <div className="tournament-empty-actions">
                                 <button className="btn primary" onClick={handleGenerateBracket} disabled={(bracketParticipantIds || []).length < 2}>대진표 생성</button>
                             </div>
                         </div>
@@ -423,7 +425,7 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
             const t = tabs[Math.min(bracketTab, tabs.length - 1)];
             return (
                 <>
-                    <div className="group-tab-buttons" style={{ marginBottom: '1rem' }}>
+                    <div className="group-tab-buttons tournament-subnav">
                         {tabs.map((tab, i) => (
                             <button key={i} className={`tab-btn ${bracketTab === i ? 'active' : ''}`} onClick={() => setBracketTab(i)}>{tab.label}</button>
                         ))}

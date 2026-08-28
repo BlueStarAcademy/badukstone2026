@@ -57,11 +57,13 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
 
     if (!fullLeague || fullLeague.players.length === 0) {
         return (
-            <div className="tournament-fullleague-view" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{ marginBottom: '1.5rem' }}>
+            <div className="tournament-fullleague-view tournament-empty-state">
+                <span className="tournament-empty-kicker">ROUND ROBIN SETUP</span>
+                <h3>풀리그 준비</h3>
+                <div className="tournament-empty-actions">
                     <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
                 </div>
-                <p style={{ marginBottom: '1rem' }}>풀리그(전체 라운드로빈) 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
+                <p>풀리그(전체 라운드로빈) 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
                 <button className="btn primary" onClick={() => participantIds.length >= 2 && handleStartFullLeague(participantIds)} disabled={participantIds.length < 2}>
                     풀리그 시작
                 </button>
@@ -158,7 +160,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                                 {sortedPlayers.map((p, i) => (
                                     <tr key={p.studentId} className={i < 3 ? `rank-${i + 1}` : ''}>
                                         <td>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</td>
-                                        <td style={{ fontWeight: 'bold' }}>{p.name}</td>
+                                        <td className="standings-player-name">{p.name}</td>
                                         <td>{p.wins}</td>
                                         <td>{p.losses}</td>
                                     </tr>

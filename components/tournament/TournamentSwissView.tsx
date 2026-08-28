@@ -75,8 +75,10 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                         onSwap={(gA, idA, gB, idB) => onSwapGroupPlayers!(gA, idA, gB, idB)}
                     />
                 )}
-                <div className="tournament-swiss-view" style={{ textAlign: 'center', padding: '3rem' }}>
-                    <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <div className="tournament-swiss-view tournament-empty-state">
+                    <span className="tournament-empty-kicker">SWISS SETUP</span>
+                    <h3>스위스 리그 준비</h3>
+                    <div className="tournament-empty-actions">
                         <button className="btn" onClick={onOpenPlayerManagement}>
                             선수 관리
                         </button>
@@ -89,7 +91,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                             스위스 리그 초기화
                         </button>
                     </div>
-                    <p style={{ marginBottom: '1rem' }}>
+                    <p>
                         스위스 리그 대진표가 없습니다. 대회 설정에서 조별 진행을 켠 경우 조 인원 합이 참가자 수와 같아야 합니다. '선수 관리'에서 참가자를 선택하고 리그를 시작하세요.
                     </p>
                 </div>
@@ -285,7 +287,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                 />
             )}
             {useGroups && swissData!.groups!.length > 0 && (
-                <div className="group-tab-buttons" style={{ marginBottom: '1rem' }}>
+                <div className="group-tab-buttons tournament-subnav">
                     {swissData!.groups!.map((g, i) => (
                         <button
                             key={g.id}
@@ -301,7 +303,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                 </div>
             )}
             {useRoundTabs && (
-                <div className="group-tab-buttons" style={{ marginBottom: '1rem' }}>
+                <div className="group-tab-buttons tournament-subnav">
                     {rounds.map((_, i) => (
                         <button
                             key={i}
@@ -342,7 +344,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                                         const isDuplicate = hasPlayedBefore(match.players[0], match.players[1], roundIndex);
 
                                         return (
-                                            <li key={match.id} className="swiss-match" style={{ position: 'relative' }}>
+                                            <li key={match.id} className="swiss-match">
                                                 {isDuplicate && (
                                                     <div className="match-warning" title="이전에 대국한 적이 있는 매칭입니다.">
                                                         ⚠️ 재매칭
@@ -402,7 +404,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                     })}
                 </div>
                 <div className="swiss-standings-container">
-                    <h3 style={{ marginBottom: '1rem', color: 'var(--secondary-color)' }}>
+                    <h3 className="tournament-panel-title">
                         실시간 순위{useGroups ? ` (${swissData!.groups![swissGroupTab].label})` : ''}
                     </h3>
                     <div className="swiss-table-wrapper">
@@ -431,10 +433,10 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                                                 {index === 2 && '🥉'}
                                                 {index > 2 && index + 1}
                                             </td>
-                                            <td style={{ fontWeight: 'bold' }}>{player.name}</td>
+                                            <td className="standings-player-name">{player.name}</td>
                                             <td>{player.score}</td>
-                                            <td style={{ color: '#666' }}>{player.sos}</td>
-                                            <td style={{ color: '#999' }}>{player.sosos}</td>
+                                            <td className="standings-tiebreak">{player.sos}</td>
+                                            <td className="standings-tiebreak is-secondary">{player.sosos}</td>
                                         </tr>
                                     );
                                 })}

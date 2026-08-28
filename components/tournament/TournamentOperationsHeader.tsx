@@ -14,6 +14,16 @@ export const TournamentOperationsHeader = ({ modeName, status }: TournamentOpera
 
     return (
         <section className="tournament-operations" aria-label={`${modeName} 운영 진행`}>
+            <div className="tournament-operation-heading">
+                <div>
+                    <span className="operation-eyebrow">LIVE TOURNAMENT CONTROL</span>
+                    <h3>{modeName} 운영 현황</h3>
+                </div>
+                <div className="operation-current-stage">
+                    <span>현재 단계</span>
+                    <strong>{status.stage}</strong>
+                </div>
+            </div>
             <div className="tournament-operation-stages" role="list" aria-label="대회 운영 단계">
                 {STAGES.map((stage, index) => (
                     <div
@@ -28,18 +38,27 @@ export const TournamentOperationsHeader = ({ modeName, status }: TournamentOpera
                 ))}
             </div>
             <div className="tournament-operation-summary">
-                <div>
-                    <strong>{modeName} · 현재 단계: {status.stage}</strong>
+                <div className="operation-next-action">
+                    <span>다음 운영 작업</span>
                     <p>{status.nextAction}</p>
                 </div>
                 <div className="tournament-operation-counts" aria-live="polite">
-                    <span>완료 <strong>{status.completed}/{status.total}</strong>경기</span>
-                    <span>남은 경기 <strong>{status.remaining}</strong></span>
-                    {status.awardsRequired > 0 && <span>시상 <strong>{status.awardsCompleted}/{status.awardsRequired}</strong></span>}
+                    <span><small>완료 경기</small><strong>{status.completed}<em>/ {status.total}</em></strong></span>
+                    <span><small>남은 경기</small><strong>{status.remaining}</strong></span>
+                    <span className={status.awardsRequired === 0 ? 'is-muted' : ''}>
+                        <small>시상 완료</small>
+                        <strong>{status.awardsCompleted}<em>/ {status.awardsRequired}</em></strong>
+                    </span>
                 </div>
             </div>
-            <div className="tournament-operation-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-                <span style={{ width: `${percent}%` }} />
+            <div className="tournament-operation-progress">
+                <div>
+                    <span>전체 경기 진행률</span>
+                    <strong>{percent}%</strong>
+                </div>
+                <progress value={percent} max={100} aria-label={`${modeName} 경기 진행률 ${percent}%`}>
+                    {percent}%
+                </progress>
             </div>
         </section>
     );

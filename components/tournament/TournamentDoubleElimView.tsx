@@ -168,8 +168,10 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                 </div>
                 <div className="bracket-view-body">
                     <div className="bracket-main">
-                        <div className="bracket-wrapper" style={{ textAlign: 'center', padding: '3rem' }}>
-                            <p style={{ marginBottom: '1rem' }}>더블엘리미네이션 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
+                        <div className="bracket-wrapper tournament-empty-state">
+                            <span className="tournament-empty-kicker">DOUBLE ELIMINATION SETUP</span>
+                            <h3>더블엘리미네이션 준비</h3>
+                            <p>더블엘리미네이션 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
                             <button className="btn primary" onClick={handleStart} disabled={participantIds.length < 2}>
                                 더블엘리미네이션 시작
                             </button>

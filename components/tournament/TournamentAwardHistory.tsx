@@ -38,22 +38,33 @@ export const TournamentAwardHistory = ({
     };
 
     return (
-        <section className="tournament-award-history" style={{ marginTop: '1.5rem' }}>
-            <button type="button" className="btn" onClick={() => setOpen(value => !value)}>
-                시상 내역 관리 ({batches.length}) {open ? '접기' : '보기'}
+        <section className={`tournament-award-history ${open ? 'is-open' : ''}`}>
+            <button
+                type="button"
+                className="tournament-award-history-toggle"
+                onClick={() => setOpen(value => !value)}
+                aria-expanded={open}
+            >
+                <span>
+                    <small>AWARD LEDGER</small>
+                    <strong>시상 내역 관리</strong>
+                </span>
+                <span className="award-history-toggle-meta">
+                    {batches.length}건 <span aria-hidden>{open ? '−' : '+'}</span>
+                </span>
             </button>
             {open && (
-                <div style={{ display: 'grid', gap: '0.75rem', marginTop: '0.75rem' }}>
-                    {batches.length === 0 && <p>아직 원장에 기록된 시상이 없습니다.</p>}
+                <div className="tournament-award-history-list">
+                    {batches.length === 0 && <p className="tournament-empty-copy">아직 원장에 기록된 시상이 없습니다.</p>}
                     {batches.map(batch => {
                         const hasActive = batch.grants.some(grant => grant.status === 'active');
                         return (
-                            <article key={batch.id} style={{ border: '1px solid var(--border-color)', borderRadius: 8, padding: '0.9rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                            <article key={batch.id} className={`tournament-award-batch status-${batch.status}`}>
+                                <div className="tournament-award-batch-header">
                                     <div>
                                         <strong>{batch.label}</strong>
-                                        <span style={{ marginLeft: '0.5rem' }}>· {statusLabel[batch.status]}</span>
-                                        <div style={{ fontSize: '0.85rem', opacity: 0.75 }}>
+                                        <span className="tournament-award-status">{statusLabel[batch.status]}</span>
+                                        <div className="tournament-award-date">
                                             {new Date(batch.awardedAt).toLocaleString('ko-KR')}
                                         </div>
                                     </div>
@@ -63,7 +74,7 @@ export const TournamentAwardHistory = ({
                                         </button>
                                     )}
                                 </div>
-                                <div style={{ overflowX: 'auto', marginTop: '0.75rem' }}>
+                                <div className="tournament-award-table-wrap">
                                     <table className="swiss-standings-table">
                                         <thead>
                                             <tr><th>학생</th><th>요청</th><th>지급</th><th>쿠폰</th><th>상태</th><th>관리</th></tr>

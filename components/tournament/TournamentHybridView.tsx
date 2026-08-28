@@ -56,9 +56,9 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
     }, [group, players]);
 
     return (
-        <div className="swiss-round" style={{border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', background: 'var(--surface-color-hover)'}}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h3 style={{ margin: 0 }}>{groupIndex + 1}조</h3>
+        <div className="swiss-round hybrid-preliminary-group">
+            <div className="hybrid-preliminary-header">
+                <h3>{groupIndex + 1}조</h3>
                 {onOpenPrize && (
                     <button
                         type="button"
@@ -71,7 +71,7 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
                     </button>
                 )}
             </div>
-            <table className="swiss-standings-table" style={{marginBottom: '1rem'}}>
+            <table className="swiss-standings-table hybrid-preliminary-table">
                 <thead><tr><th>선수</th><th>승점</th></tr></thead>
                 <tbody>
                     {groupPlayers.map(p => (
@@ -303,12 +303,14 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
 
     if (!data.hybrid) {
         return (
-             <div className="tournament-bracket-view" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{marginBottom: '1.5rem'}}>
+             <div className="tournament-bracket-view tournament-empty-state">
+                <span className="tournament-empty-kicker">HYBRID SETUP</span>
+                <h3>예선 리그 준비</h3>
+                <div className="tournament-empty-actions">
                     <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
                 </div>
-                <p style={{ marginBottom: '1rem' }}>참가 선수를 선택하고 예선 리그를 생성하세요.</p>
-                <div style={{display: 'flex', justifyContent: 'center', gap: '1rem'}}>
+                <p>참가 선수를 선택하고 예선 리그를 생성하세요.</p>
+                <div className="tournament-empty-actions">
                     <button className="btn primary" onClick={handleGeneratePreliminaries} disabled={(hybridParticipantIds || []).length < 2}>예선 리그 생성</button>
                 </div>
             </div>
@@ -343,7 +345,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 </div>
             </div>
         ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
+            <div className="hybrid-preliminary-grid">
                 {data.hybrid.preliminaryGroups.map((group, i) => (
                     <PreliminaryGroupView
                         key={i}

@@ -61,6 +61,16 @@ interface TournamentViewProps {
 
 type TournamentTab = 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
 
+const tournamentModes: Array<{ id: TournamentTab; label: string; description: string }> = [
+    { id: 'relay', label: '팀 대항전', description: '팀별 연속 경기와 종합 점수 운영' },
+    { id: 'bracket', label: '토너먼트', description: '단판 승자 진출 대진 운영' },
+    { id: 'swiss', label: '스위스리그', description: '라운드 매칭과 실시간 순위 운영' },
+    { id: 'hybrid', label: '예선+본선', description: '조별 예선 후 본선 대진 운영' },
+    { id: 'fullleague', label: '풀리그', description: '모든 참가자의 라운드로빈 운영' },
+    { id: 'doubleelim', label: '더블엘리미네이션', description: '승자·패자조 이중 대진 운영' },
+    { id: 'mission', label: '미션바둑', description: '개인 미션과 점수 기록 운영' },
+];
+
 export const TournamentView = (props: TournamentViewProps) => {
     const {
         students, data, setData, settings, setSettings, awardLedger,
@@ -641,21 +651,37 @@ export const TournamentView = (props: TournamentViewProps) => {
     const operationStatus = operationMode
         ? getTournamentOperationStatus(data, settings, operationMode, operationAwardsCompleted)
         : null;
+    const activeMode = tournamentModes.find(mode => mode.id === activeTab)!;
 
     return (
         <div className="tournament-view">
-            <div className="view-header-actions">
-                <div className="view-toggle">
-                    <button className={`toggle-btn ${activeTab === 'relay' ? 'active' : ''}`} onClick={() => setActiveTab('relay')}>팀 대항전</button>
-                    <button className={`toggle-btn ${activeTab === 'bracket' ? 'active' : ''}`} onClick={() => setActiveTab('bracket')}>토너먼트</button>
-                    <button className={`toggle-btn ${activeTab === 'swiss' ? 'active' : ''}`} onClick={() => setActiveTab('swiss')}>스위스리그</button>
-                    <button className={`toggle-btn ${activeTab === 'hybrid' ? 'active' : ''}`} onClick={() => setActiveTab('hybrid')}>예선+본선</button>
-                    <button className={`toggle-btn ${activeTab === 'fullleague' ? 'active' : ''}`} onClick={() => setActiveTab('fullleague')}>풀리그</button>
-                    <button className={`toggle-btn ${activeTab === 'doubleelim' ? 'active' : ''}`} onClick={() => setActiveTab('doubleelim')}>더블엘리미네이션</button>
-                    <button className={`toggle-btn ${activeTab === 'mission' ? 'active' : ''}`} onClick={() => setActiveTab('mission')}>미션바둑</button>
+            <header className="tournament-console-header">
+                <div className="tournament-console-title">
+                    <span className="tournament-console-eyebrow">COMPETITION OPERATIONS</span>
+                    <div>
+                        <h2>{activeMode.label}</h2>
+                        <p>{activeMode.description}</p>
+                    </div>
                 </div>
-                <button className="btn" onClick={() => setIsSettingsModalOpen(true)}>대회 설정</button>
-            </div>
+                <button className="btn tournament-settings-btn" onClick={() => setIsSettingsModalOpen(true)}>
+                    <span aria-hidden>⚙</span>
+                    <span>대회 설정</span>
+                </button>
+                <nav className="view-toggle tournament-mode-nav" aria-label="대회 방식" role="tablist">
+                    {tournamentModes.map(mode => (
+                        <button
+                            key={mode.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={activeTab === mode.id}
+                            className={`toggle-btn ${activeTab === mode.id ? 'active' : ''}`}
+                            onClick={() => setActiveTab(mode.id)}
+                        >
+                            {mode.label}
+                        </button>
+                    ))}
+                </nav>
+            </header>
 
             {operationMode && operationStatus && (
                 <TournamentOperationsHeader modeName={modeNames[operationMode]} status={operationStatus} />
