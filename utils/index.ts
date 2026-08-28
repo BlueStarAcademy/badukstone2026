@@ -25,6 +25,7 @@ export const getGroupForRank = (rankStr: string): { group: string } => {
 export const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 import type { SwissMatch, SwissPlayer } from '../types';
+import { normalizeSwissRounds } from './tournament/compatibility';
 
 /**
  * 두 선수의 상대 전적(승자승). A가 이겼으면 1, B가 이겼으면 -1, 무승부/미대국이면 0.
@@ -34,7 +35,8 @@ export const getSwissHeadToHead = (
     playerIdA: string,
     playerIdB: string
 ): number => {
-    for (const round of rounds) {
+    const safeRounds = normalizeSwissRounds(rounds) as SwissMatch[][];
+    for (const round of safeRounds) {
         for (const match of round) {
             if (match.players[0] === 'BYE' || match.players[1] === 'BYE') continue;
             const hasA = match.players[0] === playerIdA || match.players[1] === playerIdA;

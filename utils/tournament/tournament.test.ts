@@ -3,6 +3,7 @@ import type { DoubleElimData, SwissMatch, SwissPlayer } from '../../types';
 import { buildElimRoundOneSlotOrder } from '../byePlacement';
 import { buildDoubleElim, propagateAllWinners } from '../doubleElimBracket';
 import { getDoubleElimPlacements } from '../tournamentPrizes';
+import { sortSwissPlayers } from '../index';
 import {
     cancelLastSwissRound,
     createFullLeague,
@@ -82,6 +83,17 @@ describe('Swiss engine', () => {
         expect(players.map(player => player.score)).toEqual([2, 1, 1, 0]);
         expect(players.map(player => player.sos)).toEqual([2, 2, 2, 2]);
         expect(players.map(player => player.sosos)).toEqual([4, 4, 4, 4]);
+    });
+
+    it('sorts Firestore wrapped rounds without throwing', () => {
+        const players = recomputeSwissStats(swissPlayers('a', 'b'), [[
+            { id: '1', players: ['a', 'b'], winnerId: 'a' },
+        ]]);
+        const firestoreRounds = [{
+            roundIndex: 0,
+            matches: [{ id: '1', players: ['a', 'b'], winnerId: 'a' }],
+        }] as unknown as SwissMatch[][];
+        expect(sortSwissPlayers(players, firestoreRounds).map(player => player.studentId)).toEqual(['a', 'b']);
     });
 
     it('does not assign a second bye until everyone has had one', () => {

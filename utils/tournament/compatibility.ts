@@ -74,6 +74,53 @@ const pushRounds = (ids: string[], value: unknown) => {
     });
 };
 
+/**
+ * Firestore cannot persist nested arrays, so the legacy client stored rounds as
+ * `{ roundIndex, matches }[]` (and hybrid groups as `{ groupIndex, matches }[]`).
+ * PostgreSQL can store the native nested arrays; normalize both representations.
+ */
+export const normalizeSwissRounds = (value: unknown): unknown[][] => {
+    if (!Array.isArray(value)) return [];
+    if (value.length === 0) return [];
+
+    const looksLikeFlatMatchList = value.every(
+        item => isRecord(item) && Array.isArray(item.players)
+    );
+    if (looksLikeFlatMatchList) return [value];
+
+    return value
+        .map(round => {
+            if (Array.isArray(round)) return round;
+            if (isRecord(round) && Array.isArray(round.matches)) return round.matches;
+            return null;
+        })
+        .filter((round): round is unknown[] => round !== null);
+};
+
+const normalizeSwissData = (value: unknown): unknown => {
+    if (!isRecord(value)) return value;
+    const normalized: UnknownRecord = {
+        ...value,
+        rounds: normalizeSwissRounds(value.rounds),
+    };
+    if (Array.isArray(value.groups)) {
+        normalized.groups = value.groups.map(group =>
+            isRecord(group)
+                ? { ...group, rounds: normalizeSwissRounds(group.rounds) }
+                : group
+        );
+    }
+    return normalized;
+};
+
+const normalizeHybridData = (value: unknown): unknown => {
+    if (!isRecord(value)) return value;
+    return {
+        ...value,
+        preliminaryGroups: normalizeSwissRounds(value.preliminaryGroups),
+    };
+};
+
 const idsFromTeams = (value: unknown): string[] => {
     const ids: string[] = [];
     if (Array.isArray(value)) {
@@ -157,6 +204,8 @@ export function normalizeTournamentDataCompatibility(
     const source = isRecord(incoming) ? incoming : {};
     const legacyParticipantIds = compatibleIds(source.participantIds, []);
     const teams = Array.isArray(source.teams) ? source.teams : defaults.teams;
+    const swiss = normalizeSwissData(source.swiss);
+    const hybrid = normalizeHybridData(source.hybrid);
     const relayIds = idsFromTeams(teams);
 
     return {
@@ -168,14 +217,16 @@ export function normalizeTournamentDataCompatibility(
             relayIds.length > 0 ? relayIds : legacyParticipantIds
         ),
         bracketParticipantIds: compatibleIds(source.bracketParticipantIds, idsFromBracket(source.bracket)),
-        swissParticipantIds: compatibleIds(source.swissParticipantIds, idsFromSwiss(source.swiss)),
-        hybridParticipantIds: compatibleIds(source.hybridParticipantIds, idsFromHybrid(source.hybrid)),
+        swissParticipantIds: compatibleIds(source.swissParticipantIds, idsFromSwiss(swiss)),
+        hybridParticipantIds: compatibleIds(source.hybridParticipantIds, idsFromHybrid(hybrid)),
         fullLeagueParticipantIds: compatibleIds(source.fullLeagueParticipantIds, idsFromFullLeague(source.fullLeague)),
         doubleElimParticipantIds: compatibleIds(source.doubleElimParticipantIds, idsFromDoubleElim(source.doubleElim)),
         missionParticipantIds: compatibleIds(source.missionParticipantIds, idsFromMission(source.missionBaduk)),
         teams,
         bracket: source.bracket === undefined ? defaults.bracket : source.bracket,
         relay: source.relay === undefined ? defaults.relay : source.relay,
+        swiss,
+        hybrid,
         awardSessionIds: isRecord(source.awardSessionIds) ? source.awardSessionIds : {},
     } as TournamentData;
 }

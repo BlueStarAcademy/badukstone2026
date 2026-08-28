@@ -107,22 +107,31 @@ describe('legacy AppData compatibility', () => {
                 relay: null,
                 swiss: {
                     status: 'finished',
-                    players: [],
-                    rounds: [],
+                    players: [{ studentId: 'swiss-a' }, { studentId: 'swiss-b' }],
+                    rounds: [{
+                        roundIndex: 0,
+                        matches: [{ id: 'swiss-top-result', players: ['swiss-a', 'swiss-b'], winnerId: 'swiss-a' }],
+                    }],
                     groups: [{
                         id: 'swiss-group',
                         label: '1조',
                         players: [{ studentId: 'swiss-a' }, { studentId: 'swiss-b' }],
-                        rounds: [[{ id: 'swiss-result', players: ['swiss-a', 'swiss-b'], winnerId: 'swiss-a' }]],
+                        rounds: [{
+                            roundIndex: 0,
+                            matches: [{ id: 'swiss-result', players: ['swiss-a', 'swiss-b'], winnerId: 'swiss-a' }],
+                        }],
                     }],
                 },
                 hybrid: {
                     players: [{ studentId: 'hybrid-a' }],
-                    preliminaryGroups: [[{
-                        id: 'hybrid-result',
-                        players: ['hybrid-a', 'hybrid-b'],
-                        winnerId: 'hybrid-b',
-                    }]],
+                    preliminaryGroups: [{
+                        groupIndex: 0,
+                        matches: [{
+                            id: 'hybrid-result',
+                            players: ['hybrid-a', 'hybrid-b'],
+                            winnerId: 'hybrid-b',
+                        }],
+                    }],
                     bracket: null,
                 },
                 fullLeague: {
@@ -161,6 +170,15 @@ describe('legacy AppData compatibility', () => {
         expect(tournament.bracketParticipantIds).toEqual(['bracket-a', 'bracket-b']);
         expect(tournament.swissParticipantIds).toEqual(['swiss-a', 'swiss-b']);
         expect(tournament.hybridParticipantIds).toEqual(['hybrid-a', 'hybrid-b']);
+        expect(tournament.swiss?.rounds).toEqual([[
+            { id: 'swiss-top-result', players: ['swiss-a', 'swiss-b'], winnerId: 'swiss-a' },
+        ]]);
+        expect(tournament.swiss?.groups?.[0].rounds).toEqual([[
+            { id: 'swiss-result', players: ['swiss-a', 'swiss-b'], winnerId: 'swiss-a' },
+        ]]);
+        expect(tournament.hybrid?.preliminaryGroups).toEqual([[
+            { id: 'hybrid-result', players: ['hybrid-a', 'hybrid-b'], winnerId: 'hybrid-b' },
+        ]]);
         expect(tournament.fullLeagueParticipantIds).toEqual(['league-a', 'league-b']);
         expect(tournament.doubleElimParticipantIds).toEqual(['double-a', 'double-b']);
         expect(tournament.missionParticipantIds).toEqual(['mission-a']);
