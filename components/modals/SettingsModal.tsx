@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { auth } from '../../firebase';
-import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
+import { api } from '../../api/client';
 import type { User } from '../../types';
 
 interface AccountSettingsModalProps {
@@ -20,10 +19,9 @@ export const AccountSettingsModal = ({ isOpen, onClose, onLogout, user }: Accoun
 
     if (!isOpen) return null;
 
-    const isMasterUser = user.uid === 'master';
+    const isMasterUser = user.role === 'master';
 
     const handleFormClose = () => {
-        // Reset state before closing
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -38,11 +36,6 @@ export const AccountSettingsModal = ({ isOpen, onClose, onLogout, user }: Accoun
         setError('');
         setSuccess('');
 
-        if (isMasterUser) {
-            setError('마스터 계정의 비밀번호는 변경할 수 없습니다.');
-            return;
-        }
-
         if (newPassword !== confirmPassword) {
             setError('새 비밀번호가 일치하지 않습니다.');
             return;
@@ -54,30 +47,14 @@ export const AccountSettingsModal = ({ isOpen, onClose, onLogout, user }: Accoun
 
         setLoading(true);
 
-        const currentUser = auth?.currentUser;
-        if (!currentUser || !currentUser.email) {
-            setError('사용자 정보를 찾을 수 없습니다. 다시 로그인해주세요.');
-            setLoading(false);
-            return;
-        }
-
         try {
-            const credential = EmailAuthProvider.credential(currentUser.email, currentPassword);
-            await reauthenticateWithCredential(currentUser, credential);
-            await updatePassword(currentUser, newPassword);
-            
+            await api.changePassword(currentPassword, newPassword);
             setSuccess('비밀번호가 성공적으로 변경되었습니다.');
             setTimeout(() => {
                 handleFormClose();
             }, 2000);
-
-        } catch (err: any) {
-            console.error("Password change error:", err);
-            if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-                setError('현재 비밀번호가 올바르지 않습니다.');
-            } else {
-                setError('오류가 발생했습니다. 다시 시도해주세요.');
-            }
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : '오류가 발생했습니다. 다시 시도해주세요.');
         } finally {
             setLoading(false);
         }
@@ -92,7 +69,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, onLogout, user }: Accoun
                         <div className="settings-form-section">
                             <h3>비밀번호 변경</h3>
                             {isMasterUser ? (
-                                <p>마스터 계정의 비밀번호는 소스 코드에서 직접 관리되며, 이 화면에서 변경할 수 없습니다.</p>
+                                <p>마스터 계정 비밀번호는 Railway API 서비스의 MASTER_PASSWORD 환경 변수로 관리됩니다.</p>
                             ) : (
                                 <>
                                     <div className="form-group">

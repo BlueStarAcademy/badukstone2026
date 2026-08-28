@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth, firebaseError, isDemoMode } from './firebase';
-import { useFirestoreState } from './hooks/useFirestoreState';
+import { api, isDemoMode } from './api/client';
+import { useAppState } from './hooks/useAppState';
 import { INITIAL_STUDENTS, INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from './data/initialData';
 import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress, PersonalMissionTemplate } from './types';
 import { generateId, getGroupForRank } from './utils';
@@ -164,20 +163,31 @@ export const App = () => {
     const [useDemo, setUseDemo] = useState(false);
 
     useEffect(() => {
-        if (isDemoMode || !auth) {
+        if (isDemoMode) {
             setAuthLoading(false);
             return;
         }
-        
-        const unsubscribe = onAuthStateChanged(auth, user => {
-            setCurrentUser(user ? { uid: user.uid, email: user.email } : null);
-            setAuthLoading(false);
-        });
-        return () => unsubscribe();
+
+        api.me()
+            .then((result) => {
+                setCurrentUser({
+                    uid: result.user.uid,
+                    email: result.user.email,
+                    role: result.user.role,
+                });
+            })
+            .catch(() => setCurrentUser(null))
+            .finally(() => setAuthLoading(false));
     }, []);
 
-    const handleLogout = () => {
-        if (auth && !isDemoMode) auth.signOut().catch(e => console.error(e));
+    const handleLogout = async () => {
+        if (!isDemoMode) {
+            try {
+                await api.logout();
+            } catch (e) {
+                console.error(e);
+            }
+        }
         setCurrentUser(null);
         setUseDemo(false);
     };
@@ -191,11 +201,7 @@ export const App = () => {
 
     if (!currentUser && !useDemo) {
         return <LoginPage 
-            onLoginSuccess={(role) => {
-                if (role === 'master') {
-                    setCurrentUser({ uid: 'master', email: 'bsbaduk' });
-                }
-            }} 
+            onLoginSuccess={(user) => setCurrentUser(user)} 
             isDemoMode={isDemoMode}
             onDemoClick={handleDemoLogin}
         />;
@@ -211,10 +217,13 @@ interface MainAppProps {
 }
 
 const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
-    // FIX: useFirestoreState hook now returns saveError as the 4th element
-    const [appState, setAppState, isSaving, saveError] = useFirestoreState<AppData>(user.uid, getInitialData);
+    const [appState, setAppState, isSaving, saveError] = useAppState<AppData>(
+        user.uid,
+        getInitialData,
+        user.role !== 'master'
+    );
 
-    const [view, setView] = useState<View>('student');
+    const [view, setView] = useState<View>(user.role === 'master' ? 'master' : 'student');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1148,7 +1157,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         />;
     }
 
-    if (appState === null) {
+    if (appState === null && user.role !== 'master') {
         return <AppLoader message="데이터를 안전하게 불러오는 중..." />;
     }
 
@@ -1179,7 +1188,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                 </nav>
 
                 <div className="header-controls">
-                    {user.uid === 'master' && <button className="btn-sm" onClick={() => setView('master')} style={{marginRight: '10px'}}>MASTER</button>}
+                    {user.role === 'master' && <button className="btn-sm" onClick={() => setView('master')} style={{marginRight: '10px'}}>MASTER</button>}
                     <button className="btn-icon" onClick={() => setIsAccountModalOpen(true)} title="계정 설정">👤</button>
                 </div>
             </header>
@@ -1307,7 +1316,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             onImportMissions={() => {}} onImportShopItems={() => {}}
                         />
                     )}
-                    {view === 'master' && user.uid === 'master' && <MasterPanel user={user} />}
+                    {view === 'master' && user.role === 'master' && <MasterPanel user={user} />}
                 </div>
             </main>
 

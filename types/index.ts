@@ -518,6 +518,7 @@ export interface ChessMatch {
 export interface User {
     uid: string;
     email: string | null;
+    role?: 'master' | 'admin';
 }
 
 export interface ManagedUser {

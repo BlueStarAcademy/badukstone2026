@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase'; // Firebase 설정 가져오기
+import { api } from '../api/client';
+import type { User } from '../types';
 
 interface LoginPageProps {
-    onLoginSuccess: (role: 'master' | 'admin') => void;
+    onLoginSuccess: (user: User) => void;
     isDemoMode?: boolean;
     onDemoClick?: () => void;
 }
@@ -20,36 +20,15 @@ export const LoginPage = ({ onLoginSuccess, isDemoMode, onDemoClick }: LoginPage
         setError('');
         setLoading(true);
 
-        // 1. Check for master account first (local check)
-        if (username === 'bsbaduk' && password === '230123') {
-            onLoginSuccess('master');
-            setLoading(false);
-            return;
-        }
-
-        // 2. Try to sign in with Firebase for regular admin accounts
         try {
-            if (!auth) {
-                throw new Error("Firebase 인증 서비스를 초기화할 수 없습니다.");
-            }
-            await signInWithEmailAndPassword(auth, username, password);
-            // onAuthStateChanged in App.tsx will handle the login success
-            // onLoginSuccess('admin') is not needed here as auth state change is the source of truth
-        } catch (error: any) {
-            console.error("Firebase login error:", error);
-            switch (error.code) {
-                case 'auth/user-not-found':
-                case 'auth/wrong-password':
-                case 'auth/invalid-credential':
-                    setError('아이디 또는 비밀번호가 올바르지 않습니다.');
-                    break;
-                case 'auth/invalid-email':
-                    setError('유효하지 않은 이메일 형식입니다.');
-                    break;
-                default:
-                    setError(error.message || '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-                    break;
-            }
+            const result = await api.login(username, password);
+            onLoginSuccess({
+                uid: result.user.uid,
+                email: result.user.email,
+                role: result.user.role,
+            });
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.');
         } finally {
             setLoading(false);
         }
