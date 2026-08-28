@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import { query } from '../db';
-import { adminOnly, authMiddleware } from '../middleware/auth';
+import { adminOrMaster, authMiddleware } from '../middleware/auth';
 import { compactData } from '../utils/compactData';
 import { addSseClient, broadcastAppDataUpdate } from '../utils/sse';
 
 const router = Router();
 
-router.get('/', authMiddleware, adminOnly, async (req, res) => {
+router.get('/', authMiddleware, adminOrMaster, async (req, res) => {
     const result = await query<{ data: Record<string, unknown>; last_updated_at: string }>(
         'SELECT data, last_updated_at FROM app_data WHERE user_id = $1',
         [req.user!.userId]
@@ -22,7 +22,7 @@ router.get('/', authMiddleware, adminOnly, async (req, res) => {
     });
 });
 
-router.put('/', authMiddleware, adminOnly, async (req, res) => {
+router.put('/', authMiddleware, adminOrMaster, async (req, res) => {
     const body = req.body as { data?: Record<string, unknown> };
     if (!body.data || typeof body.data !== 'object') {
         res.status(400).json({ error: 'Invalid data' });
@@ -46,7 +46,7 @@ router.put('/', authMiddleware, adminOnly, async (req, res) => {
     res.json({ ok: true, lastUpdatedAt });
 });
 
-router.get('/stream', authMiddleware, adminOnly, async (req, res) => {
+router.get('/stream', authMiddleware, adminOrMaster, async (req, res) => {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');

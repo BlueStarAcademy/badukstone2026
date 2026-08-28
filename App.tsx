@@ -219,11 +219,10 @@ interface MainAppProps {
 const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
     const [appState, setAppState, isSaving, saveError] = useAppState<AppData>(
         user.uid,
-        getInitialData,
-        user.role !== 'master'
+        getInitialData
     );
 
-    const [view, setView] = useState<View>(user.role === 'master' ? 'master' : 'student');
+    const [view, setView] = useState<View>('student');
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1157,7 +1156,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         />;
     }
 
-    if (appState === null && user.role !== 'master') {
+    if (appState === null) {
         return <AppLoader message="데이터를 안전하게 불러오는 중..." />;
     }
 

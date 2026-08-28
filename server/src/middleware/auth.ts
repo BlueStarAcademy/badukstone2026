@@ -75,6 +75,14 @@ export function adminOnly(req: Request, res: Response, next: NextFunction) {
     next();
 }
 
+export function adminOrMaster(req: Request, res: Response, next: NextFunction) {
+    if (req.user?.role !== 'admin' && req.user?.role !== 'master') {
+        res.status(403).json({ error: 'Forbidden' });
+        return;
+    }
+    next();
+}
+
 function extractBearer(header?: string): string | null {
     if (!header?.startsWith('Bearer ')) return null;
     return header.slice(7);

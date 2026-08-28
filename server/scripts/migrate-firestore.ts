@@ -83,7 +83,20 @@ async function migrateFirestore() {
 
     for (const doc of usersSnap.docs) {
         const firebaseUid = doc.id;
-        const userId = firebaseUidToUuid(firebaseUid);
+        const isLegacyMasterDoc = firebaseUid === 'master';
+        let userId = firebaseUidToUuid(firebaseUid);
+
+        if (isLegacyMasterDoc) {
+            const masterResult = await pool.query<{ id: string }>(
+                "SELECT id FROM users WHERE role = 'master' LIMIT 1"
+            );
+            if (!masterResult.rows[0]) {
+                console.warn('Skipping users/master: master account not found in PostgreSQL');
+                continue;
+            }
+            userId = masterResult.rows[0].id;
+        }
+
         const data = doc.data();
         const { _lastUpdatedAt, ...appData } = data;
         const lastUpdatedAt = typeof _lastUpdatedAt === 'number' ? _lastUpdatedAt : Date.now();
@@ -102,7 +115,20 @@ async function migrateFirestore() {
                  WHERE user_id = $3`,
                 [JSON.stringify(appData), lastUpdatedAt, userId]
             );
-            console.log(`Updated app_data for ${firebaseUid}`);
+            console.log(`Updated app_data for ${firebaseUid}${isLegacyMasterDoc ? ' (master account)' : ''}`);
+            continue;
+        }
+
+        if (isLegacyMasterDoc) {
+            await pool.query(
+                `INSERT INTO app_data (user_id, data, last_updated_at)
+                 VALUES ($1, $2::jsonb, $3)
+                 ON CONFLICT (user_id) DO UPDATE SET
+                   data = EXCLUDED.data,
+                   last_updated_at = EXCLUDED.last_updated_at`,
+                [userId, JSON.stringify(appData), lastUpdatedAt]
+            );
+            console.log(`Migrated master academy data (${students.length} students)`);
             continue;
         }
 
