@@ -6,7 +6,6 @@ import type {
     TournamentSettings,
     SwissPlayer,
     SwissMatch,
-    TournamentPlayer,
     TournamentBracket,
     TournamentMatch,
     TournamentSwissGroupPrizes,
@@ -14,6 +13,15 @@ import type {
 import { parseRank, generateId } from '../../utils';
 import { buildElimRoundOneSlotOrder, DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { computeStandingsInPreliminaryGroup, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
+import {
+    createRoundRobinMatches,
+    distributeHybridGroups,
+    getHybridAdvanceCountPerGroup,
+    resolveParticipants,
+    selectHybridQualifiersPerGroup,
+    toSwissPlayer,
+    toTournamentPlayer,
+} from '../../utils/tournament';
 import { TournamentBracketView } from './TournamentBracketView';
 import { HybridPrelimPrizeModal } from './HybridPrelimPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
@@ -97,57 +105,27 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const [prelimPrizeGroupIndex, setPrelimPrizeGroupIndex] = useState<number | null>(null);
 
     const handleGeneratePreliminaries = () => {
-        const participants = (hybridParticipantIds || [])
-            .map(id => students.find(s => s.id === id))
-            .filter((s): s is Student => !!s);
-        
-        if (participants.length < (hybridAdvanceCount || 8)) {
-            alert(`참가 인원(${participants.length}명)이 본선 진출 인원(${hybridAdvanceCount}명)보다 적습니다.`);
+        const participants = resolveParticipants(hybridParticipantIds || [], students);
+        const numGroups = Math.min(
+            participants.length,
+            Math.max(1, hybridGroupCount || Math.ceil(participants.length / 5))
+        );
+        const advancePerGroup = getHybridAdvanceCountPerGroup(hybridAdvanceCount);
+        if (participants.length < advancePerGroup * numGroups) {
+            alert(`각 조 상위 ${advancePerGroup}명 진출에는 최소 ${advancePerGroup * numGroups}명이 필요합니다.`);
             return;
         }
 
-        let sortedParticipants: Student[];
+        let sortedParticipants = [...participants];
         if (hybridMode === 'rank') {
             sortedParticipants = [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
         } else {
             sortedParticipants = [...participants].sort(() => 0.5 - Math.random());
         }
 
-        const numGroups = hybridGroupCount || Math.ceil(participants.length / 5);
-        const groups: Student[][] = Array.from({ length: numGroups }, () => []);
-
-        sortedParticipants.forEach((player, index) => {
-            const groupIndex = index % numGroups;
-            const reverseGroupIndex = numGroups - 1 - groupIndex;
-            if (Math.floor(index / numGroups) % 2 === 0) {
-                groups[groupIndex].push(player);
-            } else {
-                groups[reverseGroupIndex].push(player);
-            }
-        });
-
-        const swissPlayers: SwissPlayer[] = participants.map(p => ({
-            studentId: p.id,
-            name: p.name,
-            score: 0,
-            opponents: [],
-            sos: 0,
-            sosos: 0,
-        }));
-
-        const preliminaryGroups: SwissMatch[][] = groups.map(group => {
-            const matches: SwissMatch[] = [];
-            for (let i = 0; i < group.length; i++) {
-                for (let j = i + 1; j < group.length; j++) {
-                    matches.push({
-                        id: generateId(),
-                        players: [group[i].id, group[j].id],
-                        winnerId: null,
-                    });
-                }
-            }
-            return matches;
-        });
+        const groups = distributeHybridGroups(sortedParticipants, numGroups);
+        const swissPlayers = participants.map(toSwissPlayer);
+        const preliminaryGroups = groups.map(group => createRoundRobinMatches(group, generateId));
         
         setData(prev => ({
             ...prev,
@@ -204,20 +182,18 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const handleAdvanceToBracket = () => {
         if (!data.hybrid) return;
 
-        const advanceCount = hybridAdvanceCount || 8;
-        const qualifiedPlayers = [...data.hybrid.players]
-            .sort((a, b) => b.score - a.score)
-            .slice(0, advanceCount);
-
-        const createPlayer = (p: SwissPlayer): TournamentPlayer => {
-            const student = students.find(s => s.id === p.studentId);
-            return {
-                studentId: p.studentId, name: p.name, rank: student?.rank || 'N/A',
-                game1Handicap: 0, game1Color: 'black', game1Result: null,
-                game2Score: null, game2LastStone: false, game3Score: null,
-            };
-        };
-        const tournamentPlayers = qualifiedPlayers.map(createPlayer);
+        const qualifiedPlayers = selectHybridQualifiersPerGroup(
+            data.hybrid.players,
+            data.hybrid.preliminaryGroups,
+            getHybridAdvanceCountPerGroup(hybridAdvanceCount)
+        );
+        const tournamentPlayers = qualifiedPlayers.map(player =>
+            toTournamentPlayer({
+                id: player.studentId,
+                name: player.name,
+                rank: students.find(student => student.id === player.studentId)?.rank || 'N/A',
+            })
+        );
 
         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
         const { bracketSize, slots: playersForRound1 } = buildElimRoundOneSlotOrder(tournamentPlayers, byePriority, true);
@@ -370,7 +346,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                     <button className="btn primary" onClick={handleAdvanceToBracket} disabled={!allMatchesPlayed}>본선 대진표 생성</button>
                     <button className="btn danger" onClick={handleReset}>대진표 초기화</button>
                 </div>
-                <p>각 조의 모든 경기를 진행한 후, '본선 대진표 생성' 버튼을 누르세요. 상위 {hybridAdvanceCount || 8}명이 진출합니다.</p>
+                <p>각 조의 모든 경기를 진행한 후, '본선 대진표 생성' 버튼을 누르세요. 각 조 상위 {getHybridAdvanceCountPerGroup(hybridAdvanceCount)}명이 진출합니다.</p>
                 {content}
                 {prelimPrizeGroupIndex !== null && data.hybrid && (
                     <HybridPrelimPrizeModal

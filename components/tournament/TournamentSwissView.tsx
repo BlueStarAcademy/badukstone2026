@@ -17,6 +17,7 @@ interface TournamentSwissViewProps {
     onOpenPlayerManagement: () => void;
     /** 조별 스위스: 서로 다른 조 선수 맞교환 */
     onSwapGroupPlayers?: (groupIndexA: number, studentIdA: string, groupIndexB: number, studentIdB: string) => void;
+    maxRounds: number;
 }
 
 export const TournamentSwissView = (props: TournamentSwissViewProps) => {
@@ -32,6 +33,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         onPlayerSwap,
         onOpenPlayerManagement,
         onSwapGroupPlayers,
+        maxRounds,
     } = props;
 
     const [swapModalOpen, setSwapModalOpen] = useState(false);
@@ -208,7 +210,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                 <button className="btn" onClick={onOpenPlayerManagement}>
                     선수 관리
                 </button>
-                {isRoundComplete && (
+                {isRoundComplete && rounds.length < Math.max(1, maxRounds) && (
                     <button className="btn primary" onClick={() => onGenerateNextRound(groupIndexForCallbacks)}>
                         다음 라운드 생성
                     </button>

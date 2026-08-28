@@ -240,6 +240,7 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                                     ...prev,
                                     teams: [{name: 'A', players: [], mannerPenalties: 0, bonusScore: 0}, {name: 'B', players: [], mannerPenalties: 0, bonusScore: 0}],
                                     participantIds: [],
+                                    relayParticipantIds: [],
                                  }));
                                  setConfirmation(null);
                             }}

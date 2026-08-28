@@ -1,7 +1,13 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentData, FullLeagueData, FullLeagueMatch, TournamentSettings } from '../../types';
+import type { Student, TournamentData, TournamentSettings } from '../../types';
 import { generateId } from '../../utils';
+import {
+    createFullLeague,
+    resolveParticipants,
+    setFullLeagueWinner,
+    sortFullLeaguePlayers,
+} from '../../utils/tournament';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 
 interface TournamentFullLeagueViewProps {
@@ -20,45 +26,23 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
 
     const handleStartFullLeague = (ids: string[]) => {
-        const participants = ids
-            .map(id => students.find(s => s.id === id))
-            .filter((s): s is Student => !!s);
+        const participants = resolveParticipants(ids, students);
         if (participants.length < 2) {
             alert('풀리그를 시작하려면 최소 2명이 필요합니다.');
             return;
         }
-        const players = participants.map(p => ({ studentId: p.id, name: p.name, wins: 0, losses: 0 }));
-        const matches: FullLeagueMatch[] = [];
-        for (let i = 0; i < participants.length; i++) {
-            for (let j = i + 1; j < participants.length; j++) {
-                matches.push({
-                    id: generateId(),
-                    player1Id: participants[i].id,
-                    player2Id: participants[j].id,
-                    winnerId: null,
-                });
-            }
-        }
         setData(prev => ({
             ...prev,
             fullLeagueParticipantIds: ids,
-            fullLeague: { players, matches },
+            fullLeague: createFullLeague(participants, generateId),
         }));
     };
 
-    const handleSetWinner = (matchId: string, winnerId: string | null) => {
+    const handleSetWinner = (matchId: string, clickedPlayerId: string) => {
         if (!fullLeague) return;
         setData(prev => {
             if (!prev.fullLeague) return prev;
-            const next = JSON.parse(JSON.stringify(prev.fullLeague)) as FullLeagueData;
-            const m = next.matches.find(x => x.id === matchId);
-            if (!m) return prev;
-            m.winnerId = winnerId;
-            next.players.forEach(p => {
-                p.wins = next.matches.filter(mt => mt.winnerId === p.studentId).length;
-                p.losses = next.matches.filter(mt => (mt.player1Id === p.studentId || mt.player2Id === p.studentId) && mt.winnerId && mt.winnerId !== p.studentId).length;
-            });
-            return { ...prev, fullLeague: next };
+            return { ...prev, fullLeague: setFullLeagueWinner(prev.fullLeague, matchId, clickedPlayerId) };
         });
     };
 
@@ -81,7 +65,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
         );
     }
 
-    const sortedPlayers = [...fullLeague.players].sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+    const sortedPlayers = sortFullLeaguePlayers(fullLeague);
 
     const handleAwardPrizes = (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => {
         if (!fullLeague) return;
@@ -141,7 +125,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                                 <li key={match.id} className="fullleague-match">
                                     <div
                                         className={`fullleague-player ${winnerId === match.player1Id ? 'winner' : ''} clickable`}
-                                        onClick={() => handleSetWinner(match.id, winnerId === match.player1Id ? match.player2Id : match.player1Id)}
+                                        onClick={() => handleSetWinner(match.id, match.player1Id)}
                                     >
                                         {name1}
                                         {winnerId === match.player1Id && <span className="winner-label">승</span>}
@@ -149,7 +133,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                                     <div className="fullleague-vs">VS</div>
                                     <div
                                         className={`fullleague-player ${winnerId === match.player2Id ? 'winner' : ''} clickable`}
-                                        onClick={() => handleSetWinner(match.id, winnerId === match.player2Id ? null : match.player2Id)}
+                                        onClick={() => handleSetWinner(match.id, match.player2Id)}
                                     >
                                         {name2}
                                         {winnerId === match.player2Id && <span className="winner-label">승</span>}

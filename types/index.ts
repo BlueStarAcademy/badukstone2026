@@ -427,6 +427,7 @@ export interface TournamentSettings {
             reward: number;
         }[];
     };
+    /** 예선 각 조에서 본선으로 진출하는 인원 (레거시 필드명 유지) */
     hybridAdvanceCount?: number;
     hybridGroupCount?: number;
     hybridMode?: 'rank' | 'random';

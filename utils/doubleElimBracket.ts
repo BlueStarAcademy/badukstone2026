@@ -12,13 +12,13 @@ export function getLoserFromMatch(match: DoubleElimMatch, winnerId: string | nul
     return (other as string) || null;
 }
 
-/** 상대가 없을 때(부전승): 한 명만 있으면 그 선수를 승자로 설정 */
+/** 명시적인 BYE 상대일 때만 자동 승리시킨다. null은 아직 미정인 진출자다. */
 export function applyByeWinners(data: DoubleElimData) {
     const setIfBye = (match: DoubleElimMatch) => {
         const a = match.players[0];
         const b = match.players[1];
-        const onlyA = a && a !== 'BYE' && (!b || b === 'BYE');
-        const onlyB = b && b !== 'BYE' && (!a || a === 'BYE');
+        const onlyA = a && a !== 'BYE' && b === 'BYE';
+        const onlyB = b && b !== 'BYE' && a === 'BYE';
         if (onlyA) match.winnerId = a as string;
         else if (onlyB) match.winnerId = b as string;
     };
@@ -31,10 +31,25 @@ export function propagateAllWinners(data: DoubleElimData) {
     const W = data.winnersRounds;
     const L = data.losersRounds;
     const GF = data.grandFinal!;
+    // Derived slots are rebuilt from results so changing an upstream result cannot
+    // leave an eliminated player in a later round.
+    W.forEach((round, roundIndex) => round.matches.forEach((match, matchIndex) => {
+        const isSixPlayerDelayedSeedMatch =
+            data.playerIds.length === 6 && roundIndex === 1 && matchIndex === 1;
+        if (roundIndex > 0 && !isSixPlayerDelayedSeedMatch) match.players = [null, null];
+    }));
+    L.forEach(round => round.matches.forEach(match => {
+        match.players = [null, null];
+    }));
+    if (GF) GF.players = [null, null];
+
     for (let r = 0; r < W.length; r++) {
         for (let m = 0; m < W[r].matches.length; m++) {
             const match = W[r].matches[m];
-            const winnerId = match.winnerId;
+            const winnerId = match.winnerId && match.players.includes(match.winnerId)
+                ? match.winnerId
+                : null;
+            if (match.winnerId && !winnerId) match.winnerId = null;
             if (!winnerId) continue;
             const nextR = r + 1;
             if (nextR < W.length) {
@@ -53,7 +68,10 @@ export function propagateAllWinners(data: DoubleElimData) {
     for (let r = 0; r < L.length; r++) {
         for (let m = 0; m < L[r].matches.length; m++) {
             const match = L[r].matches[m];
-            const winnerId = match.winnerId;
+            const winnerId = match.winnerId && match.players.includes(match.winnerId)
+                ? match.winnerId
+                : null;
+            if (match.winnerId && !winnerId) match.winnerId = null;
             if (!winnerId) continue;
             const nextR = r + 1;
             if (nextR < L.length) {

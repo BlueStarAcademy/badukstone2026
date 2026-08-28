@@ -8,9 +8,6 @@ import type {
     SwissGroupData,
     MissionBadukPlayer,
     TournamentPlayer,
-    SwissMatch,
-    FullLeagueMatch,
-    FullLeagueData,
     TournamentSwissGroupPrizes,
 } from '../../types';
 import { TournamentRelayView } from './TournamentRelayView';
@@ -24,36 +21,22 @@ import { TournamentPlayerManagementModal } from './TournamentPlayerManagementMod
 import { TournamentSettingsModal } from '../modals/TournamentSettingsModal';
 import { TournamentSwissPrizeModal, type SwissPrizeAwardEntry } from './TournamentSwissPrizeModal';
 import { generateId, parseRank, sortSwissPlayers } from '../../utils';
-import { DEFAULT_BYE_PRIORITY, pickSwissOddByePoolIndex, pickSwissByeSortedIndex } from '../../utils/byePlacement';
+import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { buildDoubleElim } from '../../utils/doubleElimBracket';
 import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
 import { swapSwissPlayersBetweenGroups } from '../../utils/swissGroupSwap';
-
-/** orderedPool: 대진 순서(같은 SwissPlayer 객체 참조). 부전승 시 객체를 수정함. [0]이 최강(또는 무작위 시드의 앞쪽). */
-function buildSwissFirstRoundMatches(orderedPool: SwissPlayer[], byePriority = DEFAULT_BYE_PRIORITY): SwissMatch[] {
-    const firstRoundMatches: SwissMatch[] = [];
-    const pool = [...orderedPool];
-    if (pool.length % 2 !== 0) {
-        const byePlayerIndex = pickSwissOddByePoolIndex(pool.length, byePriority);
-        const byePlayer = pool[byePlayerIndex];
-        byePlayer.score += 1;
-        byePlayer.opponents.push('BYE');
-        firstRoundMatches.push({
-            id: generateId(),
-            players: [byePlayer.studentId, 'BYE'],
-            winnerId: byePlayer.studentId,
-        });
-        pool.splice(byePlayerIndex, 1);
-    }
-    for (let i = 0; i < pool.length; i += 2) {
-        firstRoundMatches.push({
-            id: generateId(),
-            players: [pool[i].studentId, pool[i + 1].studentId],
-            winnerId: null,
-        });
-    }
-    return firstRoundMatches;
-}
+import {
+    cancelLastSwissRound,
+    createFullLeague,
+    createRoundRobinMatches,
+    createSwissFirstRound,
+    createSwissPairings,
+    distributeHybridGroups,
+    getHybridAdvanceCountPerGroup,
+    recomputeSwissStats,
+    resolveParticipants,
+    toSwissPlayer,
+} from '../../utils/tournament';
 
 interface TournamentViewProps {
     students: Student[];
@@ -101,19 +84,16 @@ export const TournamentView = (props: TournamentViewProps) => {
     };
 
     const handleInitFullLeague = (ids: string[]) => {
-        const participants = ids.map(id => students.find(s => s.id === id)).filter((s): s is Student => !!s);
+        const participants = resolveParticipants(ids, students);
         if (participants.length < 2) {
             alert('풀리그를 시작하려면 최소 2명이 필요합니다.');
             return;
         }
-        const players = participants.map(p => ({ studentId: p.id, name: p.name, wins: 0, losses: 0 }));
-        const matches: FullLeagueMatch[] = [];
-        for (let i = 0; i < participants.length; i++) {
-            for (let j = i + 1; j < participants.length; j++) {
-                matches.push({ id: generateId(), player1Id: participants[i].id, player2Id: participants[j].id, winnerId: null });
-            }
-        }
-        setData(prev => ({ ...prev, fullLeagueParticipantIds: ids, fullLeague: { players, matches } }));
+        setData(prev => ({
+            ...prev,
+            fullLeagueParticipantIds: ids,
+            fullLeague: createFullLeague(participants, generateId),
+        }));
         setIsPlayerManagementModalOpen(false);
     };
 
@@ -233,19 +213,16 @@ export const TournamentView = (props: TournamentViewProps) => {
             groupSizes.forEach((size, idx) => {
                 const slice = orderedStudents.slice(offset, offset + size);
                 offset += size;
-                const groupPlayers: SwissPlayer[] = slice.map(p => ({
-                    studentId: p.id,
-                    name: p.name,
-                    score: 0,
-                    opponents: [],
-                    sos: 0,
-                    sosos: 0,
-                }));
-                const firstRound = buildSwissFirstRoundMatches(groupPlayers, settings.byePriority ?? DEFAULT_BYE_PRIORITY);
+                const groupPlayers = slice.map(p => toSwissPlayer({ id: p.id, name: p.name, rank: p.rank }));
+                const firstRound = createSwissFirstRound(
+                    groupPlayers,
+                    settings.byePriority ?? DEFAULT_BYE_PRIORITY,
+                    generateId
+                );
                 groups.push({
                     id: generateId(),
                     label: `${idx + 1}조 (${size}명)`,
-                    players: groupPlayers,
+                    players: recomputeSwissStats(groupPlayers, [firstRound]),
                     rounds: [firstRound],
                 });
             });
@@ -264,14 +241,7 @@ export const TournamentView = (props: TournamentViewProps) => {
             return;
         }
 
-        const swissPlayers: SwissPlayer[] = participants.map(p => ({
-            studentId: p.id,
-            name: p.name,
-            score: 0,
-            opponents: [],
-            sos: 0,
-            sosos: 0,
-        }));
+        const swissPlayers = participants.map(p => toSwissPlayer({ id: p.id, name: p.name, rank: p.rank }));
 
         let sortedPlayers: SwissPlayer[] = [...swissPlayers];
         if (mode === 'ranked') {
@@ -284,14 +254,18 @@ export const TournamentView = (props: TournamentViewProps) => {
             sortedPlayers.sort(() => 0.5 - Math.random());
         }
 
-        const firstRoundMatches = buildSwissFirstRoundMatches(sortedPlayers, settings.byePriority ?? DEFAULT_BYE_PRIORITY);
+        const firstRoundMatches = createSwissFirstRound(
+            sortedPlayers,
+            settings.byePriority ?? DEFAULT_BYE_PRIORITY,
+            generateId
+        );
 
         setData(prev => ({
             ...prev,
             swissParticipantIds: participantIdsToUse,
             swiss: {
                 status: 'in_progress',
-                players: swissPlayers,
+                players: recomputeSwissStats(swissPlayers, [firstRoundMatches]),
                 rounds: [firstRoundMatches],
             },
         }));
@@ -304,8 +278,13 @@ export const TournamentView = (props: TournamentViewProps) => {
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
         
-        if (participants.length < (settings.hybridAdvanceCount || 8)) {
-            alert(`참가 인원(${participants.length}명)이 본선 진출 인원(${settings.hybridAdvanceCount || 8}명)보다 적습니다.`);
+        const numGroups = Math.min(
+            participants.length,
+            Math.max(1, settings.hybridGroupCount || Math.ceil(participants.length / 5))
+        );
+        const advancePerGroup = getHybridAdvanceCountPerGroup(settings.hybridAdvanceCount);
+        if (participants.length < advancePerGroup * numGroups) {
+            alert(`각 조 상위 ${advancePerGroup}명 진출에는 최소 ${advancePerGroup * numGroups}명이 필요합니다.`);
             return;
         }
 
@@ -316,41 +295,14 @@ export const TournamentView = (props: TournamentViewProps) => {
             sortedParticipants = [...participants].sort(() => 0.5 - Math.random());
         }
 
-        const numGroups = settings.hybridGroupCount || Math.ceil(participants.length / 5);
-        const groups: Student[][] = Array.from({ length: numGroups }, () => []);
-
-        sortedParticipants.forEach((player, index) => {
-            const groupIndex = index % numGroups;
-            const reverseGroupIndex = numGroups - 1 - groupIndex;
-            if (Math.floor(index / numGroups) % 2 === 0) {
-                groups[groupIndex].push(player);
-            } else {
-                groups[reverseGroupIndex].push(player);
-            }
-        });
-
-        const swissPlayers: SwissPlayer[] = participants.map(p => ({
-            studentId: p.id,
-            name: p.name,
-            score: 0,
-            opponents: [],
-            sos: 0,
-            sosos: 0,
-        }));
-
-        const preliminaryGroups: SwissMatch[][] = groups.map(group => {
-            const matches: SwissMatch[] = [];
-            for (let i = 0; i < group.length; i++) {
-                for (let j = i + 1; j < group.length; j++) {
-                    matches.push({
-                        id: generateId(),
-                        players: [group[i].id, group[j].id],
-                        winnerId: null,
-                    });
-                }
-            }
-            return matches;
-        });
+        const groups = distributeHybridGroups(sortedParticipants, numGroups);
+        const swissPlayers = participants.map(p => toSwissPlayer({ id: p.id, name: p.name, rank: p.rank }));
+        const preliminaryGroups = groups.map(group =>
+            createRoundRobinMatches(
+                group.map(player => ({ id: player.id, name: player.name, rank: player.rank })),
+                generateId
+            )
+        );
         
         setData(prev => ({
             ...prev,
@@ -422,100 +374,55 @@ export const TournamentView = (props: TournamentViewProps) => {
             const match = targetRounds[roundIndex]?.find((m: any) => m.id === matchId);
             if (match) {
                 match.winnerId = winnerId;
-
-                targetPlayers.forEach((p: SwissPlayer) => (p.score = 0));
-                targetRounds.flat().forEach((m: any) => {
-                    if (m.winnerId && m.winnerId !== 'BYE') {
-                        const winner = targetPlayers.find((p: SwissPlayer) => p.studentId === m.winnerId);
-                        if (winner) winner.score += 1;
-                    }
-                });
+                const recomputed = recomputeSwissStats(targetPlayers, targetRounds);
+                if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
+                    newSwiss.groups[groupIndex].players = recomputed;
+                    newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
+                } else {
+                    newSwiss.players = recomputed;
+                }
+                const roundLimit = Math.max(1, Math.floor(settings.swissRounds || 1));
+                const allConfiguredRoundsComplete = newSwiss.groups?.length
+                    ? newSwiss.groups.every(
+                        (group: SwissGroupData) =>
+                            group.rounds.length >= roundLimit &&
+                            group.rounds[group.rounds.length - 1]?.every(result => result.winnerId)
+                    )
+                    : targetRounds.length >= roundLimit &&
+                        targetRounds[targetRounds.length - 1]?.every((result: { winnerId: string | null }) => result.winnerId);
+                newSwiss.status = allConfiguredRoundsComplete ? 'finished' : 'in_progress';
             }
             return { ...prev, swiss: newSwiss };
         });
-    };
-
-    const generatePairings = (players: SwissPlayer[], existingRounds: any[][]) => {
-         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
-         const sorted = [...players].sort((a, b) => {
-             if (b.score !== a.score) return b.score - a.score;
-             return 0.5 - Math.random(); 
-         });
-
-         const pairedIds = new Set<string>();
-         const nextRoundMatches: any[] = [];
-         
-         const remainingPlayers = sorted.filter(p => !pairedIds.has(p.studentId));
-         if (remainingPlayers.length % 2 !== 0) {
-             const byeCandidateIndex = pickSwissByeSortedIndex(remainingPlayers, byePriority);
-             const byePlayer = remainingPlayers[byeCandidateIndex];
-             pairedIds.add(byePlayer.studentId);
-             
-             byePlayer.score += 1;
-             byePlayer.opponents.push('BYE');
-             
-             nextRoundMatches.push({
-                id: generateId(),
-                players: [byePlayer.studentId, 'BYE'],
-                winnerId: byePlayer.studentId
-             });
-         }
-
-         const toPair = sorted.filter(p => !pairedIds.has(p.studentId));
-         
-         for (let i = 0; i < toPair.length; i++) {
-             if (pairedIds.has(toPair[i].studentId)) continue;
-             
-             const p1 = toPair[i];
-             let bestOpponentIndex = -1;
-             
-             for (let j = i + 1; j < toPair.length; j++) {
-                 if (pairedIds.has(toPair[j].studentId)) continue;
-                 const p2 = toPair[j];
-                 if (!p1.opponents.includes(p2.studentId)) {
-                     bestOpponentIndex = j;
-                     if (p1.score === p2.score) break;
-                 }
-             }
-             
-             if (bestOpponentIndex === -1) {
-                  for (let j = i + 1; j < toPair.length; j++) {
-                     if (!pairedIds.has(toPair[j].studentId)) {
-                         bestOpponentIndex = j;
-                         break;
-                     }
-                  }
-             }
-             
-             if (bestOpponentIndex !== -1) {
-                 const p2 = toPair[bestOpponentIndex];
-                 pairedIds.add(p1.studentId);
-                 pairedIds.add(p2.studentId);
-                 
-                 p1.opponents.push(p2.studentId);
-                 p2.opponents.push(p1.studentId);
-                 
-                 nextRoundMatches.push({
-                    id: generateId(),
-                    players: [p1.studentId, p2.studentId],
-                    winnerId: null
-                 });
-             }
-         }
-         return nextRoundMatches;
     };
 
     const handleGenerateNextRoundSwiss = (groupIndex?: number) => {
         setData(prev => {
             if (!prev.swiss) return prev;
             const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            const roundLimit = Math.max(1, Math.floor(settings.swissRounds || 1));
             if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
                 const g = newSwiss.groups[groupIndex];
-                const nextRoundMatches = generatePairings(g.players, g.rounds);
+                if (g.rounds.length >= roundLimit) return prev;
+                const nextRoundMatches = createSwissPairings(
+                    g.players,
+                    g.rounds,
+                    settings.byePriority ?? DEFAULT_BYE_PRIORITY,
+                    generateId
+                );
                 g.rounds.push(nextRoundMatches);
+                g.players = recomputeSwissStats(g.players, g.rounds);
+                newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
             } else {
-                const nextRoundMatches = generatePairings(newSwiss.players, newSwiss.rounds);
+                if (newSwiss.rounds.length >= roundLimit) return prev;
+                const nextRoundMatches = createSwissPairings(
+                    newSwiss.players,
+                    newSwiss.rounds,
+                    settings.byePriority ?? DEFAULT_BYE_PRIORITY,
+                    generateId
+                );
                 newSwiss.rounds.push(nextRoundMatches);
+                newSwiss.players = recomputeSwissStats(newSwiss.players, newSwiss.rounds);
             }
             return { ...prev, swiss: newSwiss };
         });
@@ -529,31 +436,21 @@ export const TournamentView = (props: TournamentViewProps) => {
                 groupIndex !== undefined && newSwiss.groups?.[groupIndex]
                     ? newSwiss.groups[groupIndex].rounds
                     : newSwiss.rounds;
-            const targetPlayers =
+            const targetPlayers: SwissPlayer[] =
                 groupIndex !== undefined && newSwiss.groups?.[groupIndex]
                     ? newSwiss.groups[groupIndex].players
                     : newSwiss.players;
 
             if (targetRounds.length <= 1) return prev;
-            const lastRound = targetRounds.pop();
-
-            lastRound.forEach((m: any) => {
-                const [id1, id2] = m.players;
-                const p1 = targetPlayers.find((p: any) => p.studentId === id1);
-                const p2 = id2 !== 'BYE' ? targetPlayers.find((p: any) => p.studentId === id2) : null;
-
-                if (m.winnerId) {
-                    const winner = targetPlayers.find((p: any) => p.studentId === m.winnerId);
-                    if (winner) winner.score -= 1;
-                }
-
-                if (p1 && id2) {
-                    p1.opponents = p1.opponents.filter((oid: string) => oid !== id2);
-                }
-                if (p2 && id1) {
-                    p2.opponents = p2.opponents.filter((oid: string) => oid !== id1);
-                }
-            });
+            const cancelled = cancelLastSwissRound(targetPlayers, targetRounds);
+            targetRounds.splice(0, targetRounds.length, ...cancelled.rounds);
+            if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
+                newSwiss.groups[groupIndex].players = cancelled.players;
+                newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
+            } else {
+                newSwiss.players = cancelled.players;
+            }
+            newSwiss.status = 'in_progress';
 
             return { ...prev, swiss: newSwiss };
         });
@@ -567,33 +464,29 @@ export const TournamentView = (props: TournamentViewProps) => {
                 groupIndex !== undefined && newSwiss.groups?.[groupIndex]
                     ? newSwiss.groups[groupIndex].rounds
                     : newSwiss.rounds;
-            const targetPlayers =
+            const targetPlayers: SwissPlayer[] =
                 groupIndex !== undefined && newSwiss.groups?.[groupIndex]
                     ? newSwiss.groups[groupIndex].players
                     : newSwiss.players;
 
             if (targetRounds.length === 0) return prev;
-            const lastRound = targetRounds.pop();
-            lastRound.forEach((m: any) => {
-                const [id1, id2] = m.players;
-                const p1 = targetPlayers.find((p: any) => p.studentId === id1);
-                const p2 = id2 !== 'BYE' ? targetPlayers.find((p: any) => p.studentId === id2) : null;
-
-                if (m.winnerId) {
-                    const winner = targetPlayers.find((p: any) => p.studentId === m.winnerId);
-                    if (winner) winner.score -= 1;
-                }
-
-                if (p1 && id2) {
-                    p1.opponents = p1.opponents.filter((oid: string) => oid !== id2);
-                }
-                if (p2 && id1) {
-                    p2.opponents = p2.opponents.filter((oid: string) => oid !== id1);
-                }
-            });
-
-            const nextRoundMatches = generatePairings(targetPlayers, targetRounds);
+            const priorRounds = targetRounds.slice(0, -1);
+            const priorPlayers = recomputeSwissStats(targetPlayers, priorRounds);
+            const nextRoundMatches = createSwissPairings(
+                priorPlayers,
+                priorRounds,
+                settings.byePriority ?? DEFAULT_BYE_PRIORITY,
+                generateId
+            );
+            targetRounds.pop();
             targetRounds.push(nextRoundMatches);
+            const recomputed = recomputeSwissStats(priorPlayers, targetRounds);
+            if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
+                newSwiss.groups[groupIndex].players = recomputed;
+                newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
+            } else {
+                newSwiss.players = recomputed;
+            }
 
             return { ...prev, swiss: newSwiss };
         });
@@ -655,7 +548,7 @@ export const TournamentView = (props: TournamentViewProps) => {
         setData(prev => {
             if (!prev.swiss?.groups) return prev;
             const r = swapSwissPlayersBetweenGroups(prev.swiss, groupIndexA, studentIdA, groupIndexB, studentIdB);
-            if (!r.ok) {
+            if ('message' in r) {
                 alert(r.message);
                 return prev;
             }
@@ -713,6 +606,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         onPlayerSwap={setData}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                         onSwapGroupPlayers={handleSwissGroupPlayerSwap}
+                        maxRounds={settings.swissRounds}
                     />
                 )}
                 {activeTab === 'hybrid' && (

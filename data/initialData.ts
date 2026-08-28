@@ -107,6 +107,7 @@ export const INITIAL_TOURNAMENT_SETTINGS: TournamentSettings = {
     swissPaidRankCount: 3,
     swissUseGroups: false,
     swissGroupSizes: '4,4,8',
+    hybridAdvanceCount: 2,
     byePriority: 'min_byes',
     missionBaduk: {
         timeLimit: 50,

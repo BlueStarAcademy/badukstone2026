@@ -374,8 +374,8 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
                                 </div>
                             </div>
                             <div className="settings-form-row">
-                                <div className="label-group"><label>본선 진출 인원</label></div>
-                                <div className="input-group"><input type="number" value={settings.hybridAdvanceCount || 8} onChange={e => handleSettingChange('hybridAdvanceCount', Number(e.target.value))} /><span>명</span></div>
+                                <div className="label-group"><label>조당 본선 진출 인원</label></div>
+                                <div className="input-group"><input type="number" min="1" value={settings.hybridAdvanceCount || 2} onChange={e => handleSettingChange('hybridAdvanceCount', Number(e.target.value))} /><span>명</span></div>
                             </div>
                             <div className="settings-form-row">
                                 <div className="label-group"><label>예선 조 개수 (선택)</label></div>
