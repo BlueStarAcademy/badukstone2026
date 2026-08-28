@@ -12,7 +12,9 @@ RUN npm ci
 
 COPY . ./
 
-# VITE_* variables are injected at build time (set in Railway Variables tab)
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 RUN npm run build
 
 FROM caddy
