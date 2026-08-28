@@ -1,10 +1,12 @@
 import dotenv from 'dotenv';
+import path from 'path';
 import admin from 'firebase-admin';
 import bcrypt from 'bcryptjs';
 import { Pool } from 'pg';
 import fs from 'fs';
 
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, '../.env') });
+dotenv.config({ path: path.join(__dirname, '../.env.local'), override: true });
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const FIREBASE_SERVICE_ACCOUNT_PATH = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
@@ -12,7 +14,12 @@ const FIREBASE_SERVICE_ACCOUNT_JSON = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 const DEFAULT_ADMIN_PASSWORD = process.env.DEFAULT_ADMIN_PASSWORD || 'changeme123';
 
 if (!DATABASE_URL) {
-    console.error('DATABASE_URL is required');
+    console.error('DATABASE_URL is required.\n');
+    console.error('Option A (recommended): run via Railway CLI so DB URL is injected automatically:');
+    console.error('  railway run --service badukstone-api npm run migrate:firestore\n');
+    console.error('Option B: create server/.env with:');
+    console.error('  DATABASE_URL=postgresql://...  (Railway Postgres public/proxy URL)');
+    console.error('  FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json');
     process.exit(1);
 }
 
@@ -34,7 +41,12 @@ function initFirebase() {
         admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
         return;
     }
-    throw new Error('Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH');
+    throw new Error(
+        'Firebase service account is required.\n' +
+        'Download from Firebase Console → Project Settings → Service Accounts → Generate new private key.\n' +
+        'Then set in server/.env:\n' +
+        '  FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json'
+    );
 }
 
 async function migrateFirestore() {

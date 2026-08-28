@@ -7,7 +7,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "db:migrate": "tsx scripts/migrate.ts",
-    "migrate:firestore": "tsx scripts/migrate-firestore.ts"
+    "migrate:firestore": "tsx scripts/migrate-firestore.ts",
+    "migrate:firestore:railway": "railway run --service badukstone-api npm run migrate:firestore"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
