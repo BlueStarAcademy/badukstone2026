@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import type { Student, TournamentData, TournamentSettings, TournamentPlayer } from '../../types';
+import type { Student, TournamentAwardRequest, TournamentData, TournamentSettings, TournamentPlayer } from '../../types';
 import { TournamentGames } from './TournamentGames';
 import { TournamentSummary } from './TournamentSummary';
 import { PlayerSwapModal } from './PlayerSwapModal';
@@ -15,12 +15,13 @@ interface TournamentRelayViewProps {
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
     setSettings: React.Dispatch<React.SetStateAction<TournamentSettings>>;
-    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    awardEventKey: string;
     onOpenPlayerManagement: () => void;
 }
 
 export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) => {
-    const { data, students, setData, settings, setSettings, onBulkAddTransaction, onOpenPlayerManagement } = props;
+    const { data, students, setData, settings, setSettings, onAwardBatch, awardEventKey, onOpenPlayerManagement } = props;
     
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [playerToSwap, setPlayerToSwap] = useState<{ teamName: 'A' | 'B', playerIndex: number } | null>(null);
@@ -197,8 +198,18 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
         if (!awardModal) return;
         const targetTeam = data.teams.find(t => t.name === awardModal.teamName);
         if (targetTeam) {
-            const playerIds = targetTeam.players.map(p => p.studentId);
-            onBulkAddTransaction(playerIds, reason, amount);
+            const applied = onAwardBatch({
+                eventKey: `${awardEventKey}:${awardModal.teamType}`,
+                mode: 'relay',
+                label: `팀 대항전 ${awardModal.teamType === 'winner' ? '승리팀' : '패배팀'} 시상`,
+                grants: targetTeam.players.map(player => ({
+                    studentId: player.studentId,
+                    description: reason,
+                    amount,
+                })),
+                metadata: { phase: awardModal.teamType, team: awardModal.teamName },
+            });
+            if (!applied) return;
         }
         setAwardModal(null);
     };

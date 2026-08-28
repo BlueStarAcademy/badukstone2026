@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentData, TournamentSettings, DoubleElimData, DoubleElimMatch } from '../../types';
-import { parseRank } from '../../utils';
+import type { Student, TournamentAwardRequest, TournamentData, TournamentSettings, DoubleElimData, DoubleElimMatch } from '../../types';
+import { generateId, parseRank } from '../../utils';
 import {
     buildDoubleElim,
     applyByeWinners,
@@ -20,11 +20,12 @@ interface TournamentDoubleElimViewProps {
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
     onOpenPlayerManagement: () => void;
-    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    awardEventKey: string;
 }
 
 export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) => {
-    const { data, students, setData, settings, onOpenPlayerManagement, onBulkAddTransaction } = props;
+    const { data, students, setData, settings, onOpenPlayerManagement, onAwardBatch, awardEventKey } = props;
     const doubleElim = data.doubleElim;
     const participantIds = data.doubleElimParticipantIds || [];
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
@@ -50,6 +51,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
             ...prev,
             doubleElimParticipantIds: sorted,
             doubleElim: buildDoubleElim(sorted, prio),
+            awardSessionIds: { ...prev.awardSessionIds, doubleelim: generateId() },
         }));
     };
 
@@ -138,16 +140,19 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
         const prizeSet = new Set([championId, runnerUpId, ...semiFinalistIds].filter(Boolean) as string[]);
         const rest = doubleElim.playerIds.filter(id => !prizeSet.has(id));
 
-        if (championId && prizes.champion > 0) onBulkAddTransaction([championId], '더블엘리미네이션 우승', prizes.champion);
-        if (runnerUpId && prizes.runnerUp > 0) onBulkAddTransaction([runnerUpId], '더블엘리미네이션 준우승', prizes.runnerUp);
-        if (semiFinalistIds.length > 0 && prizes.semiFinalist > 0) {
-            onBulkAddTransaction(semiFinalistIds, '더블엘리미네이션 3-4위', prizes.semiFinalist);
-        }
-        if (rest.length > 0 && prizes.participant > 0) {
-            onBulkAddTransaction(rest, '더블엘리미네이션 참가상', prizes.participant);
-        }
-        setIsPrizeModalOpen(false);
-        alert('시상이 완료되었습니다.');
+        const grants = [
+            ...(championId ? [{ studentId: championId, description: '더블엘리미네이션 우승', amount: prizes.champion }] : []),
+            ...(runnerUpId ? [{ studentId: runnerUpId, description: '더블엘리미네이션 준우승', amount: prizes.runnerUp }] : []),
+            ...semiFinalistIds.map(studentId => ({ studentId, description: '더블엘리미네이션 3-4위', amount: prizes.semiFinalist })),
+            ...rest.map(studentId => ({ studentId, description: '더블엘리미네이션 참가상', amount: prizes.participant })),
+        ];
+        if (onAwardBatch({
+            eventKey: awardEventKey,
+            mode: 'doubleelim',
+            label: '더블엘리미네이션 결과',
+            grants,
+            metadata: { phase: 'final' },
+        })) setIsPrizeModalOpen(false);
     };
 
     const isFinished = !!doubleElim?.grandFinal?.winnerId;

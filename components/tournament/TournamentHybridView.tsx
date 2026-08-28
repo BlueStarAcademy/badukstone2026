@@ -8,6 +8,8 @@ import type {
     SwissMatch,
     TournamentBracket,
     TournamentMatch,
+    TournamentAwardGrant,
+    TournamentAwardRequest,
     TournamentSwissGroupPrizes,
 } from '../../types';
 import { parseRank, generateId } from '../../utils';
@@ -32,7 +34,8 @@ interface TournamentHybridViewProps {
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
     onOpenPlayerManagement: () => void;
-    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    awardEventKey: string;
 }
 
 interface PreliminaryGroupViewProps {
@@ -96,7 +99,7 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
 };
 
 export const TournamentHybridView = (props: TournamentHybridViewProps) => {
-    const { students, data, setData, settings, onOpenPlayerManagement, onBulkAddTransaction } = props;
+    const { students, data, setData, settings, onOpenPlayerManagement, onAwardBatch, awardEventKey } = props;
     const { hybridParticipantIds } = data;
     const { hybridMode, hybridAdvanceCount, hybridGroupCount } = settings;
 
@@ -133,7 +136,8 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 players: swissPlayers,
                 preliminaryGroups,
                 bracket: null,
-            }
+            },
+            awardSessionIds: { ...prev.awardSessionIds, hybrid: generateId() },
         }));
     };
 
@@ -172,11 +176,17 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         const group = data.hybrid.preliminaryGroups[gi];
         const sorted = computeStandingsInPreliminaryGroup(group, data.hybrid.players);
         const label = `예선 ${gi + 1}조`;
+        const grants: TournamentAwardGrant[] = [];
         forEachSwissStylePayout(sorted, prizes, settings, label, (ids, desc, amt) =>
-            onBulkAddTransaction(ids, desc, amt)
+            ids.forEach(studentId => grants.push({ studentId, description: desc, amount: amt }))
         );
-        setPrelimPrizeGroupIndex(null);
-        alert('예선 시상이 완료되었습니다.');
+        if (onAwardBatch({
+            eventKey: `${awardEventKey}:prelim:${gi}`,
+            mode: 'hybrid',
+            label: `예선+본선 ${gi + 1}조 예선`,
+            grants,
+            metadata: { phase: 'preliminary', groupIndex: gi },
+        })) setPrelimPrizeGroupIndex(null);
     };
 
     const handleAdvanceToBracket = () => {
@@ -371,7 +381,8 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 students={students}
                 setData={handleBracketDataUpdate}
                 settings={settings}
-                onBulkAddTransaction={onBulkAddTransaction}
+                onAwardBatch={onAwardBatch}
+                awardEventKey={`${awardEventKey}:final`}
                 onOpenPlayerManagement={onOpenPlayerManagement}
                 bracketPrizeKey="hybridBracket"
                 prizeModalMode="hybridBracket"

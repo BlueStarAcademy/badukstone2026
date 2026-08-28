@@ -184,6 +184,7 @@ export const INITIAL_TOURNAMENT_DATA: TournamentData = {
     fullLeagueParticipantIds: [],
     doubleElimParticipantIds: [],
     missionParticipantIds: [],
+    awardSessionIds: {},
     teams: [
         { name: 'A', players: [], mannerPenalties: 0 },
         { name: 'B', players: [], mannerPenalties: 0 },

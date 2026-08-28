@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentBracket, TournamentData, TournamentSettings, TournamentMatch, TournamentPlayer } from '../../types';
+import type { Student, TournamentAwardRequest, TournamentBracket, TournamentData, TournamentSettings, TournamentMatch, TournamentPlayer } from '../../types';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { parseRank, generateId } from '../../utils';
@@ -13,7 +13,8 @@ interface TournamentBracketViewProps {
     students: Student[];
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
-    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    awardEventKey: string;
     onOpenPlayerManagement: () => void;
     /** 시상 시 조별 상금 출처 (예선+본선 본선은 hybridBracket) */
     bracketPrizeKey?: BracketPrizeSettingsKey;
@@ -167,7 +168,8 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
         students,
         setData,
         settings,
-        onBulkAddTransaction,
+        onAwardBatch,
+        awardEventKey,
         onOpenPlayerManagement,
         bracketPrizeKey = 'bracket',
         prizeModalMode = 'bracket',
@@ -247,7 +249,8 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
 
         setData(prev => ({
             ...prev,
-            bracket: { rounds, players: tournamentPlayers }
+            bracket: { rounds, players: tournamentPlayers },
+            awardSessionIds: { ...prev.awardSessionIds, bracket: generateId() },
         }));
     };
     
@@ -359,15 +362,20 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
         const prizewinners = new Set([championId, runnerUpId, ...semiFinalistIds]);
         const participantsWithPrize = bracketData.players.filter(p => !prizewinners.has(p.studentId));
         
-        if (championId && prizes.champion > 0) onBulkAddTransaction([championId], '토너먼트 우승', prizes.champion);
-        if (runnerUpId && prizes.runnerUp > 0) onBulkAddTransaction([runnerUpId], '토너먼트 준우승', prizes.runnerUp);
-        if (semiFinalistIds.length > 0 && prizes.semiFinalist > 0) onBulkAddTransaction(semiFinalistIds, '토너먼트 3-4위', prizes.semiFinalist);
-        if (participantsWithPrize.length > 0 && prizes.participant > 0) {
-            onBulkAddTransaction(participantsWithPrize.map(p=>p.studentId), '토너먼트 참가상', prizes.participant);
-        }
-        
-        setIsPrizeModalOpen(false);
-        alert('시상이 완료되었습니다.');
+        const grants = [
+            ...(championId ? [{ studentId: championId, description: '토너먼트 우승', amount: prizes.champion }] : []),
+            ...(runnerUpId ? [{ studentId: runnerUpId, description: '토너먼트 준우승', amount: prizes.runnerUp }] : []),
+            ...semiFinalistIds.map(studentId => ({ studentId, description: '토너먼트 3-4위', amount: prizes.semiFinalist })),
+            ...participantsWithPrize.map(player => ({ studentId: player.studentId, description: '토너먼트 참가상', amount: prizes.participant })),
+        ];
+        const mode = prizeModalMode === 'hybridBracket' ? 'hybrid' : 'bracket';
+        if (onAwardBatch({
+            eventKey: awardEventKey,
+            mode,
+            label: prizeModalMode === 'hybridBracket' ? '예선+본선 본선 결과' : '토너먼트 결과',
+            grants,
+            metadata: { phase: 'final' },
+        })) setIsPrizeModalOpen(false);
     };
 
     if (!bracketData) {

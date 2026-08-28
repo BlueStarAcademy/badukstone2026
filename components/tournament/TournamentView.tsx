@@ -9,6 +9,10 @@ import type {
     MissionBadukPlayer,
     TournamentPlayer,
     TournamentSwissGroupPrizes,
+    TournamentAwardBatch,
+    TournamentAwardGrant,
+    TournamentAwardMode,
+    TournamentAwardRequest,
 } from '../../types';
 import { TournamentRelayView } from './TournamentRelayView';
 import { TournamentBracketView } from './TournamentBracketView';
@@ -25,6 +29,8 @@ import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { buildDoubleElim } from '../../utils/doubleElimBracket';
 import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
 import { swapSwissPlayersBetweenGroups } from '../../utils/swissGroupSwap';
+import { hasActiveTournamentAward, previewTournamentAward } from '../../utils/tournament/awards';
+import { TournamentAwardHistory } from './TournamentAwardHistory';
 import {
     cancelLastSwissRound,
     createFullLeague,
@@ -44,17 +50,59 @@ interface TournamentViewProps {
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
     setSettings: React.Dispatch<React.SetStateAction<TournamentSettings>>;
+    awardLedger: TournamentAwardBatch[];
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    onReverseAwardBatch: (batchId: string) => boolean;
+    onReverseAwardGrant: (batchId: string, recordId: string) => boolean;
     onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
 }
 
 type TournamentTab = 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
 
 export const TournamentView = (props: TournamentViewProps) => {
-    const { students, data, setData, settings, setSettings, onBulkAddTransaction } = props;
+    const {
+        students, data, setData, settings, setSettings, awardLedger,
+        onAwardBatch, onReverseAwardBatch, onReverseAwardGrant, onBulkAddTransaction,
+    } = props;
     const [activeTab, setActiveTab] = useState<TournamentTab>('relay');
     const [isPlayerManagementModalOpen, setIsPlayerManagementModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isSwissPrizeModalOpen, setIsSwissPrizeModalOpen] = useState(false);
+
+    const getAwardSessionId = (mode: TournamentAwardMode): string => {
+        const stored = data.awardSessionIds?.[mode];
+        if (stored) return stored;
+        if (mode === 'bracket') return data.bracket?.rounds[0]?.matches[0]?.id || 'legacy';
+        if (mode === 'swiss') return data.swiss?.groups?.[0]?.id || data.swiss?.rounds[0]?.[0]?.id || 'legacy';
+        if (mode === 'hybrid') return data.hybrid?.preliminaryGroups[0]?.[0]?.id || 'legacy';
+        if (mode === 'fullleague') return data.fullLeague?.matches[0]?.id || 'legacy';
+        if (mode === 'doubleelim') return data.doubleElim?.winnersRounds[0]?.matches[0]?.id || 'legacy';
+        return data.teams.map(team => team.players.map(player => player.studentId).join(',')).join('|') || 'legacy';
+    };
+
+    const eventKey = (mode: TournamentAwardMode, phase: string) =>
+        `${mode}:${getAwardSessionId(mode)}:${phase}`;
+
+    const handleAwardBatch = (request: TournamentAwardRequest): boolean => {
+        if (hasActiveTournamentAward(awardLedger, request.eventKey)) {
+            alert('이 대회 단계에는 이미 활성 시상 내역이 있습니다. 시상 내역 관리에서 먼저 확인해 주세요.');
+            return false;
+        }
+        const preview = previewTournamentAward(students, request.grants);
+        if (preview.error) {
+            alert(preview.error);
+            return false;
+        }
+        if (!window.confirm(
+            `${request.label} 시상을 진행할까요?\n\n` +
+            `수령 학생: ${preview.recipientCount}명\n요청 스톤: ${preview.requestedTotal}\n` +
+            `즉시 지급: ${preview.creditedTotal}\n30일 초과 쿠폰: ${preview.overflowTotal}`
+        )) return false;
+        if (!onAwardBatch({ ...request, grants: request.grants.filter(grant => grant.amount > 0) })) return false;
+        alert(`시상이 완료되었습니다.\n즉시 지급 ${preview.creditedTotal}스톤` +
+            (preview.overflowTotal > 0 ? ` / 초과 쿠폰 ${preview.overflowTotal}스톤` : ''));
+        return true;
+    };
 
     const getTabParticipantIds = (tab: TournamentTab): string[] => {
         switch (tab) {
@@ -93,6 +141,7 @@ export const TournamentView = (props: TournamentViewProps) => {
             ...prev,
             fullLeagueParticipantIds: ids,
             fullLeague: createFullLeague(participants, generateId),
+            awardSessionIds: { ...prev.awardSessionIds, fullleague: generateId() },
         }));
         setIsPlayerManagementModalOpen(false);
     };
@@ -113,6 +162,7 @@ export const TournamentView = (props: TournamentViewProps) => {
             ...prev,
             doubleElimParticipantIds: sorted,
             doubleElim: buildDoubleElim(sorted, prio),
+            awardSessionIds: { ...prev.awardSessionIds, doubleelim: generateId() },
         }));
         setIsPlayerManagementModalOpen(false);
     };
@@ -166,7 +216,8 @@ export const TournamentView = (props: TournamentViewProps) => {
             teams: [
                 { name: 'A', players: teamA, mannerPenalties: 0 },
                 { name: 'B', players: teamB, mannerPenalties: 0 }
-            ]
+            ],
+            awardSessionIds: { ...prev.awardSessionIds, relay: generateId() },
         }));
         setIsPlayerManagementModalOpen(false);
     };
@@ -236,6 +287,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                     rounds: [],
                     groups,
                 },
+                awardSessionIds: { ...prev.awardSessionIds, swiss: generateId() },
             }));
             setIsPlayerManagementModalOpen(false);
             return;
@@ -268,6 +320,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                 players: recomputeSwissStats(swissPlayers, [firstRoundMatches]),
                 rounds: [firstRoundMatches],
             },
+            awardSessionIds: { ...prev.awardSessionIds, swiss: generateId() },
         }));
         setIsPlayerManagementModalOpen(false);
     };
@@ -311,7 +364,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                 players: swissPlayers,
                 preliminaryGroups,
                 bracket: null,
-            }
+            },
+            awardSessionIds: { ...prev.awardSessionIds, hybrid: generateId() },
         }));
         setIsPlayerManagementModalOpen(false);
     };
@@ -494,10 +548,11 @@ export const TournamentView = (props: TournamentViewProps) => {
     
     const handleSwissAwardPrizes = (entries: SwissPrizeAwardEntry[]) => {
         if (!data.swiss) return;
+        const grants: TournamentAwardGrant[] = [];
 
         const awardGroup = (sorted: SwissPlayer[], labelPrefix: string, prizes: TournamentSwissGroupPrizes) => {
             forEachSwissStylePayout(sorted, prizes, settings, labelPrefix, (ids, desc, amt) =>
-                onBulkAddTransaction(ids, desc, amt)
+                ids.forEach(studentId => grants.push({ studentId, description: desc, amount: amt }))
             );
         };
 
@@ -515,8 +570,13 @@ export const TournamentView = (props: TournamentViewProps) => {
             awardGroup(sorted, '스위스 리그', prizes);
         }
 
-        setIsSwissPrizeModalOpen(false);
-        alert('시상이 완료되었습니다.');
+        if (handleAwardBatch({
+            eventKey: eventKey('swiss', 'final'),
+            mode: 'swiss',
+            label: '스위스 리그 결과',
+            grants,
+            metadata: { phase: 'final' },
+        })) setIsSwissPrizeModalOpen(false);
     };
 
     const canResetSwiss =
@@ -579,7 +639,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                         setData={setData} 
                         settings={settings} 
                         setSettings={setSettings}
-                        onBulkAddTransaction={onBulkAddTransaction}
+                        onAwardBatch={handleAwardBatch}
+                        awardEventKey={eventKey('relay', 'team')}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                     />
                 )}
@@ -589,7 +650,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                         students={students} 
                         setData={setData} 
                         settings={settings} 
-                        onBulkAddTransaction={onBulkAddTransaction}
+                        onAwardBatch={handleAwardBatch}
+                        awardEventKey={eventKey('bracket', 'final')}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                     />
                 )}
@@ -616,7 +678,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                         setData={setData} 
                         settings={settings} 
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
-                        onBulkAddTransaction={onBulkAddTransaction}
+                        onAwardBatch={handleAwardBatch}
+                        awardEventKey={eventKey('hybrid', 'session')}
                     />
                 )}
                 {activeTab === 'fullleague' && (
@@ -626,7 +689,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                         setData={setData}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                         settings={settings}
-                        onBulkAddTransaction={onBulkAddTransaction}
+                        onAwardBatch={handleAwardBatch}
+                        awardEventKey={eventKey('fullleague', 'final')}
                     />
                 )}
                 {activeTab === 'doubleelim' && (
@@ -636,7 +700,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                         setData={setData}
                         settings={settings}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
-                        onBulkAddTransaction={onBulkAddTransaction}
+                        onAwardBatch={handleAwardBatch}
+                        awardEventKey={eventKey('doubleelim', 'final')}
                     />
                 )}
                 {activeTab === 'mission' && (
@@ -650,6 +715,12 @@ export const TournamentView = (props: TournamentViewProps) => {
                     />
                 )}
             </div>
+
+            <TournamentAwardHistory
+                batches={awardLedger}
+                onReverseBatch={onReverseAwardBatch}
+                onReverseGrant={onReverseAwardGrant}
+            />
 
             {isPlayerManagementModalOpen && (
                 <TournamentPlayerManagementModal

@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentData, TournamentSettings } from '../../types';
+import type { Student, TournamentAwardRequest, TournamentData, TournamentSettings } from '../../types';
 import { generateId } from '../../utils';
 import {
     createFullLeague,
@@ -16,11 +16,12 @@ interface TournamentFullLeagueViewProps {
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     onOpenPlayerManagement: () => void;
     settings: TournamentSettings;
-    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    awardEventKey: string;
 }
 
 export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) => {
-    const { data, students, setData, onOpenPlayerManagement, settings, onBulkAddTransaction } = props;
+    const { data, students, setData, onOpenPlayerManagement, settings, onAwardBatch, awardEventKey } = props;
     const fullLeague = data.fullLeague;
     const participantIds = data.fullLeagueParticipantIds || [];
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
@@ -35,6 +36,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
             ...prev,
             fullLeagueParticipantIds: ids,
             fullLeague: createFullLeague(participants, generateId),
+            awardSessionIds: { ...prev.awardSessionIds, fullleague: generateId() },
         }));
     };
 
@@ -84,25 +86,19 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
         ].filter(Boolean) as string[]);
         const participantsWithPrize = sortedPlayers.filter(p => !prizeWinners.has(p.studentId));
 
-        if (championId && prizes.champion > 0) {
-            onBulkAddTransaction([championId], '풀리그 우승', prizes.champion);
-        }
-        if (runnerUpId && prizes.runnerUp > 0) {
-            onBulkAddTransaction([runnerUpId], '풀리그 준우승', prizes.runnerUp);
-        }
-        if (semiFinalistIds.length > 0 && prizes.semiFinalist > 0) {
-            onBulkAddTransaction(semiFinalistIds, '풀리그 3-4위', prizes.semiFinalist);
-        }
-        if (participantsWithPrize.length > 0 && prizes.participant > 0) {
-            onBulkAddTransaction(
-                participantsWithPrize.map(p => p.studentId),
-                '풀리그 참가상',
-                prizes.participant
-            );
-        }
-
-        setIsPrizeModalOpen(false);
-        alert('풀리그 시상이 완료되었습니다.');
+        const grants = [
+            ...(championId ? [{ studentId: championId, description: '풀리그 우승', amount: prizes.champion }] : []),
+            ...(runnerUpId ? [{ studentId: runnerUpId, description: '풀리그 준우승', amount: prizes.runnerUp }] : []),
+            ...semiFinalistIds.map(studentId => ({ studentId, description: '풀리그 3-4위', amount: prizes.semiFinalist })),
+            ...participantsWithPrize.map(player => ({ studentId: player.studentId, description: '풀리그 참가상', amount: prizes.participant })),
+        ];
+        if (onAwardBatch({
+            eventKey: awardEventKey,
+            mode: 'fullleague',
+            label: '풀리그 결과',
+            grants,
+            metadata: { phase: 'final' },
+        })) setIsPrizeModalOpen(false);
     };
 
     return (

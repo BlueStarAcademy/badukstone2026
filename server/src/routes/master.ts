@@ -27,6 +27,7 @@ const EMPTY_APP_DATA = {
     studentMissionProgress: {},
     personalMissions: {},
     personalMissionTemplates: [],
+    tournamentAwardLedger: [],
 };
 
 router.get('/users', authMiddleware, masterOnly, async (_req, res) => {

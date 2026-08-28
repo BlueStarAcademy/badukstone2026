@@ -92,7 +92,7 @@ export interface UsedCouponInfo {
 export interface Transaction {
     id: string;
     studentId: string;
-    type: 'mission' | 'attendance' | 'purchase' | 'adjustment' | 'gacha' | 'roulette' | 'chess_attendance' | 'penalty' | 'joseki_mission' | 'transfer' | 'special_mission' | 'mission_adjustment';
+    type: 'mission' | 'attendance' | 'purchase' | 'adjustment' | 'gacha' | 'roulette' | 'chess_attendance' | 'penalty' | 'joseki_mission' | 'transfer' | 'special_mission' | 'mission_adjustment' | 'tournament_award' | 'tournament_award_reversal';
     description: string;
     amount: number;
     timestamp: string;
@@ -106,6 +106,10 @@ export interface Transaction {
     personalMissionId?: string;
     personalMissionNoBefore?: number;
     personalMissionNoAfter?: number;
+    /** 대회 시상 원장과 연결되는 감사 메타데이터 */
+    tournamentAwardBatchId?: string;
+    tournamentAwardRecordId?: string;
+    reversesTransactionId?: string;
 }
 
 export interface Coupon {
@@ -334,6 +338,61 @@ export interface TournamentData {
     };
     fullLeague?: FullLeagueData;
     doubleElim?: DoubleElimData;
+    /** 대회 형식별 현재 세션 식별자. 없는 레거시 데이터는 화면에서 안정적인 대체 키를 사용한다. */
+    awardSessionIds?: Partial<Record<'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim', string>>;
+}
+
+export type TournamentAwardMode = 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim';
+
+export interface TournamentAwardGrant {
+    studentId: string;
+    amount: number;
+    description: string;
+}
+
+export interface TournamentAwardRequest {
+    /** mode + 현재 대회 세션/단계로 구성한 중복 방지 키 */
+    eventKey: string;
+    mode: TournamentAwardMode;
+    label: string;
+    grants: TournamentAwardGrant[];
+    awardedAt?: string;
+    metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface TournamentAwardCouponCancellation {
+    couponId: string;
+    cancelledAt: string;
+    value: number;
+}
+
+export interface TournamentAwardRecord {
+    id: string;
+    studentId: string;
+    studentName: string;
+    description: string;
+    requestedAmount: number;
+    appliedAmount: number;
+    overflowAmount: number;
+    transactionId: string;
+    couponId?: string;
+    status: 'active' | 'reversed';
+    reversedAt?: string;
+    actualReversedAmount?: number;
+    reversalTransactionId?: string;
+    couponCancellation?: TournamentAwardCouponCancellation;
+}
+
+export interface TournamentAwardBatch {
+    id: string;
+    eventKey: string;
+    mode: TournamentAwardMode;
+    label: string;
+    awardedAt: string;
+    status: 'active' | 'partially_reversed' | 'reversed';
+    grants: TournamentAwardRecord[];
+    metadata?: Record<string, string | number | boolean | null>;
+    reversedAt?: string;
 }
 
 export type GameKey = 'game1' | 'game2' | 'game3';
@@ -502,6 +561,8 @@ export interface AppData {
     personalMissionTemplates?: PersonalMissionTemplate[];
     /** 학생이 그룹 기본 미션 카드를 삭제한 템플릿 id — 다시 자동 부여하지 않음 */
     personalMissionTemplateDismissals?: { [studentId: string]: string[] };
+    /** 원자적으로 적용·취소되는 대회 시상 감사 원장 (레거시 데이터에서는 없음) */
+    tournamentAwardLedger?: TournamentAwardBatch[];
 }
 
 export interface ChessMatch {

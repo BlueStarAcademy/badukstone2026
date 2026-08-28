@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api, isDemoMode } from './api/client';
 import { useAppState } from './hooks/useAppState';
 import { INITIAL_STUDENTS, INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from './data/initialData';
-import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress, PersonalMissionTemplate } from './types';
+import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress, PersonalMissionTemplate, TournamentAwardRequest } from './types';
 import { generateId, getGroupForRank } from './utils';
 import { pickSpecialMissionForStudent } from './utils/specialMissionPick';
 import {
@@ -14,6 +14,11 @@ import {
     deleteTemplateAndInstances,
 } from './utils/personalMissionTemplateSync';
 import { calculateNewElo } from './utils/elo';
+import {
+    applyTournamentAward,
+    reverseTournamentAwardBatch,
+    reverseTournamentAwardGrant,
+} from './utils/tournament/awards';
 
 import { StudentView } from './components/StudentView';
 import { AdminPanel } from './components/AdminPanel';
@@ -143,6 +148,7 @@ const getInitialData = (): AppData => ({
     eventMonthlyStats: {},
     personalMissions: {},
     personalMissionTemplates: [],
+    tournamentAwardLedger: [],
 });
 
 const AppLoader = ({ message, showLogout, onLogout }: { message: string, showLogout?: boolean, onLogout?: () => void }) => (
@@ -362,6 +368,41 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             };
         });
     }, [setAppState]);
+
+    const handleTournamentAward = useCallback((request: TournamentAwardRequest): boolean => {
+        if (!appState || appState === 'error') return false;
+        const result = applyTournamentAward(appState, request);
+        if (!result.changed) {
+            alert(result.error || '시상을 적용하지 못했습니다.');
+            return false;
+        }
+        setAppState(result.data);
+        return true;
+    }, [appState, setAppState]);
+
+    const handleReverseTournamentAwardBatch = useCallback((batchId: string): boolean => {
+        if (!appState || appState === 'error') return false;
+        const result = reverseTournamentAwardBatch(appState, batchId);
+        if (!result.changed) {
+            if (result.error) alert(result.error);
+            return false;
+        }
+        setAppState(result.data);
+        alert('시상 묶음 취소가 원장에 기록되었습니다.');
+        return true;
+    }, [appState, setAppState]);
+
+    const handleReverseTournamentAwardGrant = useCallback((batchId: string, recordId: string): boolean => {
+        if (!appState || appState === 'error') return false;
+        const result = reverseTournamentAwardGrant(appState, batchId, recordId);
+        if (!result.changed) {
+            if (result.error) alert(result.error);
+            return false;
+        }
+        setAppState(result.data);
+        alert('학생 시상 취소가 원장에 기록되었습니다.');
+        return true;
+    }, [appState, setAppState]);
 
     const handleAdjustMissionCount = useCallback((studentId: string, delta: number) => {
         setAppState(prev => {
@@ -1220,6 +1261,10 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             students={students} data={tournamentData} settings={tournamentSettings} 
                             setData={(d) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentData: typeof d === 'function' ? d(prev!.tournamentData) : d }))}
                             setSettings={(s) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, tournamentSettings: typeof s === 'function' ? s(prev!.tournamentSettings) : s }))}
+                            awardLedger={(appState && appState !== 'error' ? appState.tournamentAwardLedger : undefined) || []}
+                            onAwardBatch={handleTournamentAward}
+                            onReverseAwardBatch={handleReverseTournamentAwardBatch}
+                            onReverseAwardGrant={handleReverseTournamentAwardGrant}
                             onBulkAddTransaction={(ids, desc, amt) => ids.forEach(id => handleAddTransaction(id, 'adjustment', desc, amt))}
                         />
                     )}
