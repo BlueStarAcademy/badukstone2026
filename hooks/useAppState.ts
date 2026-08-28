@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { api, isDemoMode } from '../api/client';
 import type { AppData } from '../types';
+import { normalizeAppDataCompatibility } from '../utils/tournament/compatibility';
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T | 'error' | null>>;
 
@@ -23,8 +24,7 @@ export function useAppState<T extends AppData>(
 
     const mergeData = useCallback((incoming: unknown): T => {
         const initial = getInitialData();
-        if (!incoming || typeof incoming !== 'object' || !(incoming as AppData).students) return initial;
-        return { ...initial, ...(incoming as object) } as T;
+        return normalizeAppDataCompatibility(incoming, initial);
     }, [getInitialData]);
 
     const compactData = (data: T): T => {

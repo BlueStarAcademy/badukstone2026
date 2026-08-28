@@ -6,6 +6,7 @@ import { getDoubleElimPlacements } from '../tournamentPrizes';
 import {
     cancelLastSwissRound,
     createFullLeague,
+    createSwissFirstRound,
     createSwissPairings,
     recomputeSwissStats,
     selectHybridQualifiersPerGroup,
@@ -34,6 +35,19 @@ describe('elimination bye placement', () => {
         expect(bracketSize).toBe(8);
         expect(slots.filter(slot => slot === 'BYE')).toHaveLength(2);
         expect(slots.filter(slot => slot !== 'BYE').sort()).toEqual([...seeds].sort());
+    });
+
+    it('creates a complete eight-match first round for 16 players', () => {
+        const seeds = Array.from({ length: 16 }, (_, index) => `seed-${index + 1}`);
+        const { bracketSize, slots } = buildElimRoundOneSlotOrder(seeds, 'min_byes', false);
+        const matches = Array.from({ length: slots.length / 2 }, (_, index) =>
+            slots.slice(index * 2, index * 2 + 2)
+        );
+
+        expect(bracketSize).toBe(16);
+        expect(matches).toHaveLength(8);
+        expect(slots).not.toContain('BYE');
+        expect(new Set(slots)).toEqual(new Set(seeds));
     });
 });
 
@@ -84,6 +98,18 @@ describe('Swiss engine', () => {
         );
         const bye = next.find(match => match.players.includes('BYE'));
         expect(bye?.players[0]).not.toBe('a');
+    });
+
+    it('creates one automatic bye and complete pairings for an odd field', () => {
+        const players = swissPlayers('a', 'b', 'c', 'd', 'e');
+        const round = createSwissFirstRound(players, 'min_byes', ids());
+        const byeMatches = round.filter(match => match.players.includes('BYE'));
+        const scheduledIds = round.flatMap(match => match.players).filter(id => id !== 'BYE');
+
+        expect(round).toHaveLength(3);
+        expect(byeMatches).toHaveLength(1);
+        expect(byeMatches[0].winnerId).toBe(byeMatches[0].players[0]);
+        expect(new Set(scheduledIds)).toEqual(new Set(players.map(player => player.studentId)));
     });
 
     it('cancelling a round removes its result, opponents and bye', () => {
