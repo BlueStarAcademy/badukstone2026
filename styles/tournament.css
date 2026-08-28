@@ -3145,11 +3145,19 @@
 
     .tournament-mode-nav.view-toggle {
         grid-column: 1;
+        width: calc(100% + 2rem);
+        box-sizing: border-box;
+        scroll-padding-inline: 1rem;
+        -webkit-overflow-scrolling: touch;
     }
 
     .tournament-mode-nav .toggle-btn {
         min-height: 48px;
         padding-inline: 0.85rem;
+    }
+
+    .tournament-mode-nav .toggle-btn:last-child {
+        margin-right: 1rem;
     }
 
     .tournament-operations {
@@ -3196,6 +3204,65 @@
     .tournament-content .btn {
         width: 100%;
         min-height: 44px;
+    }
+
+    .tournament-award-table-wrap {
+        overflow: visible;
+        border: 0;
+    }
+
+    .tournament-award-table-wrap .swiss-standings-table {
+        min-width: 0;
+        border-collapse: separate;
+        border-spacing: 0 0.65rem;
+    }
+
+    .tournament-award-table-wrap thead {
+        display: none;
+    }
+
+    .tournament-award-table-wrap tbody,
+    .tournament-award-table-wrap tr,
+    .tournament-award-table-wrap td {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .tournament-award-table-wrap tr {
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid var(--t-border);
+        border-radius: 8px;
+    }
+
+    .tournament-award-table-wrap td {
+        display: grid;
+        grid-template-columns: 5rem minmax(0, 1fr);
+        gap: 0.75rem;
+        min-height: 40px;
+        align-items: center;
+        padding: 0.55rem 0.7rem;
+        text-align: right;
+        border: 0;
+        border-bottom: 1px solid var(--t-border);
+    }
+
+    .tournament-award-table-wrap td:last-child {
+        border-bottom: 0;
+    }
+
+    .tournament-award-table-wrap td::before {
+        content: attr(data-label);
+        color: var(--t-muted);
+        text-align: left;
+        font-size: 0.72rem;
+        font-weight: 750;
+    }
+
+    .tournament-award-table-wrap td .btn-sm {
+        width: 100%;
+        min-height: 40px;
     }
 
     .tournament-empty-state {

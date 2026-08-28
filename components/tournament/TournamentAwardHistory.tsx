@@ -82,18 +82,18 @@ export const TournamentAwardHistory = ({
                                         <tbody>
                                             {batch.grants.map(grant => (
                                                 <tr key={grant.id}>
-                                                    <td>{grant.studentName}</td>
-                                                    <td>{grant.requestedAmount}</td>
-                                                    <td>
+                                                    <td data-label="학생">{grant.studentName}</td>
+                                                    <td data-label="요청">{grant.requestedAmount}</td>
+                                                    <td data-label="지급">
                                                         {grant.appliedAmount}
                                                         {grant.status === 'reversed' && ` (회수 ${grant.actualReversedAmount ?? 0})`}
                                                     </td>
-                                                    <td>
+                                                    <td data-label="쿠폰">
                                                         {grant.overflowAmount}
                                                         {grant.couponCancellation && ' (취소됨)'}
                                                     </td>
-                                                    <td>{grant.status === 'active' ? '활성' : '취소됨'}</td>
-                                                    <td>
+                                                    <td data-label="상태">{grant.status === 'active' ? '활성' : '취소됨'}</td>
+                                                    <td data-label="관리">
                                                         {grant.status === 'active' && (
                                                             <button
                                                                 type="button"
