@@ -8,4 +8,9 @@ export default defineConfig({
   build: {
     outDir: 'dist', // Specifies the output directory for the build files.
   },
+  server: {
+    watch: {
+      ignored: ['**/*firebase*.json', '**/*adminsdk*.json'],
+    },
+  },
 });
