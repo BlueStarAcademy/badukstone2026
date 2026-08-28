@@ -9,6 +9,7 @@ import {
     sortFullLeaguePlayers,
 } from '../../utils/tournament';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
+import { ConfirmationModal } from '../modals/ConfirmationModal';
 
 interface TournamentFullLeagueViewProps {
     data: TournamentData;
@@ -25,6 +26,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
     const fullLeague = data.fullLeague;
     const participantIds = data.fullLeagueParticipantIds || [];
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
+    const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
 
     const handleStartFullLeague = (ids: string[]) => {
         const participants = resolveParticipants(ids, students);
@@ -49,8 +51,8 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
     };
 
     const handleReset = () => {
-        if (!window.confirm('풀리그를 초기화하면 모든 경기 결과가 사라집니다. 계속하시겠습니까?')) return;
         setData(prev => ({ ...prev, fullLeague: undefined, fullLeagueParticipantIds: [] }));
+        setResetConfirmationOpen(false);
     };
 
     if (!fullLeague || fullLeague.players.length === 0) {
@@ -68,9 +70,10 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
     }
 
     const sortedPlayers = sortFullLeaguePlayers(fullLeague);
+    const isComplete = fullLeague.matches.length > 0 && fullLeague.matches.every(match => !!match.winnerId);
 
     const handleAwardPrizes = (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => {
-        if (!fullLeague) return;
+        if (!fullLeague || !isComplete) return;
         if (sortedPlayers.length === 0) return;
 
         const championId = sortedPlayers[0]?.studentId;
@@ -105,7 +108,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
         <div className="tournament-fullleague-view">
             <div className="fullleague-controls">
                 <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                <button className="btn danger" onClick={handleReset}>풀리그 초기화</button>
+                <button className="btn danger" onClick={() => setResetConfirmationOpen(true)}>풀리그 초기화</button>
             </div>
             <div className="fullleague-layout">
                 <div className="fullleague-matches-container">
@@ -168,9 +171,12 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                             type="button"
                             className="btn primary"
                             onClick={() => setIsPrizeModalOpen(true)}
+                            disabled={!isComplete}
+                            title={!isComplete ? '모든 경기 결과를 입력해야 시상할 수 있습니다.' : undefined}
                         >
                             순위 보상
                         </button>
+                        {!isComplete && <p className="award-disabled-reason">모든 경기를 완료하면 순위 보상을 진행할 수 있습니다.</p>}
                     </div>
                 </div>
             </div>
@@ -182,6 +188,16 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                 mode="fullleague"
                 onAwardPrizes={handleAwardPrizes}
             />
+            {resetConfirmationOpen && (
+                <ConfirmationModal
+                    message="풀리그를 초기화하면 모든 경기 결과가 사라집니다. 계속하시겠습니까?"
+                    onClose={() => setResetConfirmationOpen(false)}
+                    actions={[
+                        { text: '취소', onClick: () => setResetConfirmationOpen(false) },
+                        { text: '초기화', className: 'danger', onClick: handleReset },
+                    ]}
+                />
+            )}
         </div>
     );
 };

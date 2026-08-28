@@ -48,6 +48,7 @@ interface PreliminaryGroupViewProps {
 
 const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, groupIndex, players, onSetWinner, onOpenPrize }) => {
     const getPlayer = (id: string) => players.find(p => p.studentId === id);
+    const isGroupComplete = group.length > 0 && group.every(match => !!match.winnerId);
 
     const groupPlayers = useMemo(() => {
         const playerIds = new Set(group.flatMap(m => m.players));
@@ -59,7 +60,13 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <h3 style={{ margin: 0 }}>{groupIndex + 1}조</h3>
                 {onOpenPrize && (
-                    <button type="button" className="btn-sm primary" onClick={() => onOpenPrize(groupIndex)}>
+                    <button
+                        type="button"
+                        className="btn-sm primary"
+                        onClick={() => onOpenPrize(groupIndex)}
+                        disabled={!isGroupComplete}
+                        title={!isGroupComplete ? '이 조의 모든 경기 결과를 입력해야 시상할 수 있습니다.' : undefined}
+                    >
                         이 조 예선 시상
                     </button>
                 )}
@@ -174,6 +181,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         if (prelimPrizeGroupIndex === null || !data.hybrid) return;
         const gi = prelimPrizeGroupIndex;
         const group = data.hybrid.preliminaryGroups[gi];
+        if (!group.length || group.some(match => !match.winnerId)) return;
         const sorted = computeStandingsInPreliminaryGroup(group, data.hybrid.players);
         const label = `예선 ${gi + 1}조`;
         const grants: TournamentAwardGrant[] = [];

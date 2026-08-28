@@ -1,4 +1,121 @@
 
+/* Unified field-operation status for competition modes */
+.tournament-operations {
+    margin: 0.75rem 0 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: white;
+    box-shadow: var(--shadow);
+}
+
+.tournament-operation-stages {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(72px, 1fr));
+    gap: 0.4rem;
+}
+
+.tournament-operation-stage {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.45rem;
+    border-radius: 9px;
+    color: #64748b;
+    background: #f1f5f9;
+    font-size: 0.86rem;
+    font-weight: 650;
+}
+
+.tournament-operation-stage.complete {
+    color: #166534;
+    background: #dcfce7;
+}
+
+.tournament-operation-stage.active {
+    color: white;
+    background: var(--primary-color);
+}
+
+.operation-stage-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    color: inherit;
+    font-size: 0.75rem;
+}
+
+.tournament-operation-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.85rem;
+}
+
+.tournament-operation-summary p,
+.operation-inline-status,
+.award-disabled-reason {
+    margin: 0.25rem 0 0;
+    color: #64748b;
+    font-size: 0.86rem;
+}
+
+.tournament-operation-counts {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    white-space: nowrap;
+}
+
+.tournament-operation-progress {
+    height: 7px;
+    margin-top: 0.75rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e2e8f0;
+}
+
+.tournament-operation-progress span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--primary-color);
+    transition: width 0.2s ease;
+}
+
+.operation-inline-status {
+    padding: 0.65rem 0.8rem;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.swiss-player.swap-selected {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.relay-bonus-editor {
+    display: grid;
+    gap: 0.5rem;
+    font-weight: 600;
+}
+
+.relay-bonus-editor input {
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
 /* Tournament: Relay View */
 .tournament-relay-view {
     height: 100%;
@@ -151,6 +268,19 @@
 
 .relay-card.team-a { border-top: 4px solid var(--primary-color); }
 .relay-card.team-b { border-top: 4px solid var(--danger-color); }
+.relay-card.swap-selected {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.relay-swap-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.relay-swap-hint {
+    margin-top: 0.5rem;
+}
 
 .relay-card.empty {
     height: 100px;
@@ -1784,6 +1914,89 @@
     .match-players {
         font-size: 0.9rem;
         word-break: break-word;
+    }
+}
+
+@media (max-width: 900px) {
+    .tournament-operation-stages {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 0.25rem;
+        scroll-snap-type: x proximity;
+    }
+    .tournament-operation-stage {
+        flex: 0 0 92px;
+        scroll-snap-align: start;
+    }
+    .tournament-operation-summary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .tournament-operation-counts {
+        white-space: normal;
+    }
+    .relay-view-body,
+    .bracket-view-body,
+    .swiss-layout,
+    .fullleague-layout,
+    .doubleelim-tab-content {
+        flex-direction: column;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+    .tournament-relay-view,
+    .tournament-bracket-view,
+    .tournament-swiss-view,
+    .tournament-fullleague-view,
+    .tournament-doubleelim-view {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+    .relay-summary-panel,
+    .bracket-result-panel,
+    .swiss-rounds-container,
+    .swiss-standings-container,
+    .fullleague-matches-container,
+    .fullleague-standings-container,
+    .doubleelim-section {
+        width: 100%;
+        max-width: 100%;
+        flex: none;
+        position: static;
+        box-sizing: border-box;
+    }
+    .swiss-match-list,
+    .fullleague-match-list {
+        grid-template-columns: 1fr;
+    }
+    .swiss-standings-container,
+    .fullleague-standings-container {
+        overflow-x: auto;
+    }
+    .swiss-player,
+    .fullleague-player,
+    .doubleelim-player,
+    .bracket-player,
+    .relay-card-header,
+    .group-tab-buttons .tab-btn {
+        min-height: 44px;
+    }
+    .swap-btn {
+        opacity: 1;
+        min-width: 44px;
+        min-height: 44px;
+    }
+    .award-buttons-below-stats {
+        display: grid;
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+    .award-buttons-below-stats .btn,
+    .fullleague-standings-actions .btn {
+        width: 100%;
+        min-height: 44px;
     }
 }
 

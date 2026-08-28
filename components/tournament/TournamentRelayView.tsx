@@ -18,15 +18,22 @@ interface TournamentRelayViewProps {
     onAwardBatch: (request: TournamentAwardRequest) => boolean;
     awardEventKey: string;
     onOpenPlayerManagement: () => void;
+    winnerAwarded?: boolean;
+    loserAwarded?: boolean;
 }
 
 export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) => {
-    const { data, students, setData, settings, setSettings, onAwardBatch, awardEventKey, onOpenPlayerManagement } = props;
+    const {
+        data, students, setData, settings, setSettings, onAwardBatch, awardEventKey,
+        onOpenPlayerManagement, winnerAwarded = false, loserAwarded = false,
+    } = props;
     
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [playerToSwap, setPlayerToSwap] = useState<{ teamName: 'A' | 'B', playerIndex: number } | null>(null);
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
     const [awardModal, setAwardModal] = useState<{ teamName: string, teamType: 'winner' | 'loser' } | null>(null);
+    const [bonusEditorTeam, setBonusEditorTeam] = useState<'A' | 'B' | null>(null);
+    const [bonusAmount, setBonusAmount] = useState('5');
 
     const handlePlayerChange = (teamName: 'A' | 'B', playerIndex: number, field: keyof TournamentPlayer, value: any) => {
         setData(prev => {
@@ -138,20 +145,25 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
     };
 
     const handleApplyBonus = (teamName: 'A' | 'B') => {
-        const amountStr = prompt(`${teamName}팀에게 부여할 보너스 점수를 입력하세요:`, "5");
-        const amount = parseInt(amountStr || '0', 10);
-        
-        if (isNaN(amount) || amount === 0) return;
+        setBonusEditorTeam(teamName);
+        setBonusAmount('5');
+    };
+
+    const applyBonus = () => {
+        if (!bonusEditorTeam) return;
+        const amount = Number.parseInt(bonusAmount, 10);
+        if (!Number.isFinite(amount) || amount === 0) return;
 
         setData(prev => {
             const newTeams = prev.teams.map(team => {
-                if (team.name === teamName) {
+                if (team.name === bonusEditorTeam) {
                     return { ...team, bonusScore: (team.bonusScore || 0) + amount };
                 }
                 return team;
             });
             return { ...prev, teams: newTeams };
         });
+        setBonusEditorTeam(null);
     };
 
     const handleOpenSwapModal = (teamName: 'A' | 'B', playerIndex: number) => {
@@ -228,11 +240,17 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
         onApplyPenalty: handleApplyPenalty,
         onApplyBonus: handleApplyBonus,
         renderAfterGameStats: (winner) =>
-            winner ? (
+            winner === 'A' || winner === 'B' ? (
                 <div className="award-buttons-below-stats">
-                    <button type="button" className="btn" onClick={() => setAwardModal({ teamName: winner, teamType: 'winner' })}>🏆 승리팀 시상</button>
-                    <button type="button" className="btn" onClick={() => setAwardModal({ teamName: winner === 'A' ? 'B' : 'A', teamType: 'loser' })}>👏 패배팀 시상</button>
+                    <button type="button" className="btn" disabled={winnerAwarded} onClick={() => setAwardModal({ teamName: winner, teamType: 'winner' })}>
+                        {winnerAwarded ? '✓ 승리팀 시상 완료' : '🏆 승리팀 시상'}
+                    </button>
+                    <button type="button" className="btn" disabled={loserAwarded} onClick={() => setAwardModal({ teamName: winner === 'A' ? 'B' : 'A', teamType: 'loser' })}>
+                        {loserAwarded ? '✓ 패배팀 시상 완료' : '👏 패배팀 시상'}
+                    </button>
                 </div>
+            ) : winner === 'Draw' ? (
+                <p className="award-disabled-reason">동점 상태에서는 승리팀/패배팀 시상을 진행할 수 없습니다. 보너스 또는 감점을 확인하세요.</p>
             ) : null,
     });
     const winnerTeam = summaryData.winner;
@@ -290,6 +308,26 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                 />
             )}
              {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
+            {bonusEditorTeam && (
+                <ConfirmationModal
+                    onClose={() => setBonusEditorTeam(null)}
+                    message={(
+                        <label className="relay-bonus-editor">
+                            {bonusEditorTeam}팀 보너스 점수
+                            <input
+                                type="number"
+                                value={bonusAmount}
+                                onChange={event => setBonusAmount(event.target.value)}
+                                autoFocus
+                            />
+                        </label>
+                    )}
+                    actions={[
+                        { text: '취소', onClick: () => setBonusEditorTeam(null) },
+                        { text: '적용', className: 'primary', onClick: applyBonus },
+                    ]}
+                />
+            )}
             {awardModal && (
                 <TournamentAwardModal
                     isOpen={!!awardModal}

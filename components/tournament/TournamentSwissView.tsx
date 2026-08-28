@@ -38,6 +38,8 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
 
     const [swapModalOpen, setSwapModalOpen] = useState(false);
     const [draggedItem, setDraggedItem] = useState<{ matchId: string; playerId: string; playerIndex: 0 | 1 } | null>(null);
+    const [tapSwapEnabled, setTapSwapEnabled] = useState(false);
+    const [selectedSwapPlayer, setSelectedSwapPlayer] = useState<{ matchId: string; playerId: string; playerIndex: 0 | 1 } | null>(null);
     const [roundTab, setRoundTab] = useState(0);
     const [swissGroupTab, setSwissGroupTab] = useState(0);
 
@@ -104,6 +106,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     const latestRoundIndex = rounds.length - 1;
     const latestRound = rounds[latestRoundIndex];
     const isRoundComplete = latestRound.every(match => match.winnerId !== null);
+    const canAward = swissData!.status === 'finished';
 
     const useRoundTabs = players.length >= 16 && rounds.length >= 1;
     const displayRounds = useRoundTabs ? [rounds[Math.min(roundTab, rounds.length - 1)]] : rounds;
@@ -117,6 +120,16 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     };
 
     const handlePlayerClick = (match: SwissMatch, roundIndex: number, playerId: string) => {
+        if (tapSwapEnabled && roundIndex === latestRoundIndex && !match.winnerId) {
+            const playerIndex = match.players[0] === playerId ? 0 : 1;
+            if (!selectedSwapPlayer) {
+                setSelectedSwapPlayer({ matchId: match.id, playerId, playerIndex });
+            } else {
+                swapLatestRoundPlayers(selectedSwapPlayer, { matchId: match.id, playerId, playerIndex });
+                setSelectedSwapPlayer(null);
+            }
+            return;
+        }
         const newWinnerId = match.winnerId === playerId ? null : playerId;
         onSetWinner(groupIndexForCallbacks, roundIndex, match.id, newWinnerId);
     };
@@ -157,16 +170,12 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         (e.currentTarget as HTMLDivElement).classList.remove('drag-over-indicator');
     };
 
-    const handleDrop = (e: React.DragEvent, targetMatch: SwissMatch, targetPlayerId: string, targetPlayerIndex: 0 | 1) => {
-        e.preventDefault();
-        (e.currentTarget as HTMLDivElement).classList.remove('drag-over-indicator');
-        if (!draggedItem || targetMatch.winnerId || draggedItem.playerId === targetPlayerId) {
-            setDraggedItem(null);
-            return;
-        }
-
+    const swapLatestRoundPlayers = (
+        source: { matchId: string; playerId: string; playerIndex: 0 | 1 },
+        target: { matchId: string; playerId: string; playerIndex: 0 | 1 }
+    ) => {
+        if (source.playerId === target.playerId) return;
         const gIdx = groupIndexForCallbacks;
-
         onPlayerSwap(prev => {
             const newData = JSON.parse(JSON.stringify(prev));
             if (!newData.swiss) return newData;
@@ -181,20 +190,30 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
             const latestIdx = roundList.length - 1;
             const round = roundList[latestIdx];
 
-            const sourceMatch = round.find((m: SwissMatch) => m.id === draggedItem.matchId);
-            const dropMatch = round.find((m: SwissMatch) => m.id === targetMatch.id);
+            const sourceMatch = round.find((m: SwissMatch) => m.id === source.matchId);
+            const dropMatch = round.find((m: SwissMatch) => m.id === target.matchId);
 
-            if (!sourceMatch || !dropMatch) return newData;
+            if (!sourceMatch || !dropMatch || sourceMatch.winnerId || dropMatch.winnerId) return newData;
 
-            const sourcePlayer = sourceMatch.players[draggedItem.playerIndex];
-            const dropPlayer = dropMatch.players[targetPlayerIndex];
+            const sourcePlayer = sourceMatch.players[source.playerIndex];
+            const dropPlayer = dropMatch.players[target.playerIndex];
 
-            sourceMatch.players[draggedItem.playerIndex] = dropPlayer;
-            dropMatch.players[targetPlayerIndex] = sourcePlayer;
+            sourceMatch.players[source.playerIndex] = dropPlayer;
+            dropMatch.players[target.playerIndex] = sourcePlayer;
 
             return newData;
         });
+    };
 
+    const handleDrop = (e: React.DragEvent, targetMatch: SwissMatch, targetPlayerId: string, targetPlayerIndex: 0 | 1) => {
+        e.preventDefault();
+        (e.currentTarget as HTMLDivElement).classList.remove('drag-over-indicator');
+        if (!draggedItem || targetMatch.winnerId) {
+            setDraggedItem(null);
+            return;
+        }
+
+        swapLatestRoundPlayers(draggedItem, { matchId: targetMatch.id, playerId: targetPlayerId, playerIndex: targetPlayerIndex });
         setDraggedItem(null);
     };
 
@@ -220,8 +239,23 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                         마지막 라운드 취소
                     </button>
                 )}
-                <button className="btn" onClick={onOpenPrizeModal} disabled={rounds.length === 0}>
+                <button
+                    className="btn"
+                    onClick={onOpenPrizeModal}
+                    disabled={!canAward}
+                    title={!canAward ? '설정된 모든 라운드의 경기 결과를 입력해야 시상할 수 있습니다.' : undefined}
+                >
                     결과 및 시상
+                </button>
+                <button
+                    type="button"
+                    className={`btn ${tapSwapEnabled ? 'primary' : ''}`}
+                    onClick={() => {
+                        setTapSwapEnabled(value => !value);
+                        setSelectedSwapPlayer(null);
+                    }}
+                >
+                    {tapSwapEnabled ? '선수 교체 종료' : '탭으로 선수 교체'}
                 </button>
                 <button type="button" className="btn danger" onClick={onResetSwiss} disabled={!canResetSwiss}>
                     스위스 리그 초기화
@@ -232,6 +266,16 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                     </button>
                 )}
             </div>
+            {!canAward && (
+                <p className="operation-inline-status">시상은 설정된 모든 라운드의 경기가 완료된 후 가능합니다.</p>
+            )}
+            {tapSwapEnabled && (
+                <p className="operation-inline-status" role="status">
+                    {selectedSwapPlayer
+                        ? `${getPlayerName(selectedSwapPlayer.playerId)} 선택됨 — 바꿀 선수를 누르세요.`
+                        : '최신 라운드에서 첫 번째 선수와 바꿀 선수를 차례로 누르세요.'}
+                </p>
+            )}
             {canShowGroupSwap && (
                 <SwissGroupPlayerSwapModal
                     isOpen={swapModalOpen}
@@ -314,7 +358,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                                                     const playerElement = (
                                                         <div
                                                             key={String(playerId) + pIndex}
-                                                            className={`swiss-player ${!isClickable ? '' : 'clickable'} ${match.winnerId === playerId ? 'winner' : ''} ${match.winnerId && match.winnerId !== playerId ? 'loser' : ''} ${isDraggable ? 'draggable' : ''}`}
+                                                            className={`swiss-player ${!isClickable ? '' : 'clickable'} ${match.winnerId === playerId ? 'winner' : ''} ${match.winnerId && match.winnerId !== playerId ? 'loser' : ''} ${isDraggable ? 'draggable' : ''} ${selectedSwapPlayer?.matchId === match.id && selectedSwapPlayer.playerIndex === pIndex ? 'swap-selected' : ''}`}
                                                             onClick={() =>
                                                                 isClickable &&
                                                                 typeof playerId === 'string' &&

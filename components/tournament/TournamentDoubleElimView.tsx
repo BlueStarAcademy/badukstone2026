@@ -13,6 +13,7 @@ import { getDoubleElimPlacements } from '../../utils/tournamentPrizes';
 import { DoubleElimBracketTree } from './DoubleElimBracketTree';
 import { DoubleElimResultPanel } from './DoubleElimResultPanel';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
+import { ConfirmationModal } from '../modals/ConfirmationModal';
 
 interface TournamentDoubleElimViewProps {
     data: TournamentData;
@@ -29,6 +30,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
     const doubleElim = data.doubleElim;
     const participantIds = data.doubleElimParticipantIds || [];
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
+    const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
 
     const getPlayerName = (id: string | 'BYE' | null) => {
         if (!id || id === 'BYE') return id === 'BYE' ? '부전승' : '—';
@@ -130,8 +132,8 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
     };
 
     const handleReset = () => {
-        if (!window.confirm('더블엘리미네이션을 초기화하시겠습니까?')) return;
         setData(prev => ({ ...prev, doubleElim: undefined, doubleElimParticipantIds: [] }));
+        setResetConfirmationOpen(false);
     };
 
     const handleAwardPrizes = (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => {
@@ -183,7 +185,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
         <div className="tournament-doubleelim-view">
             <div className="bracket-controls">
                 <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                <button className="btn danger" onClick={handleReset}>초기화</button>
+                <button className="btn danger" onClick={() => setResetConfirmationOpen(true)}>초기화</button>
             </div>
             <div className="bracket-view-body">
                 <div className="bracket-main">
@@ -253,6 +255,16 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                     prizeKey="bracket"
                     mode="doubleelim"
                     onAwardPrizes={handleAwardPrizes}
+                />
+            )}
+            {resetConfirmationOpen && (
+                <ConfirmationModal
+                    message="더블엘리미네이션을 초기화하시겠습니까? 모든 경기 결과가 사라집니다."
+                    onClose={() => setResetConfirmationOpen(false)}
+                    actions={[
+                        { text: '취소', onClick: () => setResetConfirmationOpen(false) },
+                        { text: '초기화', className: 'danger', onClick: handleReset },
+                    ]}
                 />
             )}
         </div>

@@ -31,6 +31,8 @@ import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout }
 import { swapSwissPlayersBetweenGroups } from '../../utils/swissGroupSwap';
 import { hasActiveTournamentAward, previewTournamentAward } from '../../utils/tournament/awards';
 import { TournamentAwardHistory } from './TournamentAwardHistory';
+import { TournamentOperationsHeader } from './TournamentOperationsHeader';
+import { getTournamentOperationStatus, type TournamentOperationMode } from '../../utils/tournament/operationProgress';
 import {
     cancelLastSwissRound,
     createFullLeague,
@@ -616,6 +618,30 @@ export const TournamentView = (props: TournamentViewProps) => {
         });
     };
 
+    const modeNames: Record<TournamentOperationMode, string> = {
+        relay: '팀 대항전',
+        bracket: '토너먼트',
+        swiss: '스위스리그',
+        hybrid: '예선+본선',
+        fullleague: '풀리그',
+        doubleelim: '더블엘리미네이션',
+    };
+    const operationMode = activeTab === 'mission' ? null : activeTab;
+    const activeAwardExists = (key: string) => hasActiveTournamentAward(awardLedger, key);
+    const operationAwardsCompleted = operationMode === 'relay'
+        ? Number(activeAwardExists(`${eventKey('relay', 'team')}:winner`)) +
+            Number(activeAwardExists(`${eventKey('relay', 'team')}:loser`))
+        : operationMode
+            ? Number(activeAwardExists(
+                operationMode === 'hybrid'
+                    ? `${eventKey('hybrid', 'session')}:final`
+                    : eventKey(operationMode, 'final')
+            ))
+            : 0;
+    const operationStatus = operationMode
+        ? getTournamentOperationStatus(data, settings, operationMode, operationAwardsCompleted)
+        : null;
+
     return (
         <div className="tournament-view">
             <div className="view-header-actions">
@@ -631,6 +657,10 @@ export const TournamentView = (props: TournamentViewProps) => {
                 <button className="btn" onClick={() => setIsSettingsModalOpen(true)}>대회 설정</button>
             </div>
 
+            {operationMode && operationStatus && (
+                <TournamentOperationsHeader modeName={modeNames[operationMode]} status={operationStatus} />
+            )}
+
             <div className="tournament-content">
                 {activeTab === 'relay' && (
                     <TournamentRelayView 
@@ -641,6 +671,8 @@ export const TournamentView = (props: TournamentViewProps) => {
                         setSettings={setSettings}
                         onAwardBatch={handleAwardBatch}
                         awardEventKey={eventKey('relay', 'team')}
+                        winnerAwarded={activeAwardExists(`${eventKey('relay', 'team')}:winner`)}
+                        loserAwarded={activeAwardExists(`${eventKey('relay', 'team')}:loser`)}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                     />
                 )}
