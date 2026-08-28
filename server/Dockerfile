@@ -5,12 +5,12 @@ ENV NPM_CONFIG_FUND=false
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY server/package*.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
-COPY src ./src
-COPY migrations ./migrations
+COPY server/tsconfig.json ./
+COPY server/src ./src
+COPY server/migrations ./migrations
 RUN npm run build
 
 FROM node:lts-alpine
@@ -21,11 +21,11 @@ ENV NODE_ENV=production
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY server/package*.json ./
 RUN npm ci --omit=dev
 
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/migrations ./migrations
+COPY server/migrations ./migrations
 
 EXPOSE 3001
 
