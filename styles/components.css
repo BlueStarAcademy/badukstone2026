@@ -365,10 +365,59 @@
 
 /* Empty State Styling */
 .empty-state-mini {
-    padding: 2rem;
+    padding: 2rem 1.25rem;
     text-align: center;
-    color: #94a3b8;
+    color: var(--color-muted);
     font-size: 0.9rem;
+}
+
+.empty-state-mini p {
+    margin: 0.25rem 0 0;
+}
+
+.app-loader {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100vw;
+    height: 100vh;
+    background:
+        radial-gradient(circle at 14% 18%, rgba(39, 103, 216, 0.1), transparent 34%),
+        var(--bg-color);
+    color: var(--secondary-color);
+}
+
+.app-loader-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    min-width: min(360px, calc(100vw - 2rem));
+    padding: 2rem 1.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    background: var(--surface-color);
+    box-shadow: var(--shadow-md);
+    text-align: center;
+}
+
+.app-loader-mark {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    border: 1px solid rgba(39, 103, 216, 0.22);
+    background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,0.55), transparent 45%),
+        linear-gradient(135deg, #173b75 0%, var(--primary-color) 100%);
+    box-shadow: var(--shadow-sm);
+    animation: pulse 1.5s infinite;
+}
+
+.app-loader-message {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 650;
+    color: var(--color-ink);
 }
 
 /* View Toggle (unified with base.css .view-toggle — shared segment-control look) */

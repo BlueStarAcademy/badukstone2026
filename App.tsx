@@ -152,12 +152,12 @@ const getInitialData = (): AppData => ({
 });
 
 const AppLoader = ({ message, showLogout, onLogout }: { message: string, showLogout?: boolean, onLogout?: () => void }) => (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', fontSize: '1.2rem', background: 'var(--bg-color)', color: 'var(--secondary-color)' }}>
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-            <div style={{ marginBottom: '1rem', fontSize: '2.5rem' }}>💎</div>
-            <div style={{ marginBottom: '1.5rem' }}>{message}</div>
+    <div className="app-loader">
+        <div className="app-loader-card">
+            <div className="app-loader-mark" aria-hidden />
+            <p className="app-loader-message">{message}</p>
             {showLogout && onLogout && (
-                <button className="btn primary" onClick={onLogout}>다시 로그인하기</button>
+                <button type="button" className="btn primary" onClick={onLogout}>다시 로그인하기</button>
             )}
         </div>
     </div>

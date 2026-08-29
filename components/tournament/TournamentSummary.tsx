@@ -102,7 +102,7 @@ export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus
                             <p className="penalty-info" style={{margin: '2px 0'}}>감점: -{scoresA.penaltyDeduction}</p>
                         )}
                         {scoresA.bonusPoints > 0 && (
-                            <p className="bonus-info" style={{margin: '2px 0', color: '#81c784', fontWeight: 'bold'}}>보너스: +{scoresA.bonusPoints}</p>
+                            <p className="bonus-info">보너스: +{scoresA.bonusPoints}</p>
                         )}
                     </div>
                     {winner === 'A' && <div className="winner-badge">WINNER</div>}
@@ -124,7 +124,7 @@ export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus
                             <p className="penalty-info" style={{margin: '2px 0'}}>감점: -{scoresB.penaltyDeduction}</p>
                         )}
                         {scoresB.bonusPoints > 0 && (
-                            <p className="bonus-info" style={{margin: '2px 0', color: '#81c784', fontWeight: 'bold'}}>보너스: +{scoresB.bonusPoints}</p>
+                            <p className="bonus-info">보너스: +{scoresB.bonusPoints}</p>
                         )}
                     </div>
                      {winner === 'B' && <div className="winner-badge">WINNER</div>}

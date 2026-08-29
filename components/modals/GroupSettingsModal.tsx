@@ -174,7 +174,7 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
                     <div className="settings-section" style={{ marginTop: '2rem' }}>
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem'}}>
                             <h3 style={{ margin: 0, color: 'var(--secondary-color)' }}>그룹 설정</h3>
-                            <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>💡 드래그하여 순서 변경</span>
+                            <span className="form-hint">드래그하여 순서 변경</span>
                         </div>
                         
                         <div className="table-container">

@@ -243,10 +243,10 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
             winner === 'A' || winner === 'B' ? (
                 <div className="award-buttons-below-stats">
                     <button type="button" className="btn" disabled={winnerAwarded} onClick={() => setAwardModal({ teamName: winner, teamType: 'winner' })}>
-                        {winnerAwarded ? '✓ 승리팀 시상 완료' : '🏆 승리팀 시상'}
+                        {winnerAwarded ? '✓ 승리팀 시상 완료' : '승리팀 시상'}
                     </button>
                     <button type="button" className="btn" disabled={loserAwarded} onClick={() => setAwardModal({ teamName: winner === 'A' ? 'B' : 'A', teamType: 'loser' })}>
-                        {loserAwarded ? '✓ 패배팀 시상 완료' : '👏 패배팀 시상'}
+                        {loserAwarded ? '✓ 패배팀 시상 완료' : '패배팀 시상'}
                     </button>
                 </div>
             ) : winner === 'Draw' ? (

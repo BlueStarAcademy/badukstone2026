@@ -547,7 +547,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 title="급수 수정"
                                 aria-label="급수 수정"
                             >
-                                ✏️
+                                수정
                             </button>
                             <span>({groupSettings[student.group]?.name || student.group})</span>
                         </p>

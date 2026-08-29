@@ -460,6 +460,13 @@
     color: var(--t-muted, var(--color-muted));
 }
 
+.bonus-info {
+    margin: 2px 0;
+    color: var(--success-color);
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
 .summary-after-game-stats {
     margin-top: 1rem;
     display: flex;
