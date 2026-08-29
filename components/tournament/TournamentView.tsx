@@ -28,6 +28,7 @@ import { generateId, parseRank, sortSwissPlayers } from '../../utils';
 import { asArray, normalizeSwissRounds } from '../../utils/tournament/compatibility';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { buildDoubleElim } from '../../utils/doubleElimBracket';
+import { buildSingleElimRounds } from '../../utils/elimBracket';
 import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
 import { swapSwissPlayersBetweenGroups } from '../../utils/swissGroupSwap';
 import { hasActiveTournamentAward, previewTournamentAward } from '../../utils/tournament/awards';
@@ -81,6 +82,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const [isPlayerManagementModalOpen, setIsPlayerManagementModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isSwissPrizeModalOpen, setIsSwissPrizeModalOpen] = useState(false);
+    const [operationsOpen, setOperationsOpen] = useState(false);
 
     const getAwardSessionId = (mode: TournamentAwardMode): string => {
         const stored = data.awardSessionIds?.[mode];
@@ -144,32 +146,39 @@ export const TournamentView = (props: TournamentViewProps) => {
         });
     };
 
-    const handleInitFullLeague = (ids: string[]) => {
+    const handleInitFullLeague = (mode: 'random' | 'ranked', ids: string[]) => {
         const participants = resolveParticipants(ids, students);
         if (participants.length < 2) {
             alert('풀리그를 시작하려면 최소 2명이 필요합니다.');
             return;
         }
+        const ordered =
+            mode === 'ranked'
+                ? [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank))
+                : [...participants].sort(() => 0.5 - Math.random());
         setData(prev => ({
             ...prev,
-            fullLeagueParticipantIds: ids,
-            fullLeague: createFullLeague(participants, generateId),
+            fullLeagueParticipantIds: ordered.map(p => p.id),
+            fullLeague: createFullLeague(ordered, generateId),
             awardSessionIds: { ...prev.awardSessionIds, fullleague: generateId() },
         }));
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleInitDoubleElim = (ids: string[]) => {
+    const handleInitDoubleElim = (mode: 'random' | 'ranked', ids: string[]) => {
         const list = ids.filter(id => students.some(s => s.id === id));
         if (list.length < 2) {
             alert('더블엘리미네이션을 시작하려면 최소 2명이 필요합니다.');
             return;
         }
-        const sorted = [...list].sort((a, b) => {
-            const ra = students.find(s => s.id === a);
-            const rb = students.find(s => s.id === b);
-            return parseRank(rb?.rank || '') - parseRank(ra?.rank || '');
-        });
+        const sorted =
+            mode === 'ranked'
+                ? [...list].sort((a, b) => {
+                    const ra = students.find(s => s.id === a);
+                    const rb = students.find(s => s.id === b);
+                    return parseRank(rb?.rank || '') - parseRank(ra?.rank || '');
+                })
+                : [...list].sort(() => 0.5 - Math.random());
         const prio = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
         setData(prev => ({
             ...prev,
@@ -338,7 +347,7 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleInitHybrid = (ids: string[]) => {
+    const handleInitHybrid = (mode: 'random' | 'ranked', ids: string[]) => {
         const participantIdsToUse = ids;
         const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
@@ -355,7 +364,7 @@ export const TournamentView = (props: TournamentViewProps) => {
         }
 
         let sortedParticipants: Student[];
-        if (settings.hybridMode === 'rank') {
+        if (mode === 'ranked') {
             sortedParticipants = [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
         } else {
             sortedParticipants = [...participants].sort(() => 0.5 - Math.random());
@@ -383,7 +392,46 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleInitMissionBaduk = (ids: string[]) => {
+    const handleInitBracket = (mode: 'random' | 'ranked', ids: string[]) => {
+        const participants = ids
+            .map(id => students.find(s => s.id === id))
+            .filter((s): s is Student => !!s);
+
+        const ordered =
+            mode === 'ranked'
+                ? [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank))
+                : [...participants].sort(() => 0.5 - Math.random());
+
+        if (ordered.length < 2) {
+            alert('토너먼트를 생성하려면 최소 2명의 참가자가 필요합니다.');
+            return;
+        }
+
+        const tournamentPlayers: TournamentPlayer[] = ordered.map(p => ({
+            studentId: p.id,
+            name: p.name,
+            rank: p.rank,
+            game1Handicap: 0,
+            game1Color: 'black' as const,
+            game1Result: null,
+            game2Score: null,
+            game2LastStone: false,
+            game3Score: null,
+        }));
+
+        const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
+        const { rounds } = buildSingleElimRounds(tournamentPlayers, byePriority, true);
+
+        setData(prev => ({
+            ...prev,
+            bracketParticipantIds: ordered.map(p => p.id),
+            bracket: { rounds, players: tournamentPlayers },
+            awardSessionIds: { ...prev.awardSessionIds, bracket: generateId() },
+        }));
+        setIsPlayerManagementModalOpen(false);
+    };
+
+    const handleInitMissionBaduk = (mode: 'random' | 'ranked', ids: string[]) => {
         const participantIdsToUse = ids;
 
         if (participantIdsToUse.length === 0) {
@@ -395,12 +443,17 @@ export const TournamentView = (props: TournamentViewProps) => {
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
 
+        const ordered =
+            mode === 'ranked'
+                ? [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank))
+                : [...participants].sort(() => 0.5 - Math.random());
+
         setData(prev => {
             const existingPlayers = prev.missionBaduk?.players || [];
             const existingPlayerMap = new Map<string, MissionBadukPlayer>();
             existingPlayers.forEach(p => existingPlayerMap.set(p.studentId, p));
 
-            const newPlayers = participants.map(p => {
+            const newPlayers = ordered.map(p => {
                 if (existingPlayerMap.has(p.id)) {
                     return { ...existingPlayerMap.get(p.id)!, name: p.name };
                 }
@@ -416,7 +469,7 @@ export const TournamentView = (props: TournamentViewProps) => {
 
             return {
                 ...prev,
-                missionParticipantIds: participantIdsToUse,
+                missionParticipantIds: ordered.map(p => p.id),
                 missionBaduk: {
                     players: newPlayers
                 }
@@ -655,7 +708,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const activeMode = tournamentModes.find(mode => mode.id === activeTab)!;
 
     return (
-        <div className="tournament-view">
+        <div className={`tournament-view ${operationsOpen ? 'ops-open' : 'ops-collapsed'}`}>
             <header className="tournament-console-header">
                 <div className="tournament-console-title">
                     <span className="tournament-console-eyebrow">COMPETITION OPERATIONS</span>
@@ -668,24 +721,50 @@ export const TournamentView = (props: TournamentViewProps) => {
                     <span aria-hidden>⚙</span>
                     <span>대회 설정</span>
                 </button>
-                <nav className="view-toggle tournament-mode-nav" aria-label="대회 방식" role="tablist">
-                    {tournamentModes.map(mode => (
+                <div className="tournament-console-footer">
+                    <nav className="view-toggle tournament-mode-nav" aria-label="대회 방식" role="tablist">
+                        {tournamentModes.map(mode => (
+                            <button
+                                key={mode.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={activeTab === mode.id}
+                                className={`toggle-btn ${activeTab === mode.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(mode.id)}
+                            >
+                                {mode.label}
+                            </button>
+                        ))}
+                    </nav>
+                    {operationMode && operationStatus && (
                         <button
-                            key={mode.id}
                             type="button"
-                            role="tab"
-                            aria-selected={activeTab === mode.id}
-                            className={`toggle-btn ${activeTab === mode.id ? 'active' : ''}`}
-                            onClick={() => setActiveTab(mode.id)}
+                            className={`tournament-ops-toggle ${operationsOpen ? 'is-open' : ''}`}
+                            onClick={() => setOperationsOpen(value => !value)}
+                            aria-expanded={operationsOpen}
+                            aria-controls="tournament-operations-panel"
                         >
-                            {mode.label}
+                            <span className="tournament-ops-toggle-copy">
+                                <small>OPS STATUS</small>
+                                <strong>운영 현황</strong>
+                            </span>
+                            <span className="tournament-ops-toggle-meta">
+                                <span className="tournament-ops-stage-chip">{operationStatus.stage}</span>
+                                <span className="tournament-ops-toggle-icon" aria-hidden>
+                                    {operationsOpen ? '−' : '+'}
+                                </span>
+                            </span>
                         </button>
-                    ))}
-                </nav>
+                    )}
+                </div>
             </header>
 
-            {operationMode && operationStatus && (
-                <TournamentOperationsHeader modeName={modeNames[operationMode]} status={operationStatus} />
+            {operationMode && operationStatus && operationsOpen && (
+                <TournamentOperationsHeader
+                    id="tournament-operations-panel"
+                    modeName={modeNames[operationMode]}
+                    status={operationStatus}
+                />
             )}
 
             <div className="tournament-content">
@@ -796,6 +875,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                     onInitHybrid={handleInitHybrid}
                     onInitFullLeague={handleInitFullLeague}
                     onInitDoubleElim={handleInitDoubleElim}
+                    onInitBracket={handleInitBracket}
                 />
             )}
             

@@ -4,16 +4,17 @@ import type { TournamentOperationStage, TournamentOperationStatus } from '../../
 const STAGES: TournamentOperationStage[] = ['설정', '참가자', '대진', '경기', '순위', '시상'];
 
 interface TournamentOperationsHeaderProps {
+    id?: string;
     modeName: string;
     status: TournamentOperationStatus;
 }
 
-export const TournamentOperationsHeader = ({ modeName, status }: TournamentOperationsHeaderProps) => {
+export const TournamentOperationsHeader = ({ id, modeName, status }: TournamentOperationsHeaderProps) => {
     const activeIndex = STAGES.indexOf(status.stage);
     const percent = Math.round(status.ratio * 100);
 
     return (
-        <section className="tournament-operations" aria-label={`${modeName} 운영 진행`}>
+        <section id={id} className="tournament-operations" aria-label={`${modeName} 운영 진행`}>
             <div className="tournament-operation-heading">
                 <div>
                     <span className="operation-eyebrow">LIVE TOURNAMENT CONTROL</span>
