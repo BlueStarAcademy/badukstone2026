@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import type { Student, TournamentAwardRequest, TournamentData, TournamentSettings } from '../../types';
-import { generateId } from '../../utils';
+import { generateId, parseRank } from '../../utils';
 import {
     createFullLeague,
     resolveParticipants,
@@ -24,25 +24,46 @@ interface TournamentFullLeagueViewProps {
     settings: TournamentSettings;
     onAwardBatch: (request: TournamentAwardRequest) => boolean;
     awardEventKey: string;
+    onInitFullLeague?: (mode: 'random' | 'ranked', ids: string[]) => void;
 }
 
 export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) => {
-    const { data, students, setData, onOpenPlayerManagement, settings, onAwardBatch, awardEventKey } = props;
+    const {
+        data,
+        students,
+        setData,
+        onOpenPlayerManagement,
+        settings,
+        onAwardBatch,
+        awardEventKey,
+        onInitFullLeague,
+    } = props;
     const fullLeague = data.fullLeague;
     const participantIds = data.fullLeagueParticipantIds || [];
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
     const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
+    const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
 
-    const handleStartFullLeague = (ids: string[]) => {
+    const canResetFullLeague = participantIds.length > 0 || !!fullLeague;
+
+    const handleStartFullLeague = (mode: 'random' | 'ranked', ids: string[]) => {
+        if (onInitFullLeague) {
+            onInitFullLeague(mode, ids);
+            return;
+        }
         const participants = resolveParticipants(ids, students);
         if (participants.length < 2) {
             alert('풀리그를 시작하려면 최소 2명이 필요합니다.');
             return;
         }
+        const ordered =
+            mode === 'ranked'
+                ? [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank))
+                : [...participants].sort(() => 0.5 - Math.random());
         setData(prev => ({
             ...prev,
-            fullLeagueParticipantIds: ids,
-            fullLeague: createFullLeague(participants, generateId),
+            fullLeagueParticipantIds: ordered.map(p => p.id),
+            fullLeague: createFullLeague(ordered, generateId),
             awardSessionIds: { ...prev.awardSessionIds, fullleague: generateId() },
         }));
     };
@@ -66,16 +87,60 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
                 <span className="tournament-empty-kicker">ROUND ROBIN SETUP</span>
                 <h3>풀리그 준비</h3>
                 <div className="tournament-empty-actions">
-                    <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
+                    <button type="button" className="btn" onClick={onOpenPlayerManagement}>
+                        선수 관리
+                    </button>
+                    <button
+                        type="button"
+                        className="btn danger"
+                        onClick={() => setResetConfirmationOpen(true)}
+                        disabled={!canResetFullLeague}
+                    >
+                        풀리그 초기화
+                    </button>
                 </div>
-                <p>풀리그(전체 라운드로빈) 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
-                <button className="btn primary" onClick={() => participantIds.length >= 2 && handleStartFullLeague(participantIds)} disabled={participantIds.length < 2}>
-                    풀리그 시작
-                </button>
+                <p>
+                    풀리그(전체 라운드로빈) 대진이 없습니다.
+                    {participantIds.length >= 2
+                        ? ' 저장된 참가자로 바로 시작할 수 있습니다.'
+                        : " '선수 관리'에서 참가자를 선택하고 시작하세요."}
+                </p>
+                <div className="tournament-empty-setup">
+                    <div className="tournament-player-mgmt-assign">
+                        <label htmlFor="fullleague-empty-assign">배정/시드</label>
+                        <select
+                            id="fullleague-empty-assign"
+                            value={assignmentMode}
+                            onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                        >
+                            <option value="ranked">급수 순</option>
+                            <option value="random">무작위</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="tournament-empty-actions">
+                    <button
+                        type="button"
+                        className="btn primary"
+                        onClick={() => handleStartFullLeague(assignmentMode, participantIds)}
+                        disabled={participantIds.length < 2}
+                    >
+                        풀리그 시작 ({participantIds.length}명)
+                    </button>
+                </div>
+                {resetConfirmationOpen && (
+                    <ConfirmationModal
+                        message="풀리그 대진·결과를 초기화할까요? 참가자 목록은 유지됩니다."
+                        onClose={() => setResetConfirmationOpen(false)}
+                        actions={[
+                            { text: '취소', onClick: () => setResetConfirmationOpen(false) },
+                            { text: '초기화', className: 'danger', onClick: handleReset },
+                        ]}
+                    />
+                )}
             </div>
         );
     }
-
     const sortedPlayers = sortFullLeaguePlayers(fullLeague);
     const isComplete = fullLeague.matches.length > 0 && fullLeague.matches.every(match => !!match.winnerId);
 

@@ -513,46 +513,34 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
     };
 
     const handleRemovePlayer = (studentId: string) => {
-        // 즉시 삭제 처리 (사용자 경험 개선)
+        // 진행 중 목록에서만 제거하고, 참가자 명단(재시작용)은 유지한다.
         saveHistory();
         setData(prev => {
             if (!prev.missionBaduk) return prev;
-            // 1. MissionBaduk 리스트에서 완전 삭제
             const newPlayers = prev.missionBaduk.players.filter(p => p.studentId !== studentId);
-            // 2. TournamentData의 미션 참가자 명단에서도 삭제
-            const newParticipantIds = (prev.missionParticipantIds || []).filter(id => id !== studentId);
-            
-            return { 
-                ...prev, 
-                missionParticipantIds: newParticipantIds,
-                missionBaduk: { ...prev.missionBaduk, players: newPlayers } 
+            return {
+                ...prev,
+                missionBaduk: { ...prev.missionBaduk, players: newPlayers },
             };
         });
     };
 
     const handleFinishConfirm = (stones: number) => {
         if (finishingPlayerId) {
-            // 1. 스톤 지급
             if (stones > 0) {
                 onBulkAddTransaction([finishingPlayerId], '미션 바둑 최종 보상', stones);
             }
-            
-            // 2. 즉시 리스트에서 제거 (완료 학생 제거와 동일한 효과)
+
             saveHistory();
             setData(prev => {
                 if (!prev.missionBaduk) return prev;
-                // 선수 리스트에서 필터링
                 const newPlayers = prev.missionBaduk.players.filter(p => p.studentId !== finishingPlayerId);
-                // 참가자 명단에서도 삭제
-                const newParticipantIds = (prev.missionParticipantIds || []).filter(id => id !== finishingPlayerId);
-
                 return {
                     ...prev,
-                    missionParticipantIds: newParticipantIds,
-                    missionBaduk: { ...prev.missionBaduk, players: newPlayers }
+                    missionBaduk: { ...prev.missionBaduk, players: newPlayers },
                 };
             });
-            
+
             setFinishingPlayerId(null);
         }
     };
@@ -579,17 +567,10 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
         saveHistory();
         setData(prev => {
             if (!prev.missionBaduk) return prev;
-            const finishedIds = prev.missionBaduk.players
-                .filter(p => p.status === 'finished')
-                .map(p => p.studentId);
-                
             const activePlayers = prev.missionBaduk.players.filter(p => p.status !== 'finished');
-            const newParticipantIds = (prev.missionParticipantIds || []).filter(id => !finishedIds.includes(id));
-            
-            return { 
-                ...prev, 
-                missionParticipantIds: newParticipantIds,
-                missionBaduk: { ...prev.missionBaduk, players: activePlayers } 
+            return {
+                ...prev,
+                missionBaduk: { ...prev.missionBaduk, players: activePlayers },
             };
         });
     };

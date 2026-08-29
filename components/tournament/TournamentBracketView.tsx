@@ -264,7 +264,7 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
 
     const handleResetBracket = () => {
          setConfirmation({
-            message: "정말 대진표를 초기화하시겠습니까? 모든 경기 결과가 사라집니다.",
+            message: '대진표를 초기화할까요? 참가자 목록은 유지됩니다.',
             actions: [
                 { text: '취소', onClick: () => setConfirmation(null) },
                 {

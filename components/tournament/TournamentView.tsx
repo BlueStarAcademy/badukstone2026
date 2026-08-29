@@ -803,6 +803,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         winnerAwarded={activeAwardExists(`${eventKey('relay', 'team')}:winner`)}
                         loserAwarded={activeAwardExists(`${eventKey('relay', 'team')}:loser`)}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
+                        onAssignTeams={handleAssignTeams}
                     />
                 )}
                 {activeTab === 'bracket' && (
@@ -855,6 +856,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         settings={settings}
                         onAwardBatch={handleAwardBatch}
                         awardEventKey={eventKey('fullleague', 'final')}
+                        onInitFullLeague={handleInitFullLeague}
                     />
                 )}
                 {activeTab === 'doubleelim' && (

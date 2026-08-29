@@ -73,6 +73,9 @@ describe('round title helpers', () => {
         expect(isSemiFinalRoundTitle('4강')).toBe(true);
         expect(isSemiFinalRoundTitle('8강')).toBe(false);
         expect(isFinalRoundTitle('결승 & 3/4위전')).toBe(true);
+        expect(isFinalRoundTitle('결승')).toBe(true);
+        expect(isFinalRoundTitle('준결승')).toBe(false);
+        expect(isFinalRoundTitle('4강전')).toBe(false);
         expect(isFinalRoundTitle('8강')).toBe(false);
     });
 });

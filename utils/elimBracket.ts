@@ -37,6 +37,8 @@ export function isSemiFinalRoundTitle(title: string): boolean {
 }
 
 export function isFinalRoundTitle(title: string): boolean {
+    // 준결승은 '결승' 글자를 포함하므로 먼저 제외
+    if (isSemiFinalRoundTitle(title)) return false;
     return title.includes('결승');
 }
 

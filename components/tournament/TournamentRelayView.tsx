@@ -19,6 +19,7 @@ interface TournamentRelayViewProps {
     onAwardBatch: (request: TournamentAwardRequest) => boolean;
     awardEventKey: string;
     onOpenPlayerManagement: () => void;
+    onAssignTeams?: (mode: 'random' | 'ranked', ids: string[]) => void;
     winnerAwarded?: boolean;
     loserAwarded?: boolean;
 }
@@ -26,7 +27,7 @@ interface TournamentRelayViewProps {
 export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) => {
     const {
         data, students, setData, settings, setSettings, onAwardBatch, awardEventKey,
-        onOpenPlayerManagement, winnerAwarded = false, loserAwarded = false,
+        onOpenPlayerManagement, onAssignTeams, winnerAwarded = false, loserAwarded = false,
     } = props;
     
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
@@ -35,7 +36,23 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
     const [awardModal, setAwardModal] = useState<{ teamName: string, teamType: 'winner' | 'loser' } | null>(null);
     const [bonusEditorTeam, setBonusEditorTeam] = useState<'A' | 'B' | null>(null);
     const [bonusAmount, setBonusAmount] = useState('5');
+    const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
 
+    const participantIds = data.relayParticipantIds || [];
+    const hasTeamPlayers = (data.teams || []).some(team => (team.players?.length || 0) > 0);
+    const canResetRelayTeams =
+        participantIds.length > 0 || hasTeamPlayers;
+
+    const handleClearTeamsKeepRoster = () => {
+        setData(prev => ({
+            ...prev,
+            teams: [
+                { name: 'A', players: [], mannerPenalties: 0, bonusScore: 0 },
+                { name: 'B', players: [], mannerPenalties: 0, bonusScore: 0 },
+            ],
+        }));
+        setConfirmation(null);
+    };
     const handlePlayerChange = (teamName: 'A' | 'B', playerIndex: number, field: keyof TournamentPlayer, value: any) => {
         setData(prev => {
             const newTeams = prev.teams.map(team => {
@@ -234,6 +251,70 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
     const playerToReplace = playerToSwap 
         ? data.teams.find(t => t.name === playerToSwap.teamName)?.players[playerToSwap.playerIndex]
         : null;
+
+    if (!hasTeamPlayers) {
+        return (
+            <div className="tournament-relay-view tournament-empty-state">
+                <span className="tournament-empty-kicker">RELAY SETUP</span>
+                <h3>팀 대항전 준비</h3>
+                <div className="tournament-empty-actions">
+                    <button type="button" className="btn" onClick={onOpenPlayerManagement}>
+                        선수 관리 및 팀 배정
+                    </button>
+                    <button
+                        type="button"
+                        className="btn danger"
+                        disabled={!canResetRelayTeams}
+                        onClick={() =>
+                            setConfirmation({
+                                message: '팀 배정을 지울까요? 참가자 목록은 유지됩니다.',
+                                actions: [
+                                    { text: '취소', onClick: () => setConfirmation(null) },
+                                    { text: '초기화', className: 'danger', onClick: handleClearTeamsKeepRoster },
+                                ],
+                            })
+                        }
+                    >
+                        팀 배정 초기화
+                    </button>
+                </div>
+                <p>
+                    팀 배정이 없습니다.
+                    {participantIds.length >= 2
+                        ? ' 저장된 참가자로 바로 팀을 배정할 수 있습니다.'
+                        : " '선수 관리 및 팀 배정'에서 참가자를 선택하세요."}
+                </p>
+                {onAssignTeams && (
+                    <>
+                        <div className="tournament-empty-setup">
+                            <div className="tournament-player-mgmt-assign">
+                                <label htmlFor="relay-empty-assign">배정/시드</label>
+                                <select
+                                    id="relay-empty-assign"
+                                    value={assignmentMode}
+                                    onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                                >
+                                    <option value="ranked">급수 순</option>
+                                    <option value="random">무작위</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="tournament-empty-actions">
+                            <button
+                                type="button"
+                                className="btn primary"
+                                onClick={() => onAssignTeams(assignmentMode, participantIds)}
+                                disabled={participantIds.length < 2}
+                            >
+                                팀 배정 시작 ({participantIds.length}명)
+                            </button>
+                        </div>
+                    </>
+                )}
+                {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
+            </div>
+        );
+    }
 
     const summaryData = TournamentSummary({
         data,
