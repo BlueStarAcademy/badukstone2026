@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { GroupSettings, GeneralSettings } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface GroupSettingsModalProps {
     isOpen: boolean;
@@ -105,10 +106,12 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
-                <h2>그룹 및 일반 설정</h2>
-                <div className="modal-body">
+        <ModalShell
+            title="그룹 및 일반 설정"
+            size="lg"
+            onClose={onClose}
+            footer={<button type="button" className="btn primary" onClick={onClose}>닫기</button>}
+        >
                     <div className="settings-section">
                         <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--secondary-color)' }}>일반 설정</h3>
                         <div className="general-settings-grid">
@@ -224,11 +227,6 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
                             </table>
                         </div>
                     </div>
-                </div>
-                <div className="modal-actions">
-                    <button type="button" className="btn primary" onClick={onClose}>닫기</button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

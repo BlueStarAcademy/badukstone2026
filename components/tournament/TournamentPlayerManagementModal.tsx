@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { Student, TournamentSettings } from '../../types';
 import { parseRank } from '../../utils';
 import { parseSwissGroupSizes } from '../../utils/tournamentPrizes';
+import { ModalShell } from '../ui/ModalShell';
 
 interface TournamentPlayerManagementModalProps {
     isOpen: boolean;
@@ -145,10 +146,46 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     else if (currentView === 'bracket') finalizeButtonText = '대진표 생성';
 
     return (
-        <div className="modal-overlay">
-            <div className="modal-content tournament-player-mgmt-modal">
-                <h2>대회 선수 관리</h2>
-                <div className="modal-body tournament-player-mgmt-body">
+        <ModalShell
+            title="대회 선수 관리"
+            size="lg"
+            onClose={onClose}
+            dismissible={false}
+            className="tournament-player-mgmt-modal"
+            bodyClassName="tournament-player-mgmt-body"
+            footer={
+                <>
+                    <div className="tournament-player-mgmt-actions-main">
+                        <button type="button" className="btn" onClick={onClose}>
+                            취소
+                        </button>
+                        <button type="button" className="btn" onClick={handleSaveAndClose} disabled={isUnchanged}>
+                            참가자 목록 저장
+                        </button>
+                    </div>
+                    {showFinalizeButton && (
+                        <div className="tournament-player-mgmt-actions-finalize">
+                            {showAssignmentOptions && (
+                                <div className="tournament-player-mgmt-assign">
+                                    <label htmlFor="assignment-mode">배정/시드</label>
+                                    <select
+                                        id="assignment-mode"
+                                        value={assignmentMode}
+                                        onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                                    >
+                                        <option value="ranked">급수 순</option>
+                                        <option value="random">무작위</option>
+                                    </select>
+                                </div>
+                            )}
+                            <button type="button" className="btn primary" onClick={handleFinalize}>
+                                {finalizeButtonText} ({selectedIds.size}명)
+                            </button>
+                        </div>
+                    )}
+                </>
+            }
+        >
                     <div className="form-group">
                         <input
                             type="text"
@@ -216,38 +253,6 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                             ) : null}
                         </div>
                     )}
-                </div>
-                <div className="modal-actions tournament-player-mgmt-actions">
-                    <div className="tournament-player-mgmt-actions-main">
-                        <button type="button" className="btn" onClick={onClose}>
-                            취소
-                        </button>
-                        <button type="button" className="btn" onClick={handleSaveAndClose} disabled={isUnchanged}>
-                            참가자 목록 저장
-                        </button>
-                    </div>
-                    {showFinalizeButton && (
-                        <div className="tournament-player-mgmt-actions-finalize">
-                            {showAssignmentOptions && (
-                                <div className="tournament-player-mgmt-assign">
-                                    <label htmlFor="assignment-mode">배정/시드</label>
-                                    <select
-                                        id="assignment-mode"
-                                        value={assignmentMode}
-                                        onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
-                                    >
-                                        <option value="ranked">급수 순</option>
-                                        <option value="random">무작위</option>
-                                    </select>
-                                </div>
-                            )}
-                            <button type="button" className="btn primary" onClick={handleFinalize}>
-                                {finalizeButtonText} ({selectedIds.size}명)
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

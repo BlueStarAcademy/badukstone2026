@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Student, IndividualMissionSeries, StudentMissionProgress } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface AssignMissionModalProps {
     isOpen: boolean;
@@ -80,10 +81,22 @@ export const AssignMissionModal = ({ isOpen, onClose, student, allSeries, studen
                         stepNumber === progress.currentStepIndex + 1;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{student.name} 학생에게 개인 미션 할당</h2>
-                <div className="modal-body">
+        <ModalShell
+            title={`${student.name} 학생에게 개인 미션 할당`}
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    {progress && (
+                        <button type="button" className="btn danger" style={{ marginRight: 'auto' }} onClick={handleUnassign}>할당 해제</button>
+                    )}
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="button" className="btn primary" onClick={handleAssign} disabled={!selectedSeriesId || isUnchanged}>
+                        {progress ? '변경하기' : '할당하기'}
+                    </button>
+                </>
+            }
+        >
                     {/* FIX: Use the derived `progress` object for the specific student. */}
                     {progress ? (
                         <div>
@@ -119,23 +132,6 @@ export const AssignMissionModal = ({ isOpen, onClose, student, allSeries, studen
                         />
                         {selectedSeries && <small>총 {maxSteps}단계 중 현재 진행할 단계를 입력하세요.</small>}
                     </div>
-                </div>
-                <div className="modal-actions" style={{justifyContent: 'space-between'}}>
-                    <div>
-                         {/* FIX: Use the derived `progress` object for the specific student. */}
-                         {progress && (
-                            <button type="button" className="btn danger" onClick={handleUnassign}>할당 해제</button>
-                        )}
-                    </div>
-                    <div>
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        {/* FIX: Use the derived `progress` object for the specific student. */}
-                        <button type="button" className="btn primary" onClick={handleAssign} disabled={!selectedSeriesId || isUnchanged}>
-                            {progress ? '변경하기' : '할당하기'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

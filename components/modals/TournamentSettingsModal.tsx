@@ -25,7 +25,7 @@ import {
     getBracketPaidRankCount,
     getSwissPaidRankCount,
 } from '../../utils/tournamentPrizes';
-import { useModalOverlayDismiss } from './useModalOverlayDismiss';
+import { ModalShell } from '../ui/ModalShell';
 
 interface TournamentSettingsModalProps {
     isOpen: boolean;
@@ -46,7 +46,6 @@ const MODE_LABEL: Record<TournamentSettingsModalProps['activeTab'], string> = {
 };
 
 export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSettings, activeTab }: TournamentSettingsModalProps) => {
-    const overlayDismiss = useModalOverlayDismiss(onClose);
     const [newMatchMission, setNewMatchMission] = useState({ template: '', min: 1, max: 10, defaultStars: 3 });
     const [newWearableMission, setNewWearableMission] = useState({ text: '', stars: 1 });
 
@@ -190,24 +189,19 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
     const groupSizeSum = parseSwissGroupSizes(settings.swissGroupSizes).reduce((a, b) => a + b, 0);
 
     return (
-        <div className="modal-overlay" {...overlayDismiss}>
-            <div
-                className="modal-content tournament-settings-modal"
-                onClick={e => e.stopPropagation()}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="tournament-settings-title"
-            >
-                <header className="tsm-header">
-                    <div className="tsm-header-copy">
-                        <p className="tsm-eyebrow">Tournament Console</p>
-                        <h2 id="tournament-settings-title">대회 설정</h2>
-                        <p className="tsm-subtitle">{MODE_LABEL[activeTab]} 운영 규칙과 순위별 상금을 한 화면에서 조정합니다.</p>
-                    </div>
-                    <span className="tsm-mode-chip">{MODE_LABEL[activeTab]}</span>
-                </header>
-
-                <div className="modal-body tsm-body">
+        <ModalShell
+            title="대회 설정"
+            description={`${MODE_LABEL[activeTab]} 운영 규칙과 순위별 상금을 한 화면에서 조정합니다.`}
+            size="lg"
+            onClose={onClose}
+            className="tournament-settings-modal"
+            bodyClassName="tsm-body"
+            footer={
+                <button type="button" className="btn primary" onClick={onClose}>
+                    완료
+                </button>
+            }
+        >
                     {(activeTab === 'bracket' || activeTab === 'swiss' || activeTab === 'hybrid' || activeTab === 'doubleelim') && (
                         <section className="tsm-section">
                             <div className="tsm-section-head">
@@ -709,14 +703,6 @@ export const TournamentSettingsModal = ({ isOpen, onClose, settings, onUpdateSet
                             </section>
                         </div>
                     )}
-                </div>
-
-                <div className="modal-actions tsm-actions">
-                    <button type="button" className="btn primary" onClick={onClose}>
-                        완료
-                    </button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

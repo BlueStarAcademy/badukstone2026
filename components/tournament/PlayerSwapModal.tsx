@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Student, TournamentPlayer } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface PlayerSwapModalProps {
     isOpen: boolean;
@@ -36,10 +37,19 @@ export const PlayerSwapModal = ({ isOpen, onClose, onSwap, playerToReplace, avai
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{playerToReplace.name} 선수 교체</h2>
-                <div className="modal-body">
+        <ModalShell
+            title={`${playerToReplace.name} 선수 교체`}
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="button" className="btn primary" onClick={handleConfirmSwap} disabled={!selectedStudentId}>
+                        선수 교체
+                    </button>
+                </>
+            }
+        >
                     <div className="form-group">
                         <label htmlFor="swap-search">교체할 학생 검색</label>
                         <input
@@ -67,14 +77,6 @@ export const PlayerSwapModal = ({ isOpen, onClose, onSwap, playerToReplace, avai
                             ))
                         )}
                     </ul>
-                </div>
-                <div className="modal-actions">
-                    <button type="button" className="btn" onClick={onClose}>취소</button>
-                    <button type="button" className="btn primary" onClick={handleConfirmSwap} disabled={!selectedStudentId}>
-                        선수 교체
-                    </button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

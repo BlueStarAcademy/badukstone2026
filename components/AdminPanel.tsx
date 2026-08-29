@@ -15,6 +15,7 @@ import { ShopSettingsModal } from './modals/ShopSettingsModal';
 import { SpecialMissionManagerModal } from './modals/SpecialMissionManagerModal';
 import { PersonalMissionTemplateModal } from './modals/PersonalMissionTemplateModal';
 import { AssignPersonalMissionModal } from './modals/AssignPersonalMissionModal';
+import { ModalShell } from './ui/ModalShell';
 
 type StudentStatus = '재원' | '휴원';
 
@@ -66,10 +67,18 @@ const BulkAllStudentsAwardModal = ({ isOpen, onClose, onAward }: BulkAllStudents
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>전체 학생 스톤 지급/차감</h2>
-                <form onSubmit={handleSubmit}>
+        <ModalShell
+            title="전체 학생 스톤 지급/차감"
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="bulk-all-students-award-form" className="btn primary">적용</button>
+                </>
+            }
+        >
+            <form id="bulk-all-students-award-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label>지급 대상</label>
                         <div style={{ display: 'flex', gap: '1rem', padding: '0.5rem 0' }}>
@@ -116,13 +125,8 @@ const BulkAllStudentsAwardModal = ({ isOpen, onClose, onAward }: BulkAllStudents
                             required
                         />
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">적용</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };
 interface AdminPanelProps {

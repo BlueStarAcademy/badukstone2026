@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { GroupSettings, PersonalMissionType, Student } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface AssignPersonalMissionModalProps {
     isOpen: boolean;
@@ -98,19 +99,26 @@ export const AssignPersonalMissionModal = ({
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content personal-mission-admin-modal assign-personal-mission-modal" onClick={event => event.stopPropagation()}>
-                <header className="pm-modal-header">
-                    <div className="pm-modal-icon" aria-hidden="true">◎</div>
-                    <div>
-                        <h2>학생별 개인미션 부여</h2>
-                        <p>여러 학생에게 같은 미션을 한 번에 추가하고, 부여 후에는 학생별로 진행을 관리합니다.</p>
-                    </div>
-                    <button type="button" className="pm-modal-close" onClick={onClose} aria-label="닫기">×</button>
-                </header>
-
-                <form className="pm-modal-form" onSubmit={handleSubmit}>
-                    <div className="pm-modal-scroll">
+        <ModalShell
+            title="학생별 개인미션 부여"
+            description="여러 학생에게 같은 미션을 한 번에 추가하고, 부여 후에는 학생별로 진행을 관리합니다."
+            icon="◎"
+            size="lg"
+            onClose={onClose}
+            className="personal-mission-admin-modal assign-personal-mission-modal"
+            footer={
+                <>
+                    <span className="pm-action-summary">
+                        {selectedIds.size > 0 ? `${selectedIds.size}명에게 미션을 추가합니다.` : '부여할 학생을 선택하세요.'}
+                    </span>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="assign-personal-mission-form" className="btn primary" disabled={!title.trim() || selectedIds.size === 0}>
+                        미션 부여
+                    </button>
+                </>
+            }
+        >
+                <form id="assign-personal-mission-form" onSubmit={handleSubmit}>
                         <section className="pm-section">
                             <div className="pm-section-heading">
                                 <span className="pm-step">1</span>
@@ -229,19 +237,7 @@ export const AssignPersonalMissionModal = ({
                                 </div>
                             </div>
                         </section>
-                    </div>
-
-                    <div className="modal-actions pm-modal-actions">
-                        <span className="pm-action-summary">
-                            {selectedIds.size > 0 ? `${selectedIds.size}명에게 미션을 추가합니다.` : '부여할 학생을 선택하세요.'}
-                        </span>
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary" disabled={!title.trim() || selectedIds.size === 0}>
-                            미션 부여
-                        </button>
-                    </div>
                 </form>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

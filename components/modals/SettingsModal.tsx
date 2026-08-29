@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../../api/client';
 import type { User } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface AccountSettingsModalProps {
     isOpen: boolean;
@@ -61,11 +62,21 @@ export const AccountSettingsModal = ({ isOpen, onClose, onLogout, user }: Accoun
     };
 
     return (
-        <div className="modal-overlay" onClick={handleFormClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>계정 설정</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
+        <ModalShell
+            title="계정 설정"
+            size="sm"
+            onClose={handleFormClose}
+            footer={
+                <>
+                    <button type="button" className="btn danger" style={{ marginRight: 'auto' }} onClick={() => { onLogout(); handleFormClose(); }}>로그아웃</button>
+                    <button type="button" className="btn" onClick={handleFormClose}>취소</button>
+                    <button type="submit" form="account-settings-form" className="btn primary" disabled={loading || isMasterUser}>
+                        {loading ? '변경 중...' : '비밀번호 변경'}
+                    </button>
+                </>
+            }
+        >
+            <form id="account-settings-form" onSubmit={handleSubmit}>
                         <div className="settings-form-section">
                             <h3>비밀번호 변경</h3>
                             {isMasterUser ? (
@@ -109,18 +120,7 @@ export const AccountSettingsModal = ({ isOpen, onClose, onLogout, user }: Accoun
                             {error && <p className="login-error">{error}</p>}
                             {success && <p className="success-message">{success}</p>}
                         </div>
-                    </div>
-                    <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
-                        <button type="button" className="btn danger" onClick={() => { onLogout(); handleFormClose(); }}>로그아웃</button>
-                        <div>
-                            <button type="button" className="btn" onClick={handleFormClose}>취소</button>
-                            <button type="submit" className="btn primary" disabled={loading || isMasterUser}>
-                                {loading ? '변경 중...' : '비밀번호 변경'}
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

@@ -6,6 +6,7 @@ import { useDateKey } from '../hooks/useDateKey';
 import { ConfirmationModal, ActionButton } from './modals/ConfirmationModal';
 import { AssignMissionModal } from './modals/AssignMissionModal';
 import { LoadPersonalMissionModal } from './modals/LoadPersonalMissionModal';
+import { ModalShell } from './ui/ModalShell';
 
 
 interface QuickMenuSidebarProps {
@@ -1223,16 +1224,22 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
          {transactionToCancel && <ConfirmationModal message={`'${transactionToCancel.description}' 내역을 정말 취소하시겠습니까? (${-transactionToCancel.amount} 스톤이 복구됩니다)`} actions={[{ text: '닫기', onClick: () => setTransactionToCancel(null) }, { text: '취소 실행', onClick: () => { onCancelTransaction(transactionToCancel.id); setTransactionToCancel(null); }}]} onClose={() => setTransactionToCancel(null)} />}
         {transactionToDelete && <ConfirmationModal message={`'${transactionToDelete.description}' 내역을 정말 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 학생의 스톤이 변동됩니다.`} actions={[{ text: '닫기', onClick: () => setTransactionToDelete(null) }, { text: '삭제 실행', className: 'danger', onClick: () => { onDeleteTransaction(transactionToDelete.id); setTransactionToDelete(null); }}]} onClose={() => setTransactionToDelete(null)} />}
         {partialMission && (
-            <div className="modal-overlay" onClick={() => setPartialMission(null)}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                    <h2>부분 점수 지급</h2>
-                    <form onSubmit={handlePartialMissionSubmit}>
-                        <div className="form-group"><label>미션</label><p style={{ fontWeight: '500', padding: '0.5rem', background: 'var(--bg-color)', borderRadius: '4px' }}>{partialMission.description}</p></div>
-                        <div className="form-group"><label htmlFor="partial-amount">지급할 스톤 (최대 {partialMission.stones})</label><input type="number" id="partial-amount" value={partialAmount} onChange={(e) => setPartialAmount(e.target.value)} min="1" max={partialMission.stones} required autoFocus placeholder="점수 입력" /></div>
-                        <div className="modal-actions"><button type="button" className="btn" onClick={() => setPartialMission(null)}>취소</button><button type="submit" className="btn primary">지급</button></div>
-                    </form>
-                </div>
-            </div>
+            <ModalShell
+                title="부분 점수 지급"
+                size="sm"
+                onClose={() => setPartialMission(null)}
+                footer={
+                    <>
+                        <button type="button" className="btn" onClick={() => setPartialMission(null)}>취소</button>
+                        <button type="submit" form="quick-menu-partial-mission-form" className="btn primary">지급</button>
+                    </>
+                }
+            >
+                <form id="quick-menu-partial-mission-form" onSubmit={handlePartialMissionSubmit}>
+                    <div className="form-group"><label>미션</label><p style={{ fontWeight: '500', padding: '0.5rem', background: 'var(--bg-color)', borderRadius: '4px' }}>{partialMission.description}</p></div>
+                    <div className="form-group"><label htmlFor="partial-amount">지급할 스톤 (최대 {partialMission.stones})</label><input type="number" id="partial-amount" value={partialAmount} onChange={(e) => setPartialAmount(e.target.value)} min="1" max={partialMission.stones} required autoFocus placeholder="점수 입력" /></div>
+                </form>
+            </ModalShell>
         )}
         {student && showAssignIndividualModal && individualMissionSeries.length > 0 && onAssignIndividualMission && (
             <AssignMissionModal
@@ -1260,9 +1267,17 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             />
         )}
         {student && editingPersonalMission && (
-            <div className="modal-overlay" onClick={() => setEditingPersonalMission(null)}>
-                <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-                    <h2>개인 미션 수정</h2>
+            <ModalShell
+                title="개인 미션 수정"
+                size="sm"
+                onClose={() => setEditingPersonalMission(null)}
+                footer={
+                    <>
+                        <button type="button" className="btn" onClick={() => setEditingPersonalMission(null)}>취소</button>
+                        <button type="submit" form="quick-menu-edit-personal-mission-form" className="btn primary">저장</button>
+                    </>
+                }
+            >
                     {editingPersonalMission.templateId && (
                         <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
                             그룹 기본 미션입니다. 현재 진행 No.와 이 학생의 점수는 여기서 조정할 수 있습니다.
@@ -1270,6 +1285,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                         </p>
                     )}
                     <form
+                        id="quick-menu-edit-personal-mission-form"
                         onSubmit={e => {
                             e.preventDefault();
                             const stones = parseInt(editPersonalStones, 10);
@@ -1303,22 +1319,22 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                             <>
                                 <div className="form-group">
                                     <label>미션 방식</label>
-                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem', flexWrap: 'nowrap' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    <div className="ui-choice-grid" role="radiogroup" aria-label="미션 방식">
+                                        <label className={editPersonalType === 'continuous' ? 'selected' : ''}>
                                             <input type="radio" name="editPersonalType" checked={editPersonalType === 'continuous'} onChange={() => setEditPersonalType('continuous')} />
-                                            연속 미션
+                                            <span>연속 미션</span>
                                         </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        <label className={editPersonalType === 'weekly' ? 'selected' : ''}>
                                             <input type="radio" name="editPersonalType" checked={editPersonalType === 'weekly'} onChange={() => setEditPersonalType('weekly')} />
-                                            주간 미션
+                                            <span>주간 미션</span>
                                         </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        <label className={editPersonalType === 'monthly' ? 'selected' : ''}>
                                             <input type="radio" name="editPersonalType" checked={editPersonalType === 'monthly'} onChange={() => setEditPersonalType('monthly')} />
-                                            월간 미션
+                                            <span>월간 미션</span>
                                         </label>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        <label className={editPersonalType === 'achievement' ? 'selected' : ''}>
                                             <input type="radio" name="editPersonalType" checked={editPersonalType === 'achievement'} onChange={() => setEditPersonalType('achievement')} />
-                                            업적 미션 (1회성)
+                                            <span>업적 미션 (1회성)</span>
                                         </label>
                                     </div>
                                 </div>
@@ -1405,19 +1421,27 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 </div>
                             </div>
                         )}
-                        <div className="modal-actions">
-                            <button type="button" className="btn" onClick={() => setEditingPersonalMission(null)}>취소</button>
-                            <button type="submit" className="btn primary">저장</button>
-                        </div>
                     </form>
-                </div>
-            </div>
+            </ModalShell>
         )}
         {student && isEditRankOpen && (
-            <div className="modal-overlay" onClick={() => setIsEditRankOpen(false)}>
-                <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '380px' }}>
-                    <h2>급수 수정</h2>
+            <ModalShell
+                title="급수 수정"
+                size="sm"
+                onClose={() => setIsEditRankOpen(false)}
+                footer={
+                    <>
+                        <button type="button" className="btn" onClick={() => setIsEditRankOpen(false)}>
+                            취소
+                        </button>
+                        <button type="submit" form="quick-menu-edit-rank-form" className="btn primary">
+                            저장
+                        </button>
+                    </>
+                }
+            >
                     <form
+                        id="quick-menu-edit-rank-form"
                         onSubmit={(e) => {
                             e.preventDefault();
                             const nextRank = editRankValue.trim();
@@ -1438,17 +1462,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 autoFocus
                             />
                         </div>
-                        <div className="modal-actions">
-                            <button type="button" className="btn" onClick={() => setIsEditRankOpen(false)}>
-                                취소
-                            </button>
-                            <button type="submit" className="btn primary">
-                                저장
-                            </button>
-                        </div>
                     </form>
-                </div>
-            </div>
+            </ModalShell>
         )}
         </>
     );

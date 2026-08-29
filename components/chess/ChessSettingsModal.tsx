@@ -1,5 +1,6 @@
 import React from 'react';
 import type { GeneralSettings } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface ChessSettingsModalProps {
     isOpen: boolean;
@@ -20,10 +21,12 @@ export const ChessSettingsModal = ({ isOpen, onClose, settings, onUpdateSettings
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>체스반 설정</h2>
-                <div className="modal-body">
+        <ModalShell
+            title="체스반 설정"
+            size="sm"
+            onClose={onClose}
+            footer={<button type="button" className="btn primary" onClick={onClose}>닫기</button>}
+        >
                     <div className="settings-form-section">
                         <div className="settings-form-row">
                             <div className="label-group">
@@ -75,11 +78,6 @@ export const ChessSettingsModal = ({ isOpen, onClose, settings, onUpdateSettings
                             </div>
                         </div>
                     </div>
-                </div>
-                <div className="modal-actions">
-                    <button type="button" className="btn primary" onClick={onClose}>닫기</button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

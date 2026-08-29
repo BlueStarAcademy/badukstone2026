@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ModalShell } from '../ui/ModalShell';
 
 interface TournamentAwardModalProps {
     isOpen: boolean;
@@ -41,10 +42,18 @@ export const TournamentAwardModal = ({
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{teamType === 'winner' ? '승리팀' : '패배팀'} ({teamName}팀) 스톤 지급</h2>
-                <form onSubmit={handleSubmit}>
+        <ModalShell
+            title={`${teamType === 'winner' ? '승리팀' : '패배팀'} (${teamName}팀) 스톤 지급`}
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="tournament-award-form" className="btn primary">지급하기</button>
+                </>
+            }
+        >
+            <form id="tournament-award-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="award-amount">지급할 스톤</label>
                         <input
@@ -66,12 +75,7 @@ export const TournamentAwardModal = ({
                             placeholder={teamType === 'winner' ? '예: 대회 우승 보상' : '예: 대회 참가상'}
                         />
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">지급하기</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

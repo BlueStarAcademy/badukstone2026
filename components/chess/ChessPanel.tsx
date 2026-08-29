@@ -4,6 +4,7 @@ import type { Student, ChessMatch, Transaction, GeneralSettings, Mission } from 
 import { ConfirmationModal, ActionButton } from '../modals/ConfirmationModal';
 import { ChessSettingsModal } from './ChessSettingsModal';
 import { ChessMissionSidebar } from './ChessMissionSidebar';
+import { ModalShell } from '../ui/ModalShell';
 
 interface ChessPanelProps {
     students: Student[];
@@ -465,10 +466,18 @@ export const ChessPanel = (props: ChessPanelProps) => {
             
              {/* Partial Mission Modal */}
              {partialMission && (
-                <div className="modal-overlay" onClick={() => setPartialMission(null)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>부분 점수 지급</h2>
-                        <form onSubmit={handlePartialMissionSubmit}>
+                <ModalShell
+                    title="부분 점수 지급"
+                    size="sm"
+                    onClose={() => setPartialMission(null)}
+                    footer={
+                        <>
+                            <button type="button" className="btn" onClick={() => setPartialMission(null)}>취소</button>
+                            <button type="submit" form="chess-partial-mission-form" className="btn primary">지급</button>
+                        </>
+                    }
+                >
+                    <form id="chess-partial-mission-form" onSubmit={handlePartialMissionSubmit}>
                             <div className="form-group">
                                 <label>미션</label>
                                 <p style={{ fontWeight: '500', padding: '0.5rem', background: 'var(--bg-color)', borderRadius: '4px' }}>{partialMission.description}</p>
@@ -487,21 +496,24 @@ export const ChessPanel = (props: ChessPanelProps) => {
                                     placeholder="점수 입력"
                                 />
                             </div>
-                            <div className="modal-actions">
-                                <button type="button" className="btn" onClick={() => setPartialMission(null)}>취소</button>
-                                <button type="submit" className="btn primary">지급</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                    </form>
+                </ModalShell>
             )}
             
             {/* Penalty Modal */}
              {isPenaltyModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsPenaltyModalOpen(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>감점 (패널티) 적용</h2>
-                        <form onSubmit={handlePenaltySubmit}>
+                <ModalShell
+                    title="감점 (패널티) 적용"
+                    size="sm"
+                    onClose={() => setIsPenaltyModalOpen(false)}
+                    footer={
+                        <>
+                            <button type="button" className="btn" onClick={() => setIsPenaltyModalOpen(false)}>취소</button>
+                            <button type="submit" form="chess-penalty-form" className="btn danger">차감 적용</button>
+                        </>
+                    }
+                >
+                    <form id="chess-penalty-form" onSubmit={handlePenaltySubmit}>
                             <div className="form-group">
                                 <label htmlFor="penalty-amount">차감할 스톤</label>
                                 <input
@@ -526,13 +538,8 @@ export const ChessPanel = (props: ChessPanelProps) => {
                                     placeholder="예: 수업 태도 불량"
                                 />
                             </div>
-                            <div className="modal-actions">
-                                <button type="button" className="btn" onClick={() => setIsPenaltyModalOpen(false)}>취소</button>
-                                <button type="submit" className="btn danger">차감 적용</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                    </form>
+                </ModalShell>
             )}
         </div>
     );

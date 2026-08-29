@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { ShopSettings, ShopCategory, ShopItem } from '../../types';
 import type { ActionButton } from './ConfirmationModal';
+import { ModalShell } from '../ui/ModalShell';
 
 interface ShopSettingsModalProps {
     isOpen: boolean;
@@ -70,10 +71,12 @@ export const ShopSettingsModal = (props: ShopSettingsModalProps) => {
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>상점 설정</h2>
-                <div className="modal-body">
+        <ModalShell
+            title="상점 설정"
+            size="md"
+            onClose={onClose}
+            footer={<button type="button" className="btn primary" onClick={onClose}>닫기</button>}
+        >
                     <div className="settings-form-section">
                         <h3>할인 설정</h3>
                         <div className="settings-form-row">
@@ -114,11 +117,6 @@ export const ShopSettingsModal = (props: ShopSettingsModalProps) => {
                             <button className="btn primary" onClick={handleAddCategory}>추가</button>
                         </div>
                     </div>
-                </div>
-                <div className="modal-actions">
-                    <button type="button" className="btn primary" onClick={onClose}>닫기</button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

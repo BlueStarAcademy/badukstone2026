@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import type { SpecialMission, GroupSettings, GeneralSettings } from '../../types';
 import { generateId } from '../../utils';
 import { MISSION_ALL_GROUPS } from '../../utils/missionVisibility';
+import { ModalShell } from '../ui/ModalShell';
 
 interface SpecialMissionManagerModalProps {
     isOpen: boolean;
@@ -200,10 +201,12 @@ export const SpecialMissionManagerModal = ({
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '960px' }}>
-                <h2>특별 미션 관리</h2>
-
+        <ModalShell
+            title="특별 미션 관리"
+            size="xl"
+            onClose={onClose}
+            footer={<button type="button" className="btn primary" onClick={onClose}>닫기</button>}
+        >
                 <div className="sidebar-tabs" style={{ marginBottom: '1.5rem' }}>
                     <button type="button" className={`tab-item ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>미션 목록</button>
                     <button type="button" className={`tab-item ${activeTab === 'probability' ? 'active' : ''}`} onClick={() => setActiveTab('probability')}>출현 확률 설정</button>
@@ -391,11 +394,6 @@ export const SpecialMissionManagerModal = ({
                         </div>
                     </div>
                 )}
-
-                <div className="modal-actions">
-                    <button type="button" className="btn primary" onClick={onClose}>닫기</button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

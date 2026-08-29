@@ -852,30 +852,17 @@
     white-space: nowrap;
 }
 
+/* Structural rules (grid/label/input/span/small) are shared with .ui-choice-grid
+   in styles/components.css. Only content-specific sizing and --pm-* theme
+   colors are overridden here. */
 .pm-choice-grid {
-    display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.5rem;
     margin-bottom: 0.85rem;
 }
 
 .pm-choice-grid label {
-    position: relative;
-    display: flex;
-    min-width: 0;
     min-height: 54px;
-    padding: 0.65rem 0.75rem;
-    flex-direction: column;
-    justify-content: center;
-    border: 1px solid var(--pm-line);
-    border-radius: 10px;
-    background: #fff;
-    cursor: pointer;
-    transition: border-color .15s, background .15s, box-shadow .15s;
-}
-
-.pm-choice-grid label:hover {
-    border-color: #afc8f3;
+    border-color: var(--pm-line);
 }
 
 .pm-choice-grid label.selected {
@@ -884,26 +871,14 @@
     box-shadow: 0 0 0 2px rgba(39, 103, 216, 0.09);
 }
 
-.pm-choice-grid input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-}
-
 .pm-choice-grid span {
     color: var(--pm-ink);
-    font-size: 0.86rem;
-    font-weight: 750;
-    white-space: nowrap;
 }
 
 .pm-choice-grid small {
     margin-top: 0.18rem;
     color: var(--pm-muted);
     font-size: 0.67rem;
-    line-height: 1.3;
-    word-break: keep-all;
 }
 
 .pm-field-grid {
