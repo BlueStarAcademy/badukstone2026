@@ -7,6 +7,8 @@ import type {
     SwissMatch,
     SwissPlayer,
     DoubleElimData,
+    TournamentBracket,
+    TournamentPlayer,
 } from '../types';
 import { sortSwissPlayers } from './index';
 
@@ -15,16 +17,97 @@ export type BracketPrizeSettingsKey = 'bracket' | 'hybridBracket';
 /** 시상 모달 제목용 */
 export type TournamentBracketPrizeModalMode = 'bracket' | 'fullleague' | 'doubleelim' | 'hybridBracket';
 
-export function defaultBracketGroupPrize(s: TournamentSettings): TournamentBracketGroupPrizes {
-    return {
-        champion: s.championPrize,
-        runnerUp: s.runnerUpPrize,
-        semiFinalist: s.semiFinalistPrize,
-        participant: s.participantPrize,
-    };
+/** 시상 모달·지급에 쓰는 순위별 상금 */
+export interface BracketPrizePayout {
+    champion: number;
+    runnerUp: number;
+    third: number;
+    fourth: number;
+    participant: number;
+    /** 5위부터 */
+    extraRanks: number[];
 }
 
 export const SWISS_PAID_RANK_MAX = 20;
+export const BRACKET_PAID_RANK_MAX = 16;
+
+export function getBracketPaidRankCount(settings: TournamentSettings): number {
+    const n = settings.bracketPaidRankCount ?? 4;
+    return Math.min(BRACKET_PAID_RANK_MAX, Math.max(1, Math.floor(n)));
+}
+
+export function getDefaultThirdPrize(s: TournamentSettings): number {
+    return s.thirdPlacePrize ?? s.semiFinalistPrize ?? 0;
+}
+
+export function getDefaultFourthPrize(s: TournamentSettings): number {
+    return s.fourthPlacePrize ?? s.semiFinalistPrize ?? 0;
+}
+
+/** 1위~N위 금액 배열 (길이 paidCount) */
+export function getBracketRankAmounts(row: TournamentBracketGroupPrizes, paidCount: number): number[] {
+    const third = row.third ?? row.semiFinalist ?? 0;
+    const fourth = row.fourth ?? row.semiFinalist ?? 0;
+    const base = [row.champion ?? 0, row.runnerUp ?? 0, third, fourth];
+    const extra = row.extraRanks ?? [];
+    const out: number[] = [];
+    for (let i = 0; i < paidCount; i++) {
+        if (i < 4) out.push(base[i] ?? 0);
+        else out.push(extra[i - 4] ?? 0);
+    }
+    return out;
+}
+
+export function bracketRowFromRankAmounts(amounts: number[], participant: number): TournamentBracketGroupPrizes {
+    const champion = amounts[0] ?? 0;
+    const runnerUp = amounts[1] ?? 0;
+    const third = amounts[2] ?? 0;
+    const fourth = amounts[3] ?? 0;
+    const slice = amounts.slice(4);
+    const row: TournamentBracketGroupPrizes = {
+        champion,
+        runnerUp,
+        third,
+        fourth,
+        semiFinalist: third,
+        participant,
+    };
+    if (slice.length > 0) row.extraRanks = slice;
+    return row;
+}
+
+export function bracketPayoutFromRow(row: TournamentBracketGroupPrizes, paidCount: number): BracketPrizePayout {
+    const amounts = getBracketRankAmounts(row, Math.max(4, paidCount));
+    return {
+        champion: amounts[0] ?? 0,
+        runnerUp: amounts[1] ?? 0,
+        third: amounts[2] ?? 0,
+        fourth: amounts[3] ?? 0,
+        participant: row.participant ?? 0,
+        extraRanks: amounts.slice(4),
+    };
+}
+
+export function payoutToRankAmounts(payout: BracketPrizePayout, paidCount: number): number[] {
+    const base = [payout.champion, payout.runnerUp, payout.third, payout.fourth, ...(payout.extraRanks ?? [])];
+    const out: number[] = [];
+    for (let i = 0; i < paidCount; i++) out.push(base[i] ?? 0);
+    return out;
+}
+
+export function defaultBracketGroupPrize(s: TournamentSettings): TournamentBracketGroupPrizes {
+    const paid = getBracketPaidRankCount(s);
+    const extras = s.bracketExtraRankPrizes ?? [];
+    const amounts: number[] = [];
+    for (let i = 0; i < paid; i++) {
+        if (i === 0) amounts.push(s.championPrize);
+        else if (i === 1) amounts.push(s.runnerUpPrize);
+        else if (i === 2) amounts.push(getDefaultThirdPrize(s));
+        else if (i === 3) amounts.push(getDefaultFourthPrize(s));
+        else amounts.push(extras[i - 4] ?? 0);
+    }
+    return bracketRowFromRankAmounts(amounts, s.participantPrize);
+}
 
 export function parseSwissGroupSizes(s: string | undefined): number[] {
     if (!s || !String(s).trim()) return [];
@@ -63,12 +146,13 @@ export function swissRowFromRankAmounts(amounts: number[], participant: number):
 
 export function defaultSwissGroupPrize(s: TournamentSettings): TournamentSwissGroupPrizes {
     const paid = getSwissPaidRankCount(s);
+    const extras = s.swissExtraRankPrizes ?? [];
     const amounts: number[] = [];
     for (let i = 0; i < paid; i++) {
         if (i === 0) amounts.push(s.swiss1stPrize);
         else if (i === 1) amounts.push(s.swiss2ndPrize);
         else if (i === 2) amounts.push(s.swiss3rdPrize);
-        else amounts.push(0);
+        else amounts.push(extras[i - 3] ?? 0);
     }
     return swissRowFromRankAmounts(amounts, s.participantPrize);
 }
@@ -103,6 +187,100 @@ export function forEachSwissStylePayout(
     }
     const rest = sorted.slice(amounts.length).map(p => p.studentId);
     if (rest.length > 0 && prizes.participant > 0) pay(rest, `${labelPrefix} 참가상`, prizes.participant);
+}
+
+export type RankPrizeGrant = { studentId: string; description: string; amount: number };
+
+/** 순위 ID 배열 + 금액으로 지급 목록 생성 (참가상 포함) */
+export function buildRankPrizeGrants(
+    placementIds: (string | null | undefined)[],
+    amounts: number[],
+    participantAmount: number,
+    labelPrefix: string
+): RankPrizeGrant[] {
+    const grants: RankPrizeGrant[] = [];
+    const paid = new Set<string>();
+    const rankLabel = (i: number) => {
+        if (i === 0) return '우승';
+        if (i === 1) return '준우승';
+        return `${i + 1}위`;
+    };
+    for (let i = 0; i < amounts.length; i++) {
+        const id = placementIds[i];
+        if (!id || amounts[i] <= 0) continue;
+        grants.push({ studentId: id, description: `${labelPrefix} ${rankLabel(i)}`, amount: amounts[i] });
+        paid.add(id);
+    }
+    if (participantAmount > 0) {
+        for (const id of placementIds) {
+            if (!id || paid.has(id)) continue;
+            grants.push({ studentId: id, description: `${labelPrefix} 참가상`, amount: participantAmount });
+            paid.add(id);
+        }
+    }
+    return grants;
+}
+
+export function buildBracketStyleGrants(
+    placementIds: (string | null | undefined)[],
+    payout: BracketPrizePayout,
+    paidCount: number,
+    labelPrefix: string
+): RankPrizeGrant[] {
+    return buildRankPrizeGrants(placementIds, payoutToRankAmounts(payout, paidCount), payout.participant, labelPrefix);
+}
+
+/** 싱글 엘리미네이션 순위 ID (1위~) */
+export function getBracketOrderedPlacementIds(bracketData: TournamentBracket): string[] {
+    const finalRound = bracketData.rounds[bracketData.rounds.length - 1];
+    if (!finalRound?.matches?.[0]) return bracketData.players.map(p => p.studentId);
+
+    const championId = finalRound.matches[0].winnerId;
+    const runnerUpPlayer = finalRound.matches[0].players.find(p => p && p !== 'BYE' && p.studentId !== championId);
+    const runnerUpId = runnerUpPlayer ? (runnerUpPlayer as TournamentPlayer).studentId : null;
+
+    let thirdId: string | null = null;
+    let fourthId: string | null = null;
+    const semiFinalRound = bracketData.rounds.find(r => r.title === '4강전' || r.title === '준결승');
+
+    if (finalRound.matches.length > 1 && finalRound.matches[1]) {
+        const m = finalRound.matches[1];
+        thirdId = m.winnerId;
+        const fourthPlayer = m.players.find(p => p && p !== 'BYE' && p.studentId !== m.winnerId);
+        fourthId = fourthPlayer ? (fourthPlayer as TournamentPlayer).studentId : null;
+    } else if (semiFinalRound) {
+        const losers = semiFinalRound.matches
+            .flatMap(m => m.players)
+            .filter(
+                (p): p is TournamentPlayer =>
+                    !!(p && p !== 'BYE' && p.studentId !== championId && p.studentId !== runnerUpId)
+            )
+            .map(p => p.studentId);
+        thirdId = losers[0] ?? null;
+        fourthId = losers[1] ?? null;
+    }
+
+    const top4 = new Set([championId, runnerUpId, thirdId, fourthId].filter(Boolean) as string[]);
+    const rest: string[] = [];
+    const finalRoundIndex = bracketData.rounds.length - 1;
+    for (let ri = finalRoundIndex - 1; ri >= 0; ri--) {
+        const round = bracketData.rounds[ri];
+        for (const match of round.matches) {
+            if (!match.winnerId) continue;
+            for (const p of match.players) {
+                if (p && p !== 'BYE' && (p as TournamentPlayer).studentId !== match.winnerId) {
+                    const id = (p as TournamentPlayer).studentId;
+                    if (!top4.has(id) && !rest.includes(id)) rest.push(id);
+                }
+            }
+        }
+    }
+
+    const ordered = [championId, runnerUpId, thirdId, fourthId, ...rest].filter(Boolean) as string[];
+    for (const p of bracketData.players) {
+        if (!ordered.includes(p.studentId)) ordered.push(p.studentId);
+    }
+    return ordered;
 }
 
 export function getBracketPrizeRows(settings: TournamentSettings, key: BracketPrizeSettingsKey): TournamentBracketGroupPrizes[] | undefined {
@@ -223,10 +401,12 @@ export function getDoubleElimPlacements(de: DoubleElimData): {
     championId: string | null;
     runnerUpId: string | null;
     semiFinalistIds: string[];
+    /** 1위부터 순서 (3·4위 분리, 이후 나머지) */
+    placementIds: string[];
 } {
     const gf = de.grandFinal;
     if (!gf?.winnerId) {
-        return { championId: null, runnerUpId: null, semiFinalistIds: [] };
+        return { championId: null, runnerUpId: null, semiFinalistIds: [], placementIds: [...de.playerIds] };
     }
     const championId = gf.winnerId;
     const runnerUpId =
@@ -247,5 +427,8 @@ export function getDoubleElimPlacements(de: DoubleElimData): {
     const fourthId = wbLoserId && !top3.has(wbLoserId) ? wbLoserId : undefined;
 
     const semiFinalistIds = [thirdId, fourthId].filter(Boolean) as string[];
-    return { championId, runnerUpId, semiFinalistIds };
+    const top4 = new Set([championId, runnerUpId, ...semiFinalistIds].filter(Boolean) as string[]);
+    const rest = de.playerIds.filter(id => !top4.has(id));
+    const placementIds = [championId, runnerUpId, thirdId, fourthId, ...rest].filter(Boolean) as string[];
+    return { championId, runnerUpId, semiFinalistIds, placementIds };
 }

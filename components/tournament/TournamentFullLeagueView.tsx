@@ -10,6 +10,11 @@ import {
 } from '../../utils/tournament';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
+import {
+    buildBracketStyleGrants,
+    getBracketPaidRankCount,
+    type BracketPrizePayout,
+} from '../../utils/tournamentPrizes';
 
 interface TournamentFullLeagueViewProps {
     data: TournamentData;
@@ -74,29 +79,17 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
     const sortedPlayers = sortFullLeaguePlayers(fullLeague);
     const isComplete = fullLeague.matches.length > 0 && fullLeague.matches.every(match => !!match.winnerId);
 
-    const handleAwardPrizes = (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => {
+    const handleAwardPrizes = (prizes: BracketPrizePayout) => {
         if (!fullLeague || !isComplete) return;
         if (sortedPlayers.length === 0) return;
 
-        const championId = sortedPlayers[0]?.studentId;
-        const runnerUpId = sortedPlayers[1]?.studentId;
-        const semiFinalistIds: string[] = [];
-        if (sortedPlayers[2]) semiFinalistIds.push(sortedPlayers[2].studentId);
-        if (sortedPlayers[3]) semiFinalistIds.push(sortedPlayers[3].studentId);
-
-        const prizeWinners = new Set<string>([
-            championId,
-            runnerUpId,
-            ...semiFinalistIds,
-        ].filter(Boolean) as string[]);
-        const participantsWithPrize = sortedPlayers.filter(p => !prizeWinners.has(p.studentId));
-
-        const grants = [
-            ...(championId ? [{ studentId: championId, description: '풀리그 우승', amount: prizes.champion }] : []),
-            ...(runnerUpId ? [{ studentId: runnerUpId, description: '풀리그 준우승', amount: prizes.runnerUp }] : []),
-            ...semiFinalistIds.map(studentId => ({ studentId, description: '풀리그 3-4위', amount: prizes.semiFinalist })),
-            ...participantsWithPrize.map(player => ({ studentId: player.studentId, description: '풀리그 참가상', amount: prizes.participant })),
-        ];
+        const placementIds = sortedPlayers.map(p => p.studentId);
+        const grants = buildBracketStyleGrants(
+            placementIds,
+            prizes,
+            getBracketPaidRankCount(settings),
+            '풀리그'
+        );
         if (onAwardBatch({
             eventKey: awardEventKey,
             mode: 'fullleague',

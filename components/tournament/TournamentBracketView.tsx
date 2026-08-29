@@ -6,6 +6,12 @@ import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { parseRank, generateId } from '../../utils';
 import { buildElimRoundOneSlotOrder, DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import type { BracketPrizeSettingsKey, TournamentBracketPrizeModalMode } from '../../utils/tournamentPrizes';
+import {
+    getBracketOrderedPlacementIds,
+    buildBracketStyleGrants,
+    getBracketPaidRankCount,
+    type BracketPrizePayout,
+} from '../../utils/tournamentPrizes';
 import { BracketTree } from './BracketTree';
 
 interface TournamentBracketViewProps {
@@ -336,38 +342,15 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
         });
     };
     
-    const handleAwardPrizes = (prizes: { champion: number, runnerUp: number, semiFinalist: number, participant: number }) => {
+    const handleAwardPrizes = (prizes: BracketPrizePayout) => {
         if (!bracketData) return;
-        
-        const finalRound = bracketData.rounds[bracketData.rounds.length - 1];
-        const semiFinalRound = bracketData.rounds.find(r => r.title === '4강전' || r.title === '준결승');
-        
-        const championId = finalRound.matches[0].winnerId;
-        const runnerUpPlayer = finalRound.matches[0].players.find(p => p && p !== 'BYE' && p.studentId !== championId);
-        const runnerUpId = runnerUpPlayer ? (runnerUpPlayer as TournamentPlayer).studentId : null;
-        
-        let semiFinalistIds: string[] = [];
-        if (finalRound.matches.length > 1) { // 3/4위전 존재
-             const thirdPlaceId = finalRound.matches[1].winnerId;
-             const fourthPlacePlayer = finalRound.matches[1].players.find(p => p && p !== 'BYE' && p.studentId !== thirdPlaceId);
-             const fourthPlaceId = fourthPlacePlayer ? (fourthPlacePlayer as TournamentPlayer).studentId : null;
-             if (thirdPlaceId) semiFinalistIds.push(thirdPlaceId);
-             if (fourthPlaceId) semiFinalistIds.push(fourthPlaceId);
-        } else if (semiFinalRound) {
-            semiFinalistIds = semiFinalRound.matches.flatMap(m => m.players)
-                .filter((p): p is TournamentPlayer => !!(p && p !== 'BYE' && p.studentId !== championId && p.studentId !== runnerUpId))
-                .map(p => p.studentId);
-        }
-
-        const prizewinners = new Set([championId, runnerUpId, ...semiFinalistIds]);
-        const participantsWithPrize = bracketData.players.filter(p => !prizewinners.has(p.studentId));
-        
-        const grants = [
-            ...(championId ? [{ studentId: championId, description: '토너먼트 우승', amount: prizes.champion }] : []),
-            ...(runnerUpId ? [{ studentId: runnerUpId, description: '토너먼트 준우승', amount: prizes.runnerUp }] : []),
-            ...semiFinalistIds.map(studentId => ({ studentId, description: '토너먼트 3-4위', amount: prizes.semiFinalist })),
-            ...participantsWithPrize.map(player => ({ studentId: player.studentId, description: '토너먼트 참가상', amount: prizes.participant })),
-        ];
+        const placementIds = getBracketOrderedPlacementIds(bracketData);
+        const grants = buildBracketStyleGrants(
+            placementIds,
+            prizes,
+            getBracketPaidRankCount(settings),
+            prizeModalMode === 'hybridBracket' ? '본선 토너먼트' : '토너먼트'
+        );
         const mode = prizeModalMode === 'hybridBracket' ? 'hybrid' : 'bracket';
         if (onAwardBatch({
             eventKey: awardEventKey,

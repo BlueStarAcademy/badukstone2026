@@ -187,6 +187,7 @@ describe('double elimination', () => {
             championId: 'a',
             runnerUpId: 'b',
             semiFinalistIds: ['c'],
+            placementIds: ['a', 'b', 'c', 'd'],
         });
     });
 

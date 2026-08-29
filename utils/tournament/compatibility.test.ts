@@ -187,7 +187,8 @@ describe('legacy AppData compatibility', () => {
         expect(normalized.tournamentSettings).toMatchObject({
             games: ['game1'],
             championPrize: 777,
-            swissPaidRankCount: 3,
+            swissPaidRankCount: 8,
+            bracketPaidRankCount: 8,
             swissUseGroups: false,
             byePriority: 'min_byes',
             legacySetting: 'keep-me',

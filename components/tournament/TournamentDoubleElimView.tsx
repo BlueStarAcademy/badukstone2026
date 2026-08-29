@@ -9,7 +9,7 @@ import {
     getLoserFromMatch,
 } from '../../utils/doubleElimBracket';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
-import { getDoubleElimPlacements } from '../../utils/tournamentPrizes';
+import { getDoubleElimPlacements, buildBracketStyleGrants, getBracketPaidRankCount, type BracketPrizePayout } from '../../utils/tournamentPrizes';
 import { DoubleElimBracketTree } from './DoubleElimBracketTree';
 import { DoubleElimResultPanel } from './DoubleElimResultPanel';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
@@ -136,18 +136,15 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
         setResetConfirmationOpen(false);
     };
 
-    const handleAwardPrizes = (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => {
+    const handleAwardPrizes = (prizes: BracketPrizePayout) => {
         if (!doubleElim) return;
-        const { championId, runnerUpId, semiFinalistIds } = getDoubleElimPlacements(doubleElim);
-        const prizeSet = new Set([championId, runnerUpId, ...semiFinalistIds].filter(Boolean) as string[]);
-        const rest = doubleElim.playerIds.filter(id => !prizeSet.has(id));
-
-        const grants = [
-            ...(championId ? [{ studentId: championId, description: '더블엘리미네이션 우승', amount: prizes.champion }] : []),
-            ...(runnerUpId ? [{ studentId: runnerUpId, description: '더블엘리미네이션 준우승', amount: prizes.runnerUp }] : []),
-            ...semiFinalistIds.map(studentId => ({ studentId, description: '더블엘리미네이션 3-4위', amount: prizes.semiFinalist })),
-            ...rest.map(studentId => ({ studentId, description: '더블엘리미네이션 참가상', amount: prizes.participant })),
-        ];
+        const { placementIds } = getDoubleElimPlacements(doubleElim);
+        const grants = buildBracketStyleGrants(
+            placementIds,
+            prizes,
+            getBracketPaidRankCount(settings),
+            '더블엘리미네이션'
+        );
         if (onAwardBatch({
             eventKey: awardEventKey,
             mode: 'doubleelim',
