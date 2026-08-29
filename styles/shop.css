@@ -10,12 +10,12 @@
     flex: 1;
     padding: 1.5rem;
     overflow-y: auto;
-    background: #f8f9fa;
+    background: var(--surface-muted);
 }
 
 .shop-cart-panel {
     width: 380px;
-    background: white;
+    background: var(--surface-color);
     border-left: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
@@ -24,7 +24,7 @@
 
 .cart-panel-header {
     padding: 1rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-color);
     background: var(--primary-color);
     color: white;
 }
@@ -40,13 +40,13 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.8rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--border-color);
 }
 
 .cart-panel-footer {
     padding: 1.5rem;
-    background: #f1f3f5;
-    border-top: 1px solid #ddd;
+    background: var(--surface-muted);
+    border-top: 1px solid var(--border-color);
 }
 
 .cart-total-details {
@@ -64,7 +64,7 @@
     font-size: 1.2rem;
     font-weight: bold;
     color: var(--primary-color);
-    border-top: 1px solid #ddd;
+    border-top: 1px solid var(--border-color);
     padding-top: 0.5rem;
     margin-top: 0.5rem;
 }
@@ -84,8 +84,8 @@
 }
 
 .shop-grid-item {
-    background: white;
-    border: 1px solid #eee;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1rem;
     text-align: center;
@@ -104,9 +104,9 @@
 
 .filter-btn {
     padding: 0.4rem 0.8rem;
-    border: 1px solid #ddd;
+    border: 1px solid var(--border-color);
     border-radius: 20px;
-    background: white;
+    background: var(--surface-color);
     cursor: pointer;
     font-size: 0.9rem;
 }
@@ -142,7 +142,7 @@
     .quick-menu-sidebar .shop-main {
         min-height: 0;
         padding: 1rem 0.9rem;
-        background: #f8fafc;
+        background: var(--surface-muted);
     }
 
     .quick-menu-sidebar .shop-filters {

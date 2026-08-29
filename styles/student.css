@@ -9,12 +9,12 @@
 
 .student-card {
     background: var(--surface-color);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     padding: 1.5rem;
     box-shadow: var(--shadow);
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    border: 1px solid transparent;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    border: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -26,7 +26,7 @@
 
 .student-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-md);
 }
 
 .student-card-header {
@@ -57,8 +57,8 @@
 
 .student-header-rank {
     font-size: 0.95rem;
-    color: #666;
-    background-color: #f1f3f5;
+    color: var(--color-muted);
+    background-color: var(--surface-muted);
     padding: 2px 8px;
     border-radius: 6px;
     font-weight: 500;
@@ -98,7 +98,7 @@
 
 .max-stone-val {
     font-size: 1.1rem;
-    color: #333;
+    color: var(--color-ink);
     font-weight: 500;
 }
 
@@ -171,12 +171,12 @@
     border: 1px solid var(--border-color);
     border-radius: 8px;
     overflow: hidden;
-    background: #fafafa;
+    background: var(--surface-muted);
 }
 
 .player-mgmt-header {
     padding: 1rem;
-    background: #e9ecef;
+    background: var(--surface-muted);
     font-weight: bold;
     border-bottom: 1px solid var(--border-color);
     display: flex;
@@ -190,12 +190,12 @@
     list-style: none;
     padding: 0;
     margin: 0;
-    background: white;
+    background: var(--surface-color);
 }
 
 .player-mgmt-item {
     padding: 0.8rem 1rem;
-    border-bottom: 1px solid #f1f3f5;
+    border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     transition: background 0.2s;
     display: flex;
@@ -204,11 +204,11 @@
 }
 
 .player-mgmt-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--surface-muted);
 }
 
 .player-mgmt-item.selected {
-    background-color: #e3f2fd;
+    background-color: var(--primary-soft);
     color: var(--primary-color);
     font-weight: 500;
 }
@@ -300,7 +300,7 @@
 .tournament-player-mgmt-assign label {
     display: inline;
     margin: 0;
-    color: #334155;
+    color: var(--color-ink);
     font-size: 0.9rem;
     font-weight: 600;
     white-space: nowrap;
@@ -312,9 +312,9 @@
     min-height: 40px;
     margin: 0;
     padding: 0.45rem 0.7rem;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    background: #fff;
+    background: var(--surface-color);
     font-size: 0.92rem;
 }
 

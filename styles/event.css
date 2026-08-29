@@ -12,7 +12,7 @@
 .gacha-layout-row {
     display: flex;
     gap: 2rem;
-    background: #ffffff;
+    background: var(--surface-color);
     padding: 2rem;
     border-radius: 24px;
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
@@ -67,9 +67,9 @@
 
 .gacha-cell:hover {
     background: linear-gradient(145deg, #ffffff, #f7ede2);
-    color: #4a90e2;
+    color: var(--primary-color);
     transform: translateY(-4px) scale(1.1);
-    box-shadow: 0 8px 20px rgba(74, 144, 226, 0.4);
+    box-shadow: 0 8px 20px rgba(39, 103, 216, 0.4);
     z-index: 10;
 }
 
@@ -136,9 +136,9 @@
     flex-direction: column;
     gap: 1.5rem;
     padding: 1rem;
-    background: #f8f9fa;
+    background: var(--surface-muted);
     border-radius: 16px;
-    border: 1px solid #eee;
+    border: 1px solid var(--border-color);
 }
 
 .gacha-prize-info h3 {
@@ -161,8 +161,8 @@
     align-items: center;
     padding: 0.8rem 1rem;
     border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid #eee;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
     box-shadow: 0 3px 6px rgba(0,0,0,0.05);
     transition: transform 0.2s;
 }
@@ -175,15 +175,15 @@
 
 .prize-amount {
     flex: 1;
-    color: #2c3e50;
+    color: var(--color-ink);
     font-weight: 800;
     font-size: 1rem;
 }
 
 .prize-count {
     font-size: 0.75rem;
-    color: #7f8c8d;
-    background: #f1f3f5;
+    color: var(--color-muted);
+    background: var(--surface-muted);
     padding: 4px 8px;
     border-radius: 10px;
     font-weight: 600;
@@ -191,27 +191,27 @@
 
 /* Rank specific colors */
 .rank-1 { border-left: 6px solid #ffca28; background: #fffdf5; }
-.rank-2 { border-left: 6px solid #b0bec5; background: #f8f9fa; }
+.rank-2 { border-left: 6px solid #b0bec5; background: var(--surface-muted); }
 .rank-3 { border-left: 6px solid #ffa726; background: #fffaf5; }
 .rank-4 { border-left: 6px solid #81c784; }
-.rank-5 { border-left: 6px solid #e0e0e0; }
+.rank-5 { border-left: 6px solid var(--border-color); }
 
 .gacha-instruction-message {
     margin-top: auto;
     padding: 1.2rem;
-    background: linear-gradient(135deg, #4a90e2, #357abd);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
     color: white;
     border-radius: 12px;
     text-align: center;
     font-weight: bold;
     font-size: 1rem;
-    box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4);
+    box-shadow: 0 4px 15px rgba(39, 103, 216, 0.4);
     animation: glow 1.5s infinite alternate;
 }
 
 @keyframes glow {
-    from { transform: scale(1); box-shadow: 0 4px 15px rgba(74, 144, 226, 0.4); }
-    to { transform: scale(1.05); box-shadow: 0 6px 20px rgba(74, 144, 226, 0.6); }
+    from { transform: scale(1); box-shadow: 0 4px 15px rgba(39, 103, 216, 0.4); }
+    to { transform: scale(1.05); box-shadow: 0 6px 20px rgba(39, 103, 216, 0.6); }
 }
 
 /* Gacha Reveal Modal & Ticket Animation */
@@ -341,14 +341,14 @@
 
 /* Eligible Student List */
 .event-student-list {
-    background: white;
+    background: var(--surface-color);
     border-radius: 24px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-    border: 1px solid #f1f3f5;
+    border: 1px solid var(--border-color);
 }
 
 .eligible-student-list {
@@ -361,7 +361,7 @@
 
 .eligible-student-item {
     padding: 0.9rem 1.2rem;
-    border-bottom: 1px solid #f8f9fa;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -413,7 +413,7 @@
 }
 
 .eligible-student-item:hover {
-    background: #f0f7ff;
+    background: var(--primary-soft);
 }
 
 @media (max-width: 1200px) {

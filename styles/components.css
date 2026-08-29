@@ -227,13 +227,15 @@
     font-size: 0.9rem;
 }
 
-/* View Toggle */
+/* View Toggle (unified with base.css .view-toggle — shared segment-control look) */
 .view-toggle {
-    background: #f0f2f5;
-    padding: 4px;
-    border-radius: 10px;
     display: inline-flex;
-    gap: 4px;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--surface-muted);
 }
 
 .toggle-btn {
@@ -255,7 +257,7 @@
 }
 
 .toggle-btn.active {
-    background: white;
+    background: var(--surface-color);
     color: var(--primary-color);
     box-shadow: var(--shadow-sm);
     font-weight: 750;
