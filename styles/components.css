@@ -758,21 +758,42 @@
 }
 
 /* Quick Menu Sidebar */
+.quick-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: rgba(15, 23, 42, 0.48);
+    backdrop-filter: blur(3px);
+    animation: quickMenuOverlayIn 0.2s ease-out;
+}
+
+@keyframes quickMenuOverlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 .quick-menu-sidebar {
     position: fixed;
     top: 0;
-    right: calc(var(--sidebar-width) * -1);
-    width: var(--sidebar-width);
-    height: 100vh;
+    right: 0;
+    width: min(var(--sidebar-width), calc(100vw - 48px));
+    height: 100dvh;
     background: var(--surface-color);
-    box-shadow: -4px 0 15px rgba(0,0,0,0.1);
+    box-shadow: -18px 0 45px rgba(15, 23, 42, 0.18);
     z-index: 100;
-    transition: right 0.3s ease-in-out;
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.3s;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
-.quick-menu-sidebar.open { right: 0; }
+.quick-menu-sidebar.open {
+    transform: translateX(0);
+    visibility: visible;
+    transition-delay: 0s;
+}
 
 .sidebar-header {
     padding: 1.5rem;
@@ -781,20 +802,145 @@
     position: relative;
 }
 
+.quick-menu-sidebar > .sidebar-header {
+    flex-shrink: 0;
+    background:
+        radial-gradient(circle at 88% 10%, rgba(255,255,255,0.2), transparent 28%),
+        linear-gradient(135deg, #2563a9 0%, var(--primary-color) 58%, #68a8ed 100%);
+}
+
+.quick-menu-sidebar > .sidebar-header h2 {
+    margin: 0;
+    padding-right: 3rem;
+    font-size: 1.65rem;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+    word-break: keep-all;
+}
+
+.sidebar-student-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin: 0.4rem 0 0;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.92rem;
+    word-break: keep-all;
+}
+
+.sidebar-rank-edit.btn-sm {
+    min-height: 28px;
+    padding: 0 0.45rem;
+    line-height: 1.6;
+    border-color: rgba(255, 255, 255, 0.32);
+    background: rgba(255, 255, 255, 0.14);
+    color: white;
+}
+
+.header-stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0;
+    margin-top: 1rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.13);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+.header-stats-row .stat-item {
+    min-width: 0;
+    padding: 0 0.75rem;
+    text-align: center;
+}
+
+.header-stats-row .stat-item-bordered {
+    border-left: 1px solid rgba(255,255,255,0.22);
+}
+
+.header-stats-row label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    opacity: 0.82;
+    word-break: keep-all;
+}
+
+.header-stats-row strong {
+    font-size: 1.35rem;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.header-stats-row strong span {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.72;
+}
+
+.header-stats-row .stat-achieved {
+    color: #fff176;
+}
+
+.mission-count-control {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+}
+
+.mission-count-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.mission-count-buttons button {
+    min-width: 24px;
+    min-height: 16px;
+    padding: 1px 4px;
+    border: 0;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    font-size: 0.6rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
 .close-btn {
     position: absolute;
-    top: 1rem;
-    right: 1rem;
-    background: none;
-    border: none;
+    top: 0.85rem;
+    right: 0.85rem;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
     color: white;
-    font-size: 1.5rem;
+    font-size: 1.8rem;
+    line-height: 1;
     cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.close-btn:hover {
+    background: rgba(255,255,255,0.22);
+    transform: rotate(4deg);
 }
 
 .sidebar-tabs {
     display: flex;
     border-bottom: 1px solid var(--border-color);
+}
+
+.quick-menu-sidebar > .sidebar-tabs {
+    flex-shrink: 0;
+    background: #f8fafc;
 }
 
 .tab-item {
@@ -818,9 +964,23 @@
 
 .sidebar-content {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 1.5rem;
     background: white;
+    overscroll-behavior: contain;
+}
+
+.quick-menu-sidebar .sidebar-content,
+.quick-menu-sidebar .sidebar-content button,
+.quick-menu-sidebar .sidebar-content label,
+.quick-menu-sidebar .sidebar-content span,
+.quick-menu-sidebar .sidebar-content strong,
+.quick-menu-sidebar .sidebar-content p,
+.quick-menu-sidebar .sidebar-content h3,
+.quick-menu-sidebar .sidebar-content h4 {
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
 
 /* Settings Cards (Common) */
@@ -889,7 +1049,157 @@
     
     .quick-menu-sidebar {
         width: 100%;
-        right: -100%;
+        max-width: none;
+        border-radius: 0;
+    }
+
+    .quick-menu-sidebar > .sidebar-header {
+        padding: max(0.9rem, env(safe-area-inset-top)) 1rem 0.85rem;
+    }
+
+    .quick-menu-sidebar > .sidebar-header h2 {
+        font-size: 1.35rem;
+        padding-right: 3.2rem;
+    }
+
+    .sidebar-student-meta {
+        margin-top: 0.25rem;
+        font-size: 0.82rem;
+    }
+
+    .sidebar-rank-edit.btn-sm {
+        min-height: 30px;
+    }
+
+    .header-stats-row {
+        margin-top: 0.7rem;
+        padding: 0.65rem 0.25rem;
+        border-radius: 12px;
+    }
+
+    .header-stats-row .stat-item {
+        padding: 0 0.35rem;
+    }
+
+    .header-stats-row label {
+        min-height: 2.5em;
+        margin-bottom: 0.15rem;
+        font-size: 0.68rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .header-stats-row strong {
+        font-size: 1.08rem;
+    }
+
+    .header-stats-row strong span {
+        font-size: 0.72rem;
+    }
+
+    .mission-count-control {
+        gap: 0.2rem;
+    }
+
+    .mission-count-buttons button {
+        min-width: 28px;
+        min-height: 20px;
+    }
+
+    .close-btn {
+        top: max(0.65rem, env(safe-area-inset-top));
+        right: 0.75rem;
+    }
+
+    .quick-menu-sidebar > .sidebar-tabs {
+        gap: 0.35rem;
+        padding: 0.55rem 0.75rem;
+        overflow-x: auto;
+        border-bottom: 1px solid #e2e8f0;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .quick-menu-sidebar > .sidebar-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .quick-menu-sidebar > .sidebar-tabs .tab-item {
+        flex: 0 0 auto;
+        min-width: max-content;
+        min-height: 42px;
+        padding: 0.65rem 0.9rem;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        white-space: nowrap;
+        font-size: 0.86rem;
+    }
+
+    .quick-menu-sidebar > .sidebar-tabs .tab-item.active {
+        border-color: #bfdbfe;
+        border-bottom-color: #bfdbfe;
+        background: #eff6ff;
+        box-shadow: 0 2px 8px rgba(74, 144, 226, 0.12);
+    }
+
+    .quick-menu-sidebar > .sidebar-content {
+        padding: 1rem 0.9rem calc(1.25rem + env(safe-area-inset-bottom));
+        background: #f8fafc;
+    }
+
+    .quick-menu-sidebar .history-table-container {
+        display: block;
+        overflow-x: auto;
+        justify-content: initial;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .quick-menu-sidebar .history-compact-table {
+        min-width: 560px;
+    }
+
+    .quick-menu-sidebar .coupon-list {
+        display: grid;
+        gap: 0.75rem;
+        padding: 0;
+        margin: 0;
+        list-style: none;
+    }
+
+    .quick-menu-sidebar .coupon-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 1rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        background: white;
+        box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+    }
+
+    .quick-menu-sidebar .coupon-info,
+    .quick-menu-sidebar .coupon-actions {
+        min-width: 0;
+    }
+
+    .quick-menu-sidebar .coupon-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+
+    .quick-menu-sidebar .coupon-actions {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .quick-menu-sidebar .coupon-details {
+        color: var(--text-color-secondary);
+        font-size: 0.78rem;
     }
     
     .modal-content {

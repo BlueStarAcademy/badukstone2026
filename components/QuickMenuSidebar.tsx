@@ -151,6 +151,17 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         }
     }, [isOpen, student?.id, generalSettings.josekiMissionValue]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') onClose();
+        };
+
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [isOpen, onClose]);
+
     // Mission Stats Logic
     const missionStats = useMemo(() => {
         if (!student) return { lastMonth: 0, thisMonth: 0, remaining: 0 };
@@ -509,17 +520,24 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
 
     return (
         <>
-        <div className={`quick-menu-sidebar ${isOpen ? 'open' : ''}`}>
+        {isOpen && <div className="quick-menu-overlay" onClick={onClose} aria-hidden="true" />}
+        <aside
+            className={`quick-menu-sidebar ${isOpen ? 'open' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={student ? `${student.name} 학생 메뉴` : '학생 메뉴'}
+            aria-hidden={!isOpen}
+        >
             {student && (
                 <>
                     <div className="sidebar-header">
-                        <button className="close-btn" onClick={onClose} aria-label="닫기">&times;</button>
+                        <button className="close-btn" onClick={onClose} aria-label="학생 메뉴 닫기">&times;</button>
                         <h2>{student.name}</h2>
-                        <p style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <p className="sidebar-student-meta">
                             <span>{student.rank}</span>
                             <button
                                 type="button"
-                                className="btn-sm"
+                                className="btn-sm sidebar-rank-edit"
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setIsEditRankOpen(true);
@@ -527,43 +545,42 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                 }}
                                 title="급수 수정"
                                 aria-label="급수 수정"
-                                style={{ padding: '0 0.45rem', lineHeight: 1.6 }}
                             >
                                 ✏️
                             </button>
                             <span>({groupSettings[student.group]?.name || student.group})</span>
                         </p>
                         
-                        <div className="header-stats-row" style={{ display: 'flex', gap: '1.5rem', marginTop: '1rem', background: 'rgba(255,255,255,0.15)', padding: '1rem', borderRadius: '12px' }}>
-                             <div className="stat-item" style={{ flex: 1, textAlign: 'center' }}>
-                                <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>보유 스톤</label>
-                                <strong style={{ fontSize: '1.4rem' }}>{student.stones}<span style={{fontSize: '0.9rem', opacity: 0.7, fontWeight: 'normal'}}> / {student.maxStones}</span></strong>
+                        <div className="header-stats-row">
+                             <div className="stat-item">
+                                <label>보유 스톤</label>
+                                <strong>{student.stones}<span> / {student.maxStones}</span></strong>
                             </div>
-                            <div className="stat-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
-                                <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>미션 달성 (전월/당월)</label>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                    <strong style={{ fontSize: '1.4rem' }}>{missionStats.lastMonth} <span style={{fontSize: '0.9rem', opacity: 0.7}}>/</span> {missionStats.thisMonth}</strong>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <div className="stat-item stat-item-bordered">
+                                <label>미션 달성 (전월/당월)</label>
+                                <div className="mission-count-control">
+                                    <strong>{missionStats.lastMonth} <span>/</span> {missionStats.thisMonth}</strong>
+                                    <div className="mission-count-buttons">
                                         <button 
                                             onClick={() => onAdjustMissionCount(student.id, 1)} 
-                                            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '0.6rem', lineHeight: 1, padding: '1px 3px' }}
                                             title="미션 횟수 1 증가"
+                                            aria-label="미션 횟수 1 증가"
                                         >
                                             ▲
                                         </button>
                                         <button 
                                             onClick={() => onAdjustMissionCount(student.id, -1)} 
-                                            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '2px', cursor: 'pointer', fontSize: '0.6rem', lineHeight: 1, padding: '1px 3px' }}
                                             title="미션 횟수 1 감소"
+                                            aria-label="미션 횟수 1 감소"
                                         >
                                             ▼
                                         </button>
                                     </div>
                                 </div>
                             </div>
-                            <div className="stat-item" style={{ flex: 1, textAlign: 'center', borderLeft: '1px solid rgba(255,255,255,0.2)' }}>
-                                <label style={{ display: 'block', fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.3rem' }}>이벤트까지</label>
-                                <strong style={{ fontSize: '1.4rem', color: missionStats.remaining === 0 ? '#ffeb3b' : 'inherit' }}>{missionStats.remaining === 0 ? '달성!' : `${missionStats.remaining}회`}</strong>
+                            <div className="stat-item stat-item-bordered">
+                                <label>이벤트까지</label>
+                                <strong className={missionStats.remaining === 0 ? 'stat-achieved' : ''}>{missionStats.remaining === 0 ? '달성!' : `${missionStats.remaining}회`}</strong>
                             </div>
                         </div>
                     </div>
@@ -1202,7 +1219,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                     </div>
                 </>
             )}
-        </div>
+        </aside>
          {transactionToCancel && <ConfirmationModal message={`'${transactionToCancel.description}' 내역을 정말 취소하시겠습니까? (${-transactionToCancel.amount} 스톤이 복구됩니다)`} actions={[{ text: '닫기', onClick: () => setTransactionToCancel(null) }, { text: '취소 실행', onClick: () => { onCancelTransaction(transactionToCancel.id); setTransactionToCancel(null); }}]} onClose={() => setTransactionToCancel(null)} />}
         {transactionToDelete && <ConfirmationModal message={`'${transactionToDelete.description}' 내역을 정말 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 학생의 스톤이 변동됩니다.`} actions={[{ text: '닫기', onClick: () => setTransactionToDelete(null) }, { text: '삭제 실행', className: 'danger', onClick: () => { onDeleteTransaction(transactionToDelete.id); setTransactionToDelete(null); }}]} onClose={() => setTransactionToDelete(null)} />}
         {partialMission && (
