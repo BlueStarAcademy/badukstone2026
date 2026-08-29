@@ -220,6 +220,10 @@ export const AdminPanel = (props: AdminPanelProps) => {
     const [studentSearchTerm, setStudentSearchTerm] = useState('');
     const [bulkEditRank, setBulkEditRank] = useState('');
     const [bulkEditStatus, setBulkEditStatus] = useState<Student['status'] | ''>('');
+    const [studentSort, setStudentSort] = useState<{
+        key: 'group' | 'name' | 'rank' | 'stones' | 'status' | 'birthday';
+        direction: 'asc' | 'desc';
+    }>({ key: 'rank', direction: 'desc' });
 
 
     const missionsByGroup = useMemo(() => {
@@ -255,9 +259,75 @@ export const AdminPanel = (props: AdminPanelProps) => {
                 s.name.toLowerCase().includes(studentSearchTerm.trim().toLowerCase())
             );
         }
-        
-        return filtered.sort((a,b) => parseRank(b.rank) - parseRank(a.rank));
-    }, [students, activeStudentGroup, studentSearchTerm]);
+
+        const dir = studentSort.direction === 'asc' ? 1 : -1;
+        const compare = (a: Student, b: Student): number => {
+            switch (studentSort.key) {
+                case 'group': {
+                    const ga = groupSettings[a.group]?.name || a.group;
+                    const gb = groupSettings[b.group]?.name || b.group;
+                    return ga.localeCompare(gb, 'ko') * dir;
+                }
+                case 'name':
+                    return a.name.localeCompare(b.name, 'ko') * dir;
+                case 'rank':
+                    return (parseRank(a.rank) - parseRank(b.rank)) * dir;
+                case 'stones':
+                    return (a.stones - b.stones) * dir;
+                case 'status':
+                    return a.status.localeCompare(b.status, 'ko') * dir;
+                case 'birthday':
+                    return (a.birthday || '').localeCompare(b.birthday || '', 'ko') * dir;
+                default:
+                    return 0;
+            }
+        };
+
+        return [...filtered].sort(compare);
+    }, [students, activeStudentGroup, studentSearchTerm, studentSort, groupSettings]);
+
+    const setStudentSortKey = (
+        key: 'group' | 'name' | 'rank' | 'stones' | 'status' | 'birthday',
+        direction: 'asc' | 'desc'
+    ) => {
+        setStudentSort({ key, direction });
+    };
+
+    const renderSortableHeader = (
+        label: string,
+        key: 'group' | 'name' | 'rank' | 'stones' | 'status' | 'birthday'
+    ) => {
+        const isActive = studentSort.key === key;
+        return (
+            <th className="sortable-th">
+                <div className="sortable-th-inner">
+                    <span>{label}</span>
+                    <span className="sort-controls" role="group" aria-label={`${label} 정렬`}>
+                        <button
+                            type="button"
+                            className={`sort-btn ${isActive && studentSort.direction === 'asc' ? 'active' : ''}`}
+                            onClick={() => setStudentSortKey(key, 'asc')}
+                            title={`${label} 오름차순`}
+                            aria-label={`${label} 오름차순`}
+                            aria-pressed={isActive && studentSort.direction === 'asc'}
+                        >
+                            ▲
+                        </button>
+                        <button
+                            type="button"
+                            className={`sort-btn ${isActive && studentSort.direction === 'desc' ? 'active' : ''}`}
+                            onClick={() => setStudentSortKey(key, 'desc')}
+                            title={`${label} 내림차순`}
+                            aria-label={`${label} 내림차순`}
+                            aria-pressed={isActive && studentSort.direction === 'desc'}
+                        >
+                            ▼
+                        </button>
+                    </span>
+                </div>
+            </th>
+        );
+    };
 
     useEffect(() => {
         setSelectedStudentIds(new Set());
@@ -694,7 +764,8 @@ export const AdminPanel = (props: AdminPanelProps) => {
                             </div>
                         </div>
                     )}
-                    <table className="student-table">
+                    <div className="student-table-wrap">
+                    <table className="student-table student-table--admin">
                         <thead>
                             <tr>
                                 <th className="checkbox-cell">
@@ -705,8 +776,13 @@ export const AdminPanel = (props: AdminPanelProps) => {
                                         title={`${activeStudentGroup} 전체 선택`}
                                     />
                                 </th>
-                                {activeStudentGroup === '전체' && <th>그룹</th>}
-                                <th>이름</th><th>급수/단</th><th>스톤</th><th>상태</th><th>생일</th><th>작업</th>
+                                {activeStudentGroup === '전체' && renderSortableHeader('그룹', 'group')}
+                                {renderSortableHeader('이름', 'name')}
+                                {renderSortableHeader('급수/단', 'rank')}
+                                {renderSortableHeader('스톤', 'stones')}
+                                {renderSortableHeader('상태', 'status')}
+                                {renderSortableHeader('생일', 'birthday')}
+                                <th>작업</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -731,8 +807,16 @@ export const AdminPanel = (props: AdminPanelProps) => {
                                     </td>
                                 </tr>
                             ))}
+                            {studentsInCurrentTab.length === 0 && (
+                                <tr>
+                                    <td colSpan={activeStudentGroup === '전체' ? 8 : 7} className="empty-table-message">
+                                        조건에 맞는 학생이 없습니다.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
+                    </div>
                 </>
             )}
             
