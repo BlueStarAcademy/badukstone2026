@@ -138,4 +138,108 @@
     .cart-panel-items {
         max-height: 150px;
     }
+
+    .quick-menu-sidebar .shop-main {
+        min-height: 0;
+        padding: 1rem 0.9rem;
+        background: #f8fafc;
+    }
+
+    .quick-menu-sidebar .shop-filters {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 0.3rem;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .quick-menu-sidebar .shop-filters::-webkit-scrollbar {
+        display: none;
+    }
+
+    .quick-menu-sidebar .filter-btn {
+        flex: 0 0 auto;
+        min-height: 40px;
+        white-space: nowrap;
+    }
+
+    .quick-menu-sidebar .shop-search-and-filters {
+        display: flex;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .quick-menu-sidebar .shop-search-and-filters .inline-group {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+    }
+
+    .quick-menu-sidebar .shop-search-and-filters .sort-dropdown {
+        min-width: 0;
+    }
+
+    .quick-menu-sidebar .shop-search-and-filters select {
+        width: 100%;
+    }
+
+    .quick-menu-sidebar .shop-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
+    }
+
+    .quick-menu-sidebar .shop-grid-item {
+        min-width: 0;
+        padding: 0.85rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+
+    .quick-menu-sidebar .shop-item-name {
+        line-height: 1.4;
+    }
+
+    .quick-menu-sidebar .shop-item-actions .btn {
+        width: 100%;
+        padding-inline: 0.5rem;
+        white-space: normal;
+    }
+
+    .quick-menu-sidebar .shop-cart-panel {
+        flex: 0 0 auto;
+        max-height: min(42dvh, 320px);
+    }
+
+    .quick-menu-sidebar .cart-panel-header,
+    .quick-menu-sidebar .cart-panel-footer {
+        padding: 0.8rem 1rem;
+    }
+
+    .quick-menu-sidebar .cart-panel-header h3 {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .quick-menu-sidebar .cart-item {
+        gap: 0.65rem;
+        padding: 0.7rem 0;
+    }
+
+    .quick-menu-sidebar .cart-item-name {
+        min-width: 0;
+        line-height: 1.35;
+    }
+
+    .quick-menu-sidebar .cart-item-controls {
+        display: flex;
+        flex-shrink: 0;
+        align-items: center;
+        gap: 0.35rem;
+    }
+}
+
+@media (max-width: 390px) {
+    .quick-menu-sidebar .shop-list {
+        grid-template-columns: 1fr;
+    }
 }
