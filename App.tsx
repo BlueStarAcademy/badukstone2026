@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { api, isDemoMode } from './api/client';
 import { useAppState } from './hooks/useAppState';
 import { INITIAL_STUDENTS, INITIAL_MISSIONS, INITIAL_SHOP_ITEMS, INITIAL_GROUP_SETTINGS, INITIAL_GENERAL_SETTINGS, INITIAL_EVENT_SETTINGS, INITIAL_TOURNAMENT_DATA, INITIAL_TOURNAMENT_SETTINGS, INITIAL_SHOP_CATEGORIES, INITIAL_GACHA_STATES, INITIAL_CHESS_MISSIONS, INITIAL_SPECIAL_MISSIONS } from './data/initialData';
-import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress, PersonalMissionTemplate, TournamentAwardRequest } from './types';
+import type { Student, Mission, ShopItem, View, Transaction, Coupon, GroupSettings, AppData, UsedCouponInfo, ChessMatch, User, MasterData, GachaData, EventSettings, EventMonthlyStats, IndividualMissionSeries, StudentMissionProgress, PersonalMissionTemplate, PersonalMissionType, TournamentAwardRequest } from './types';
 import { generateId, getGroupForRank } from './utils';
 import { pickSpecialMissionForStudent } from './utils/specialMissionPick';
 import {
@@ -552,6 +552,36 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         });
     }, [setAppState]);
 
+    const handleBulkAddPersonalMission = useCallback((
+        studentIds: string[],
+        mission: { title: string; stones: number; no: number; missionType?: PersonalMissionType }
+    ) => {
+        setAppState(prev => {
+            if (!prev || prev === 'error') return prev;
+            const validStudentIds = new Set(
+                studentIds.filter(id => prev.students.some(student => student.id === id))
+            );
+            if (validStudentIds.size === 0) return prev;
+
+            const personalMissions = { ...(prev.personalMissions || {}) };
+            for (const studentId of validStudentIds) {
+                const list = personalMissions[studentId] || [];
+                personalMissions[studentId] = [
+                    ...list,
+                    {
+                        id: generateId(),
+                        ownerStudentId: studentId,
+                        title: mission.title,
+                        stones: mission.stones,
+                        no: mission.no,
+                        missionType: mission.missionType || 'continuous',
+                    },
+                ];
+            }
+            return { ...prev, personalMissions };
+        });
+    }, [setAppState]);
+
     const handleUpdatePersonalMissionScore = useCallback((studentId: string, missionId: string, newStones: number) => {
         setAppState(prev => {
             if (!prev || prev === 'error') return prev;
@@ -575,7 +605,10 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
             const list = existing[studentId] || [];
             const mission = list.find(m => m.id === missionId);
             const safePayload = mission?.templateId
-                ? (payload.stones !== undefined ? { stones: payload.stones } : {})
+                ? {
+                    ...(payload.stones !== undefined ? { stones: payload.stones } : {}),
+                    ...(payload.no !== undefined ? { no: payload.no } : {}),
+                }
                 : payload;
             const updated = list.map(m => m.id === missionId ? { ...m, ...safePayload } : m);
             return {
@@ -1287,6 +1320,7 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                             personalMissionTemplates={personalMissionTemplates}
                             onUpsertPersonalMissionTemplate={handleUpsertPersonalMissionTemplate}
                             onDeletePersonalMissionTemplate={handleDeletePersonalMissionTemplate}
+                            onBulkAddPersonalMission={handleBulkAddPersonalMission}
                             shopItems={shopItems} shopSettings={shopSettings} shopCategories={shopCategories} groupSettings={groupSettings} generalSettings={generalSettings}
                             setMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, missions: typeof m === 'function' ? m(prev!.missions) : m }))}
                             setChessMissions={(m) => setAppState(prev => prev === 'error' ? prev : ({ ...prev!, chessMissions: typeof m === 'function' ? m(prev!.chessMissions) : m }))}

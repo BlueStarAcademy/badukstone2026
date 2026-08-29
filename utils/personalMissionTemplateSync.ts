@@ -51,7 +51,10 @@ export function ensurePersonalMissionInstancesForAllStudents(prev: AppData): App
     return next;
 }
 
-/** 템플릿 내용 변경 시, 이미 붙어 있는 학생 카드의 제목·점수·No·유형을 맞춥니다(진행 상태는 유지). */
+/**
+ * 템플릿 내용 변경 시 공통 정의를 연결된 학생 카드에 반영합니다.
+ * No는 학생별 현재 진행값이므로 기존 카드에서는 변경하지 않습니다.
+ */
 export function syncStudentMissionInstancesFromTemplate(prev: AppData, template: PersonalMissionTemplate): AppData {
     const nextPm = { ...(prev.personalMissions || {}) };
     for (const sid of Object.keys(nextPm)) {
@@ -61,7 +64,6 @@ export function syncStudentMissionInstancesFromTemplate(prev: AppData, template:
                     ...m,
                     title: template.title,
                     stones: template.stones,
-                    no: template.no,
                     missionType: template.missionType || 'continuous',
                 }
                 : m
