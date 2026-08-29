@@ -1,6 +1,7 @@
 
 import React, { useRef, useLayoutEffect, useState } from 'react';
 import type { DoubleElimMatch } from '../../types';
+import { isPlayInRoundTitle } from '../../utils/elimBracket';
 
 const SLOT_HEIGHT = 32;
 const MATCH_GAP = 8;
@@ -12,6 +13,11 @@ interface DoubleElimBracketTreeProps {
     /** prefix for data-match-key (e.g. 'w' or 'l') */
     keyPrefix?: string;
 }
+
+const nextMatchIndexFor = (roundTitle: string, matchIndex: number): number => {
+    if (isPlayInRoundTitle(roundTitle)) return matchIndex;
+    return Math.floor(matchIndex / 2);
+};
 
 export const DoubleElimBracketTree = (props: DoubleElimBracketTreeProps) => {
     const { rounds, getPlayerName, onSetWinner, keyPrefix = '' } = props;
@@ -38,7 +44,7 @@ export const DoubleElimBracketTree = (props: DoubleElimBracketTreeProps) => {
             const round = rounds[r];
             const nextRound = rounds[r + 1];
             for (let m = 0; m < round.matches.length; m++) {
-                const nextM = Math.floor(m / 2);
+                const nextM = nextMatchIndexFor(round.title, m);
                 const nextMatch = nextRound.matches[nextM];
                 if (!nextMatch) continue;
                 const keyFrom = `${keyPrefix}${r}-${m}`;

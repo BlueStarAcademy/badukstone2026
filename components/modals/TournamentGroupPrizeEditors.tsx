@@ -13,23 +13,17 @@ import {
     getMissionPrizeRow,
     getSwissPaidRankCount,
     getSwissRankAmounts,
+    getBracketPaidRankCount,
+    getBracketRankAmounts,
     swissRowFromRankAmounts,
+    bracketRowFromRankAmounts,
     parseSwissGroupSizes,
     syncSwissPrizeRowsToGroupCount,
 } from '../../utils/tournamentPrizes';
 
 type Setter = (field: keyof TournamentSettings, value: unknown) => void;
 
-const btnSm: React.CSSProperties = { padding: '2px 8px', fontSize: '0.85rem' };
-
-const tabBarStyle: React.CSSProperties = {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '0.35rem',
-    marginBottom: '0.75rem',
-};
-
-/** 스위스·예선 스타일 순위 상금 입력 (참가상 제외) */
+/** 순위 상금 그리드 (스위스·예선) */
 export const SwissRankPrizeFields = ({
     paidCount,
     prizes,
@@ -46,23 +40,19 @@ export const SwissRankPrizeFields = ({
         onChange(swissRowFromRankAmounts(next, prizes.participant));
     };
     return (
-        <>
+        <div className="tsm-prize-grid">
             {amounts.map((amt, i) => (
-                <div key={i} className="settings-form-row">
-                    <div className="label-group">
-                        <label>{i + 1}위</label>
-                    </div>
-                    <div className="input-group">
+                <label key={i} className="tsm-prize-cell">
+                    <span className="tsm-prize-rank">{i + 1}위</span>
+                    <span className="tsm-prize-input-wrap">
                         <input type="number" value={amt} onChange={e => setAmount(i, Number(e.target.value) || 0)} />
-                        <span>스톤</span>
-                    </div>
-                </div>
+                        <span className="tsm-prize-unit">스톤</span>
+                    </span>
+                </label>
             ))}
-            <div className="settings-form-row">
-                <div className="label-group">
-                    <label>참가상</label>
-                </div>
-                <div className="input-group">
+            <label className="tsm-prize-cell tsm-prize-cell--participant">
+                <span className="tsm-prize-rank">참가상</span>
+                <span className="tsm-prize-input-wrap">
                     <input
                         type="number"
                         value={prizes.participant}
@@ -70,10 +60,59 @@ export const SwissRankPrizeFields = ({
                             onChange(swissRowFromRankAmounts(getSwissRankAmounts(prizes, paidCount), Number(e.target.value) || 0))
                         }
                     />
-                    <span>스톤</span>
-                </div>
-            </div>
-        </>
+                    <span className="tsm-prize-unit">스톤</span>
+                </span>
+            </label>
+        </div>
+    );
+};
+
+/** 순위 상금 그리드 (토너먼트·풀리그·더블엘리) */
+export const BracketRankPrizeFields = ({
+    paidCount,
+    prizes,
+    onChange,
+}: {
+    paidCount: number;
+    prizes: TournamentBracketGroupPrizes;
+    onChange: (next: TournamentBracketGroupPrizes) => void;
+}) => {
+    const amounts = getBracketRankAmounts(prizes, paidCount);
+    const setAmount = (i: number, v: number) => {
+        const next = [...amounts];
+        next[i] = v;
+        onChange(bracketRowFromRankAmounts(next, prizes.participant));
+    };
+    const rankLabel = (i: number) => {
+        if (i === 0) return '우승';
+        if (i === 1) return '준우승';
+        return `${i + 1}위`;
+    };
+    return (
+        <div className="tsm-prize-grid">
+            {amounts.map((amt, i) => (
+                <label key={i} className={`tsm-prize-cell${i < 4 ? ` tsm-prize-cell--r${i + 1}` : ''}`}>
+                    <span className="tsm-prize-rank">{rankLabel(i)}</span>
+                    <span className="tsm-prize-input-wrap">
+                        <input type="number" value={amt} onChange={e => setAmount(i, Number(e.target.value) || 0)} />
+                        <span className="tsm-prize-unit">스톤</span>
+                    </span>
+                </label>
+            ))}
+            <label className="tsm-prize-cell tsm-prize-cell--participant">
+                <span className="tsm-prize-rank">참가상</span>
+                <span className="tsm-prize-input-wrap">
+                    <input
+                        type="number"
+                        value={prizes.participant}
+                        onChange={e =>
+                            onChange(bracketRowFromRankAmounts(getBracketRankAmounts(prizes, paidCount), Number(e.target.value) || 0))
+                        }
+                    />
+                    <span className="tsm-prize-unit">스톤</span>
+                </span>
+            </label>
+        </div>
     );
 };
 
@@ -84,6 +123,7 @@ export const BracketGroupPrizesEditor = ({
     settings: TournamentSettings;
     onChange: Setter;
 }) => {
+    const paidCount = getBracketPaidRankCount(settings);
     const rows = settings.bracketPrizesByGroup;
     const list: TournamentBracketGroupPrizes[] =
         rows && rows.length > 0 ? rows : [defaultBracketGroupPrize(settings)];
@@ -92,88 +132,33 @@ export const BracketGroupPrizesEditor = ({
         onChange('bracketPrizesByGroup', next.length ? next : undefined);
     };
 
-    const update = (idx: number, patch: Partial<TournamentBracketGroupPrizes>) => {
-        const next = list.map((r, i) => (i === idx ? { ...r, ...patch } : r));
-        setRows(next);
-    };
-
     return (
-        <div className="settings-card" style={{ marginTop: '1rem' }}>
-            <h4>조별 상금 (토너먼트·풀리그·더블엘리미네이션)</h4>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
-                행을 여러 개 두면 시상 시 조 번호를 골라 해당 금액으로 지급합니다. 비우면 위 기본 상금만 사용합니다.
-            </p>
+        <div className="tsm-card">
+            <div className="tsm-card-head">
+                <h4>조별 상금</h4>
+                <p>행을 여러 개 두면 시상 시 조를 골라 해당 금액으로 지급합니다.</p>
+            </div>
             {list.map((row, idx) => (
-                <div
-                    key={idx}
-                    style={{
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 8,
-                        padding: '0.75rem',
-                        marginBottom: '0.5rem',
-                        background: 'var(--surface-color-hover)',
-                    }}
-                >
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{idx + 1}조</div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>우승</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.champion} onChange={e => update(idx, { champion: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
+                <div key={idx} className="tsm-group-block">
+                    <div className="tsm-group-block-head">
+                        <strong>{idx + 1}조</strong>
+                        {list.length > 1 && (
+                            <button type="button" className="btn-sm danger" onClick={() => setRows(list.filter((_, i) => i !== idx))}>
+                                삭제
+                            </button>
+                        )}
                     </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>준우승</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.runnerUp} onChange={e => update(idx, { runnerUp: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>3-4위</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.semiFinalist} onChange={e => update(idx, { semiFinalist: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>참가상</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.participant} onChange={e => update(idx, { participant: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    {list.length > 1 && (
-                        <button type="button" className="btn-sm danger" style={btnSm} onClick={() => setRows(list.filter((_, i) => i !== idx))}>
-                            이 조 삭제
-                        </button>
-                    )}
+                    <BracketRankPrizeFields paidCount={paidCount} prizes={row} onChange={next => setRows(list.map((r, i) => (i === idx ? next : r)))} />
                 </div>
             ))}
-            <button
-                type="button"
-                className="btn-sm"
-                style={{ ...btnSm, marginTop: 4 }}
-                onClick={() => setRows([...list, { ...list[list.length - 1] }])}
-            >
-                조(행) 추가
-            </button>
-            <button
-                type="button"
-                className="btn-sm"
-                style={{ ...btnSm, marginLeft: 8 }}
-                onClick={() => onChange('bracketPrizesByGroup', undefined)}
-            >
-                조별 상금 끄기 (기본만)
-            </button>
+            <div className="tsm-card-actions">
+                <button type="button" className="btn-sm" onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
+                    조 추가
+                </button>
+                <button type="button" className="btn-sm" onClick={() => onChange('bracketPrizesByGroup', undefined)}>
+                    조별 상금 끄기
+                </button>
+            </div>
         </div>
     );
 };
@@ -227,11 +212,11 @@ export const SwissGroupPrizesEditor = ({ settings, onChange }: { settings: Tourn
 
     if (settings.swissUseGroups && groupCount === 0) {
         return (
-            <div className="settings-card" style={{ marginTop: '1rem' }}>
-                <h4>조별 상금·인원 (스위스 리그)</h4>
-                <p style={{ fontSize: '0.88rem', color: 'var(--danger-color, #c0392b)' }}>
-                    위에서 조 인원을 먼저 입력해 주세요. (예: 4,4,8)
-                </p>
+            <div className="tsm-card">
+                <div className="tsm-card-head">
+                    <h4>조별 상금·인원</h4>
+                    <p className="tsm-warn">위에서 조 인원을 먼저 입력해 주세요. (예: 4,4,8)</p>
+                </div>
             </div>
         );
     }
@@ -242,42 +227,27 @@ export const SwissGroupPrizesEditor = ({ settings, onChange }: { settings: Tourn
         const sizeVal = groupSizes[idx] ?? 0;
 
         return (
-            <div className="settings-card" style={{ marginTop: '1rem' }}>
-                <h4>조별 상금·인원 (스위스 리그)</h4>
-                <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
-                    탭마다 해당 조 인원과 상금을 설정합니다. 조 개수는 위 「조 인원」 합계와 같습니다.
-                </p>
-                <div style={tabBarStyle}>
+            <div className="tsm-card">
+                <div className="tsm-card-head">
+                    <h4>조별 상금·인원</h4>
+                    <p>탭마다 해당 조 인원과 상금을 설정합니다.</p>
+                </div>
+                <div className="tsm-tabs">
                     {groupSizes.map((sz, i) => (
                         <button
                             key={i}
                             type="button"
-                            className="btn-sm"
-                            style={{
-                                ...btnSm,
-                                border: i === idx ? '2px solid var(--primary-color)' : '1px solid var(--border-color)',
-                                background: i === idx ? 'var(--primary-color)' : 'var(--surface-color)',
-                                color: i === idx ? '#fff' : 'inherit',
-                            }}
+                            className={`tsm-tab${i === idx ? ' is-active' : ''}`}
                             onClick={() => setActiveTab(i)}
                         >
-                            {i + 1}조 ({sz}명)
+                            {i + 1}조 · {sz}명
                         </button>
                     ))}
                 </div>
-                <div
-                    style={{
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 8,
-                        padding: '0.75rem',
-                        background: 'var(--surface-color-hover)',
-                    }}
-                >
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label htmlFor={`swiss-grp-${idx}-size`}>이 조 인원</label>
-                        </div>
-                        <div className="input-group">
+                <div className="tsm-group-block">
+                    <div className="tsm-field-inline">
+                        <label htmlFor={`swiss-grp-${idx}-size`}>이 조 인원</label>
+                        <span className="tsm-prize-input-wrap">
                             <input
                                 id={`swiss-grp-${idx}-size`}
                                 type="number"
@@ -285,37 +255,34 @@ export const SwissGroupPrizesEditor = ({ settings, onChange }: { settings: Tourn
                                 value={sizeVal}
                                 onChange={e => setGroupSizeAt(idx, Number(e.target.value))}
                             />
-                            <span>명</span>
-                        </div>
+                            <span className="tsm-prize-unit">명</span>
+                        </span>
                     </div>
                     <SwissRankPrizeFields paidCount={paidCount} prizes={row} onChange={r => updateRow(idx, r)} />
                 </div>
-                <button type="button" className="btn-sm" style={{ ...btnSm, marginTop: 8 }} onClick={() => onChange('swissPrizesByGroup', undefined)}>
-                    조별 상금 끄기 (기본만)
-                </button>
+                <div className="tsm-card-actions">
+                    <button type="button" className="btn-sm" onClick={() => onChange('swissPrizesByGroup', undefined)}>
+                        조별 상금 끄기
+                    </button>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="settings-card" style={{ marginTop: '1rem' }}>
-            <h4>조별 상금 (스위스 리그)</h4>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
-                조별 스위스를 끈 상태에서는 아래 한 세트가 전체 스위스 시상 기본값으로 쓰입니다. 켜면 위 탭에서 조마다 다르게 둘 수 있습니다.
-            </p>
-            <div
-                style={{
-                    border: '1px solid var(--border-color)',
-                    borderRadius: 8,
-                    padding: '0.75rem',
-                    background: 'var(--surface-color-hover)',
-                }}
-            >
+        <div className="tsm-card">
+            <div className="tsm-card-head">
+                <h4>시상 기본값 (전체)</h4>
+                <p>조별 스위스를 끈 상태의 시상 기본값입니다.</p>
+            </div>
+            <div className="tsm-group-block">
                 <SwissRankPrizeFields paidCount={paidCount} prizes={list[0]} onChange={r => setRows([r])} />
             </div>
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginTop: 8 }} onClick={() => onChange('swissPrizesByGroup', undefined)}>
-                조별 상금 끄기 (기본만)
-            </button>
+            <div className="tsm-card-actions">
+                <button type="button" className="btn-sm" onClick={() => onChange('swissPrizesByGroup', undefined)}>
+                    조별 상금 끄기
+                </button>
+            </div>
         </div>
     );
 };
@@ -339,69 +306,62 @@ export const RelayGroupPrizesEditor = ({ settings, onChange }: { settings: Tourn
     };
 
     return (
-        <div className="settings-card" style={{ marginTop: '1rem' }}>
-            <h4>조별 상금 (팀 대항전)</h4>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
-                1조 = A팀, 2조 = B팀 기준으로 승리·패배 시 지급 기본 스톤을 다르게 둘 수 있습니다.
-            </p>
-            {list.map((row, idx) => (
-                <div
-                    key={idx}
-                    style={{
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 8,
-                        padding: '0.75rem',
-                        marginBottom: '0.5rem',
-                        background: 'var(--surface-color-hover)',
-                    }}
-                >
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
-                        {idx + 1}조 ({idx === 0 ? 'A팀' : idx === 1 ? 'B팀' : `팀 ${idx + 1}`})
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>승리 시</label>
+        <div className="tsm-card">
+            <div className="tsm-card-head">
+                <h4>팀별 상금</h4>
+                <p>1조 = A팀, 2조 = B팀 기준으로 승리·패배 시 지급액을 다르게 둘 수 있습니다.</p>
+            </div>
+            <div className="tsm-relay-grid">
+                {list.map((row, idx) => (
+                    <div key={idx} className="tsm-group-block">
+                        <div className="tsm-group-block-head">
+                            <strong>
+                                {idx + 1}조 ({idx === 0 ? 'A팀' : idx === 1 ? 'B팀' : `팀 ${idx + 1}`})
+                            </strong>
+                            {list.length > 2 && (
+                                <button type="button" className="btn-sm danger" onClick={() => setRows(list.filter((_, i) => i !== idx))}>
+                                    삭제
+                                </button>
+                            )}
                         </div>
-                        <div className="input-group">
-                            <input type="number" value={row.winPrize} onChange={e => update(idx, { winPrize: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>패배 시</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.losePrize} onChange={e => update(idx, { losePrize: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>참가(기본)</label>
-                        </div>
-                        <div className="input-group">
-                            <input
-                                type="number"
-                                value={row.participantPrize}
-                                onChange={e => update(idx, { participantPrize: Number(e.target.value) || 0 })}
-                            />
-                            <span>스톤</span>
+                        <div className="tsm-prize-grid tsm-prize-grid--3">
+                            <label className="tsm-prize-cell">
+                                <span className="tsm-prize-rank">승리 시</span>
+                                <span className="tsm-prize-input-wrap">
+                                    <input type="number" value={row.winPrize} onChange={e => update(idx, { winPrize: Number(e.target.value) || 0 })} />
+                                    <span className="tsm-prize-unit">스톤</span>
+                                </span>
+                            </label>
+                            <label className="tsm-prize-cell">
+                                <span className="tsm-prize-rank">패배 시</span>
+                                <span className="tsm-prize-input-wrap">
+                                    <input type="number" value={row.losePrize} onChange={e => update(idx, { losePrize: Number(e.target.value) || 0 })} />
+                                    <span className="tsm-prize-unit">스톤</span>
+                                </span>
+                            </label>
+                            <label className="tsm-prize-cell">
+                                <span className="tsm-prize-rank">참가</span>
+                                <span className="tsm-prize-input-wrap">
+                                    <input
+                                        type="number"
+                                        value={row.participantPrize}
+                                        onChange={e => update(idx, { participantPrize: Number(e.target.value) || 0 })}
+                                    />
+                                    <span className="tsm-prize-unit">스톤</span>
+                                </span>
+                            </label>
                         </div>
                     </div>
-                    {list.length > 2 && (
-                        <button type="button" className="btn-sm danger" style={btnSm} onClick={() => setRows(list.filter((_, i) => i !== idx))}>
-                            이 조 삭제
-                        </button>
-                    )}
-                </div>
-            ))}
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginTop: 4 }} onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
-                조(행) 추가
-            </button>
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginLeft: 8 }} onClick={() => onChange('relayPrizesByGroup', undefined)}>
-                조별 상금 끄기 (기본만)
-            </button>
+                ))}
+            </div>
+            <div className="tsm-card-actions">
+                <button type="button" className="btn-sm" onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
+                    조 추가
+                </button>
+                <button type="button" className="btn-sm" onClick={() => onChange('relayPrizesByGroup', undefined)}>
+                    조별 상금 끄기
+                </button>
+            </div>
         </div>
     );
 };
@@ -415,48 +375,39 @@ export const HybridPrelimGroupPrizesEditor = ({ settings, onChange }: { settings
         onChange('hybridPrelimPrizesByGroup', next.length ? next : undefined);
     };
 
-    const replaceRow = (idx: number, row: TournamentSwissGroupPrizes) => {
-        const next = list.map((r, i) => (i === idx ? row : r));
-        setRows(next);
-    };
-
     return (
-        <div className="settings-card" style={{ marginTop: '1rem' }}>
-            <h4>조별 상금 (예선 리그)</h4>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
-                스위스 탭의 「순위 상금 (몇 등까지)」설정과 동일한 개수의 순위 칸이 적용됩니다.
-            </p>
+        <div className="tsm-card">
+            <div className="tsm-card-head">
+                <h4>예선 조별 상금</h4>
+                <p>「순위 상금 (몇 등까지)」설정과 동일한 칸 수가 적용됩니다.</p>
+            </div>
             {list.map((row, idx) => (
-                <div
-                    key={idx}
-                    style={{
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 8,
-                        padding: '0.75rem',
-                        marginBottom: '0.5rem',
-                        background: 'var(--surface-color-hover)',
-                    }}
-                >
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>예선 {idx + 1}조</div>
-                    <SwissRankPrizeFields paidCount={paidCount} prizes={row} onChange={next => replaceRow(idx, next)} />
-                    {list.length > 1 && (
-                        <button type="button" className="btn-sm danger" style={btnSm} onClick={() => setRows(list.filter((_, i) => i !== idx))}>
-                            이 조 삭제
-                        </button>
-                    )}
+                <div key={idx} className="tsm-group-block">
+                    <div className="tsm-group-block-head">
+                        <strong>예선 {idx + 1}조</strong>
+                        {list.length > 1 && (
+                            <button type="button" className="btn-sm danger" onClick={() => setRows(list.filter((_, i) => i !== idx))}>
+                                삭제
+                            </button>
+                        )}
+                    </div>
+                    <SwissRankPrizeFields paidCount={paidCount} prizes={row} onChange={next => setRows(list.map((r, i) => (i === idx ? next : r)))} />
                 </div>
             ))}
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginTop: 4 }} onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
-                조(행) 추가
-            </button>
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginLeft: 8 }} onClick={() => onChange('hybridPrelimPrizesByGroup', undefined)}>
-                조별 상금 끄기 (기본만)
-            </button>
+            <div className="tsm-card-actions">
+                <button type="button" className="btn-sm" onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
+                    조 추가
+                </button>
+                <button type="button" className="btn-sm" onClick={() => onChange('hybridPrelimPrizesByGroup', undefined)}>
+                    조별 상금 끄기
+                </button>
+            </div>
         </div>
     );
 };
 
 export const HybridBracketGroupPrizesEditor = ({ settings, onChange }: { settings: TournamentSettings; onChange: Setter }) => {
+    const paidCount = getBracketPaidRankCount(settings);
     const rows = settings.hybridBracketPrizesByGroup;
     const list: TournamentBracketGroupPrizes[] = rows && rows.length > 0 ? rows : [getBracketPrizeRow(settings, 'bracket', 0)];
 
@@ -464,75 +415,33 @@ export const HybridBracketGroupPrizesEditor = ({ settings, onChange }: { setting
         onChange('hybridBracketPrizesByGroup', next.length ? next : undefined);
     };
 
-    const update = (idx: number, patch: Partial<TournamentBracketGroupPrizes>) => {
-        const next = list.map((r, i) => (i === idx ? { ...r, ...patch } : r));
-        setRows(next);
-    };
-
     return (
-        <div className="settings-card" style={{ marginTop: '1rem' }}>
-            <h4>조별 상금 (예선+본선 — 본선 토너먼트)</h4>
+        <div className="tsm-card">
+            <div className="tsm-card-head">
+                <h4>본선 토너먼트 상금</h4>
+                <p>본선 시상 시 사용하는 순위별 금액입니다. 3·4위와 5위 이하를 따로 둘 수 있습니다.</p>
+            </div>
             {list.map((row, idx) => (
-                <div
-                    key={idx}
-                    style={{
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 8,
-                        padding: '0.75rem',
-                        marginBottom: '0.5rem',
-                        background: 'var(--surface-color-hover)',
-                    }}
-                >
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>본선 {idx + 1}조</div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>우승</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.champion} onChange={e => update(idx, { champion: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
+                <div key={idx} className="tsm-group-block">
+                    <div className="tsm-group-block-head">
+                        <strong>본선 {idx + 1}조</strong>
+                        {list.length > 1 && (
+                            <button type="button" className="btn-sm danger" onClick={() => setRows(list.filter((_, i) => i !== idx))}>
+                                삭제
+                            </button>
+                        )}
                     </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>준우승</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.runnerUp} onChange={e => update(idx, { runnerUp: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>3-4위</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.semiFinalist} onChange={e => update(idx, { semiFinalist: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>참가상</label>
-                        </div>
-                        <div className="input-group">
-                            <input type="number" value={row.participant} onChange={e => update(idx, { participant: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    {list.length > 1 && (
-                        <button type="button" className="btn-sm danger" style={btnSm} onClick={() => setRows(list.filter((_, i) => i !== idx))}>
-                            이 조 삭제
-                        </button>
-                    )}
+                    <BracketRankPrizeFields paidCount={paidCount} prizes={row} onChange={next => setRows(list.map((r, i) => (i === idx ? next : r)))} />
                 </div>
             ))}
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginTop: 4 }} onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
-                조(행) 추가
-            </button>
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginLeft: 8 }} onClick={() => onChange('hybridBracketPrizesByGroup', undefined)}>
-                조별 상금 끄기 (기본만)
-            </button>
+            <div className="tsm-card-actions">
+                <button type="button" className="btn-sm" onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
+                    조 추가
+                </button>
+                <button type="button" className="btn-sm" onClick={() => onChange('hybridBracketPrizesByGroup', undefined)}>
+                    조별 상금 끄기
+                </button>
+            </div>
         </div>
     );
 };
@@ -552,58 +461,53 @@ export const MissionGroupPrizesEditor = ({ settings, onChange }: { settings: Tou
     };
 
     return (
-        <div className="settings-card" style={{ marginTop: '1rem' }}>
-            <h4>조별 상금 (미션 바둑)</h4>
-            <p style={{ fontSize: '0.88rem', color: 'var(--text-color-secondary)', marginBottom: '0.75rem' }}>
-                선수 카드에서 상금 조를 고르면, 종료 시 고정 보너스·참가상 일괄 지급에 사용됩니다.
-            </p>
-            {list.map((row, idx) => (
-                <div
-                    key={idx}
-                    style={{
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 8,
-                        padding: '0.75rem',
-                        marginBottom: '0.5rem',
-                        background: 'var(--surface-color-hover)',
-                    }}
-                >
-                    <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{idx + 1}조</div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>종료 고정 보너스</label>
+        <div className="tsm-card">
+            <div className="tsm-card-head">
+                <h4>조별 상금 (미션 바둑)</h4>
+                <p>선수 카드에서 상금 조를 고르면 종료 시 고정 보너스·참가상에 사용됩니다.</p>
+            </div>
+            <div className="tsm-relay-grid">
+                {list.map((row, idx) => (
+                    <div key={idx} className="tsm-group-block">
+                        <div className="tsm-group-block-head">
+                            <strong>{idx + 1}조</strong>
+                            {list.length > 1 && (
+                                <button type="button" className="btn-sm danger" onClick={() => setRows(list.filter((_, i) => i !== idx))}>
+                                    삭제
+                                </button>
+                            )}
                         </div>
-                        <div className="input-group">
-                            <input type="number" value={row.finishFlatBonus} onChange={e => update(idx, { finishFlatBonus: Number(e.target.value) || 0 })} />
-                            <span>스톤</span>
-                        </div>
-                    </div>
-                    <div className="settings-form-row">
-                        <div className="label-group">
-                            <label>참가상 (일괄)</label>
-                        </div>
-                        <div className="input-group">
-                            <input
-                                type="number"
-                                value={row.participantPrize}
-                                onChange={e => update(idx, { participantPrize: Number(e.target.value) || 0 })}
-                            />
-                            <span>스톤</span>
+                        <div className="tsm-prize-grid tsm-prize-grid--2">
+                            <label className="tsm-prize-cell">
+                                <span className="tsm-prize-rank">종료 보너스</span>
+                                <span className="tsm-prize-input-wrap">
+                                    <input type="number" value={row.finishFlatBonus} onChange={e => update(idx, { finishFlatBonus: Number(e.target.value) || 0 })} />
+                                    <span className="tsm-prize-unit">스톤</span>
+                                </span>
+                            </label>
+                            <label className="tsm-prize-cell">
+                                <span className="tsm-prize-rank">참가상</span>
+                                <span className="tsm-prize-input-wrap">
+                                    <input
+                                        type="number"
+                                        value={row.participantPrize}
+                                        onChange={e => update(idx, { participantPrize: Number(e.target.value) || 0 })}
+                                    />
+                                    <span className="tsm-prize-unit">스톤</span>
+                                </span>
+                            </label>
                         </div>
                     </div>
-                    {list.length > 1 && (
-                        <button type="button" className="btn-sm danger" style={btnSm} onClick={() => setRows(list.filter((_, i) => i !== idx))}>
-                            이 조 삭제
-                        </button>
-                    )}
-                </div>
-            ))}
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginTop: 4 }} onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
-                조(행) 추가
-            </button>
-            <button type="button" className="btn-sm" style={{ ...btnSm, marginLeft: 8 }} onClick={() => onChange('missionPrizesByGroup', undefined)}>
-                조별 상금 끄기 (기본만)
-            </button>
+                ))}
+            </div>
+            <div className="tsm-card-actions">
+                <button type="button" className="btn-sm" onClick={() => setRows([...list, { ...list[list.length - 1] }])}>
+                    조 추가
+                </button>
+                <button type="button" className="btn-sm" onClick={() => onChange('missionPrizesByGroup', undefined)}>
+                    조별 상금 끄기
+                </button>
+            </div>
         </div>
     );
 };

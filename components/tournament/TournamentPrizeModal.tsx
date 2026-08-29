@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import type { TournamentSettings } from '../../types';
-import type { BracketPrizeSettingsKey, TournamentBracketPrizeModalMode } from '../../utils/tournamentPrizes';
-import { getBracketPrizeRow, bracketPrizeGroupCount } from '../../utils/tournamentPrizes';
+import type { BracketPrizeSettingsKey, TournamentBracketPrizeModalMode, BracketPrizePayout } from '../../utils/tournamentPrizes';
+import {
+    getBracketPrizeRow,
+    bracketPrizeGroupCount,
+    getBracketPaidRankCount,
+    bracketPayoutFromRow,
+    bracketRowFromRankAmounts,
+    payoutToRankAmounts,
+} from '../../utils/tournamentPrizes';
+import { BracketRankPrizeFields } from '../modals/TournamentGroupPrizeEditors';
+import { useModalOverlayDismiss } from '../modals/useModalOverlayDismiss';
 
 interface TournamentPrizeModalProps {
     isOpen: boolean;
@@ -11,7 +20,7 @@ interface TournamentPrizeModalProps {
     prizeKey: BracketPrizeSettingsKey;
     /** 모달 제목 */
     mode: TournamentBracketPrizeModalMode;
-    onAwardPrizes: (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => void;
+    onAwardPrizes: (prizes: BracketPrizePayout) => void;
 }
 
 const modalTitle: Record<TournamentBracketPrizeModalMode, string> = {
@@ -29,14 +38,13 @@ export const TournamentPrizeModal = ({
     mode,
     onAwardPrizes,
 }: TournamentPrizeModalProps) => {
+    const overlayDismiss = useModalOverlayDismiss(onClose);
     const nGroups = bracketPrizeGroupCount(settings, prizeKey);
+    const paidCount = getBracketPaidRankCount(settings);
     const [prizeGroupIndex, setPrizeGroupIndex] = useState(0);
-    const [prizes, setPrizes] = useState({
-        champion: settings.championPrize,
-        runnerUp: settings.runnerUpPrize,
-        semiFinalist: settings.semiFinalistPrize,
-        participant: settings.participantPrize,
-    });
+    const [prizes, setPrizes] = useState<BracketPrizePayout>(() =>
+        bracketPayoutFromRow(getBracketPrizeRow(settings, prizeKey, 0), paidCount)
+    );
 
     useEffect(() => {
         if (!isOpen) return;
@@ -46,118 +54,46 @@ export const TournamentPrizeModal = ({
     useEffect(() => {
         if (!isOpen) return;
         const row = getBracketPrizeRow(settings, prizeKey, prizeGroupIndex);
-        setPrizes({
-            champion: row.champion,
-            runnerUp: row.runnerUp,
-            semiFinalist: row.semiFinalist,
-            participant: row.participant,
-        });
+        setPrizes(bracketPayoutFromRow(row, getBracketPaidRankCount(settings)));
     }, [settings, isOpen, prizeKey, prizeGroupIndex]);
 
     if (!isOpen) return null;
-
-    const handleChange = (field: keyof typeof prizes, value: string) => {
-        setPrizes(prev => ({ ...prev, [field]: Number(value) || 0 }));
-    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         onAwardPrizes(prizes);
     };
 
+    const asRow = bracketRowFromRankAmounts(payoutToRankAmounts(prizes, paidCount), prizes.participant);
+
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" {...overlayDismiss}>
+            <div className="modal-content tournament-prize-award-modal" onClick={e => e.stopPropagation()}>
                 <h2>{modalTitle[mode]}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
                         {nGroups > 1 && (
-                            <div className="settings-form-section" style={{ marginBottom: '1rem' }}>
-                                <div className="settings-form-row">
-                                    <div className="label-group">
-                                        <label htmlFor="prize-group-idx">적용 조</label>
-                                    </div>
-                                    <div className="input-group">
-                                        <select
-                                            id="prize-group-idx"
-                                            value={prizeGroupIndex}
-                                            onChange={e => setPrizeGroupIndex(Number(e.target.value))}
-                                        >
-                                            {Array.from({ length: nGroups }, (_, i) => (
-                                                <option key={i} value={i}>
-                                                    {i + 1}조 (대회 설정 기준)
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                <p style={{ fontSize: '0.85rem', color: 'var(--text-color-secondary)', margin: 0 }}>
-                                    조별로 금액이 다르면, 시상 전에 조를 선택한 뒤 금액을 확인하세요.
-                                </p>
+                            <div className="tsm-field-row" style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="prize-group-idx">적용 조</label>
+                                <select
+                                    id="prize-group-idx"
+                                    value={prizeGroupIndex}
+                                    onChange={e => setPrizeGroupIndex(Number(e.target.value))}
+                                >
+                                    {Array.from({ length: nGroups }, (_, i) => (
+                                        <option key={i} value={i}>
+                                            {i + 1}조 (대회 설정 기준)
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         )}
-                        <div className="settings-form-section">
-                            <div className="settings-form-row">
-                                <div className="label-group">
-                                    <label htmlFor="prize-champion">우승</label>
-                                </div>
-                                <div className="input-group">
-                                    <input
-                                        id="prize-champion"
-                                        type="number"
-                                        value={prizes.champion}
-                                        onChange={e => handleChange('champion', e.target.value)}
-                                        placeholder="100"
-                                    />
-                                    <span>스톤</span>
-                                </div>
-                            </div>
-                            <div className="settings-form-row">
-                                <div className="label-group">
-                                    <label htmlFor="prize-runnerUp">준우승</label>
-                                </div>
-                                <div className="input-group">
-                                    <input
-                                        id="prize-runnerUp"
-                                        type="number"
-                                        value={prizes.runnerUp}
-                                        onChange={e => handleChange('runnerUp', e.target.value)}
-                                        placeholder="50"
-                                    />
-                                    <span>스톤</span>
-                                </div>
-                            </div>
-                            <div className="settings-form-row">
-                                <div className="label-group">
-                                    <label htmlFor="prize-semiFinalist">3-4위</label>
-                                </div>
-                                <div className="input-group">
-                                    <input
-                                        id="prize-semiFinalist"
-                                        type="number"
-                                        value={prizes.semiFinalist}
-                                        onChange={e => handleChange('semiFinalist', e.target.value)}
-                                        placeholder="25"
-                                    />
-                                    <span>스톤</span>
-                                </div>
-                            </div>
-                            <div className="settings-form-row">
-                                <div className="label-group">
-                                    <label htmlFor="prize-participant">참가상</label>
-                                </div>
-                                <div className="input-group">
-                                    <input
-                                        id="prize-participant"
-                                        type="number"
-                                        value={prizes.participant}
-                                        onChange={e => handleChange('participant', e.target.value)}
-                                        placeholder="10"
-                                    />
-                                    <span>스톤</span>
-                                </div>
-                            </div>
-                        </div>
+                        <p className="tsm-prize-hint">3·4위와 5위 이하를 분리해 지급합니다. 금액은 시상 전에 확인·수정하세요.</p>
+                        <BracketRankPrizeFields
+                            paidCount={paidCount}
+                            prizes={asRow}
+                            onChange={next => setPrizes(bracketPayoutFromRow(next, paidCount))}
+                        />
                     </div>
                     <div className="modal-actions">
                         <button type="button" className="btn" onClick={onClose}>

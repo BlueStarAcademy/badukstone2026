@@ -1,6 +1,7 @@
 
 import React, { useRef, useLayoutEffect, useState } from 'react';
 import type { TournamentMatch, TournamentPlayer } from '../../types';
+import { isPlayInRoundTitle } from '../../utils/elimBracket';
 
 interface BracketTreeProps {
     rounds: { title: string; matches: TournamentMatch[] }[];
@@ -10,6 +11,16 @@ interface BracketTreeProps {
 
 const SLOT_HEIGHT = 32;
 const MATCH_GAP = 8;
+
+const nextMatchIndexFor = (
+    roundTitle: string,
+    nextTitle: string,
+    matchIndex: number
+): number => {
+    if (nextTitle.includes('결승')) return matchIndex < 2 ? 0 : 1;
+    if (isPlayInRoundTitle(roundTitle)) return matchIndex;
+    return Math.floor(matchIndex / 2);
+};
 
 export const BracketTree = (props: BracketTreeProps) => {
     const { rounds, roundFilter, handleSetMatchWinner } = props;
@@ -46,7 +57,7 @@ export const BracketTree = (props: BracketTreeProps) => {
             const isFinal = nextRound.title.includes('결승');
             for (let m = 0; m < round.matches.length; m++) {
                 if (roundFilter && !roundFilter(r, m)) continue;
-                const nextM = isFinal ? (m < 2 ? Math.floor(m / 2) : 1) : Math.floor(m / 2);
+                const nextM = nextMatchIndexFor(round.title, nextRound.title, m);
                 const nextMatch = nextRound.matches[nextM];
                 if (!nextMatch) continue;
 
@@ -119,9 +130,9 @@ export const BracketTree = (props: BracketTreeProps) => {
                                     const numCur = round.matches.length;
                                     const numNext = nextRound?.matches.length ?? 1;
                                     const curY = (matchIndex + 0.5) / numCur;
-                                    const nextM = nextRound?.title.includes('결승')
-                                        ? (matchIndex < 2 ? 0 : 1)
-                                        : Math.floor(matchIndex / 2);
+                                    const nextM = nextRound
+                                        ? nextMatchIndexFor(round.title, nextRound.title, matchIndex)
+                                        : 0;
                                     const nextY = nextRound?.title.includes('결승') && nextM === 0
                                         ? 0.5
                                         : (nextM + 0.5) / numNext;

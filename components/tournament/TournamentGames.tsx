@@ -32,6 +32,8 @@ const RelayPlayerCard = ({
     settings,
     onPlayerChange,
     onOpenSwapModal,
+    onSelectSwap,
+    swapSelected,
     onDragStart,
     onDragOver,
     onDrop,
@@ -45,6 +47,8 @@ const RelayPlayerCard = ({
     settings: TournamentSettings;
     onPlayerChange: TournamentGamesProps['onPlayerChange'];
     onOpenSwapModal: TournamentGamesProps['onOpenSwapModal'];
+    onSelectSwap: (teamName: 'A' | 'B', index: number) => void;
+    swapSelected: boolean;
     onDragStart: (e: React.DragEvent, teamName: 'A' | 'B', index: number) => void;
     onDragOver: (e: React.DragEvent) => void;
     onDrop: (e: React.DragEvent, teamName: 'A' | 'B', index: number) => void;
@@ -85,7 +89,7 @@ const RelayPlayerCard = ({
 
     const handleNumericChange = (field: keyof TournamentPlayer, valueStr: string) => {
         if (valueStr.trim() === '' || valueStr === '-') {
-            handleChange(field, 0);
+            handleChange(field, field === 'game1Handicap' ? 0 : null);
         } else {
             const num = parseFloat(valueStr);
             if (!isNaN(num)) handleChange(field, num);
@@ -106,7 +110,7 @@ const RelayPlayerCard = ({
 
     return (
         <div 
-            className={`relay-card team-${teamName.toLowerCase()}`}
+            className={`relay-card team-${teamName.toLowerCase()} ${swapSelected ? 'swap-selected' : ''}`}
             draggable
             onDragStart={(e) => onDragStart(e, teamName, index)}
             onDragOver={onDragOver}
@@ -123,7 +127,10 @@ const RelayPlayerCard = ({
                         {player.game1Color === 'black' ? '⚫' : '⚪'}
                     </div>
                 )}
-                <button className="btn-xs swap-btn" onClick={() => onOpenSwapModal(teamName, index)}>🔄</button>
+                <div className="relay-swap-actions">
+                    <button type="button" className="btn-xs swap-btn" onClick={() => onSelectSwap(teamName, index)} title="다른 배정 선수와 맞교환">⇄</button>
+                    <button type="button" className="btn-xs swap-btn" onClick={() => onOpenSwapModal(teamName, index)} title="대기 선수로 교체">🔄</button>
+                </div>
             </div>
 
             <div className="relay-card-body">
@@ -216,6 +223,7 @@ export const TournamentGames = (props: TournamentGamesProps) => {
     const [draggedItem, setDraggedItem] = useState<{ teamName: 'A' | 'B', index: number } | null>(null);
     const [draggedTabIndex, setDraggedTabIndex] = useState<number | null>(null);
     const [dragOverTabIndex, setDragOverTabIndex] = useState<number | null>(null);
+    const [selectedSwap, setSelectedSwap] = useState<{ teamName: 'A' | 'B'; index: number } | null>(null);
     
     const configuredGames = settings.games
         .map((type, index) => ({ type, matchNumber: index + 1 }))
@@ -274,6 +282,20 @@ export const TournamentGames = (props: TournamentGamesProps) => {
         setDraggedItem(null);
     };
 
+    const handleTapSwap = (teamName: 'A' | 'B', index: number) => {
+        if (!selectedSwap) {
+            setSelectedSwap({ teamName, index });
+            return;
+        }
+        if (selectedSwap.teamName !== teamName || selectedSwap.index !== index) {
+            onUniversalPlayerSwap(
+                { teamName: selectedSwap.teamName, playerIndex: selectedSwap.index },
+                { teamName, playerIndex: index }
+            );
+        }
+        setSelectedSwap(null);
+    };
+
     const handleTabDragStart = (e: React.DragEvent, index: number) => {
         if (!onReorderGames) return;
         setDraggedTabIndex(index);
@@ -327,6 +349,11 @@ export const TournamentGames = (props: TournamentGamesProps) => {
                         </div>
                     ))}
                 </div>
+                <p className="operation-inline-status relay-swap-hint">
+                    {selectedSwap
+                        ? `${selectedSwap.teamName}팀 ${selectedSwap.index + 1}번 선수 선택됨 — 맞바꿀 선수의 ⇄ 버튼을 누르세요.`
+                        : '터치 기기에서는 선수 카드의 ⇄ 버튼을 차례로 눌러 배치를 맞바꿀 수 있습니다.'}
+                </p>
             </div>
 
             {maxPlayers === 0 ? (
@@ -353,6 +380,8 @@ export const TournamentGames = (props: TournamentGamesProps) => {
                                     settings={settings}
                                     onPlayerChange={onPlayerChange}
                                     onOpenSwapModal={onOpenSwapModal}
+                                    onSelectSwap={handleTapSwap}
+                                    swapSelected={selectedSwap?.teamName === 'A' && selectedSwap.index === i}
                                     onDragStart={handleDragStart}
                                     onDragOver={handleDragOver}
                                     onDrop={handleDrop}
@@ -382,6 +411,8 @@ export const TournamentGames = (props: TournamentGamesProps) => {
                                     settings={settings}
                                     onPlayerChange={onPlayerChange}
                                     onOpenSwapModal={onOpenSwapModal}
+                                    onSelectSwap={handleTapSwap}
+                                    swapSelected={selectedSwap?.teamName === 'B' && selectedSwap.index === i}
                                     onDragStart={handleDragStart}
                                     onDragOver={handleDragOver}
                                     onDrop={handleDrop}

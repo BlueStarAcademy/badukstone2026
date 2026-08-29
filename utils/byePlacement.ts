@@ -6,9 +6,40 @@ export function minimalPow2BracketSize(n: number): number {
     return Math.pow(2, Math.ceil(Math.log2(Math.max(2, n))));
 }
 
+/** 직전 2의 거듭제곱 (예: 20 → 16) */
+export function previousPow2BracketSize(n: number): number {
+    if (n <= 2) return 2;
+    const next = minimalPow2BracketSize(n);
+    return next === n ? n : next / 2;
+}
+
+/**
+ * 인원수에 맞는 최적 단판 구조.
+ * - 2^n명이면 그대로 본선
+ * - 아니면 직전 2^n(예: 20→16강)으로 들어가는 예선 + 부전승
+ */
+export function planCompactElimBracket(n: number): {
+    mainDrawSize: number;
+    playInMatchCount: number;
+    byeCount: number;
+} {
+    const count = Math.max(0, n);
+    if (count <= 1) {
+        return { mainDrawSize: 2, playInMatchCount: 0, byeCount: 0 };
+    }
+    const next = minimalPow2BracketSize(count);
+    if (next === count) {
+        return { mainDrawSize: count, playInMatchCount: 0, byeCount: 0 };
+    }
+    const mainDrawSize = previousPow2BracketSize(count);
+    const playInMatchCount = count - mainDrawSize;
+    const byeCount = mainDrawSize - playInMatchCount;
+    return { mainDrawSize, playInMatchCount, byeCount };
+}
+
 /**
  * 단판/예선 본선 등: 시드 순서에서 부전승을 받을 B명의 인덱스(0 = 최강).
- * - min_byes: 2의 거듭제곱 껍데기에서 부전승 "개수"는 이미 최소. 받는 사람을 순위 전체에 고르게 퍼뜨림.
+ * - min_byes: 부전승 대상을 순위 전체에 고르게 퍼뜨림.
  * - min_matches: 상위 시드가 부전승을 받아 강자의 실제 대국(판) 수를 줄임.
  * - max_matches: 하위 시드가 부전승을 받아 상위끼리 맞붙을 확률을 높임.
  */
@@ -35,35 +66,39 @@ export function pickByeRecipientSeedIndices(n: number, numByes: number, priority
 }
 
 /**
- * 토너먼트 1라운드 슬롯 (player, player | BYE, …) 길이 = bracketSize.
- * 앞쪽부터 numByes 경기는 (부전승 받는 선수, BYE) 순서로 채움.
+ * 토너먼트 1라운드(예선) 슬롯.
+ * - 2^n명: 전원 대진, bracketSize = n
+ * - 그 외: 직전 2^n 본선으로 가는 예선만 반환 (부전승 시드는 byeRecipients)
+ *   예: 20명 → bracketSize 16, 예선 4경기(8명), 부전승 12명
  */
 export function buildElimRoundOneSlotOrder<T>(
     seedsStrongestFirst: T[],
     priority: TournamentByePriority,
     shuffleRemainingPairings: boolean
-): { bracketSize: number; slots: (T | 'BYE')[] } {
+): { bracketSize: number; slots: (T | 'BYE')[]; playInMatchCount: number; byeRecipients: T[] } {
     const n = seedsStrongestFirst.length;
-    const bracketSize = minimalPow2BracketSize(n);
-    const B = bracketSize - n;
-    const byeIdx = new Set(pickByeRecipientSeedIndices(n, B, priority));
+    const { mainDrawSize, playInMatchCount, byeCount } = planCompactElimBracket(n);
+    const byeIdx = new Set(pickByeRecipientSeedIndices(n, byeCount, priority));
     const byeRecipients: T[] = [];
     const playIn: T[] = [];
     seedsStrongestFirst.forEach((p, i) => {
         (byeIdx.has(i) ? byeRecipients : playIn).push(p);
     });
     const pvp = shuffleRemainingPairings ? [...playIn].sort(() => Math.random() - 0.5) : [...playIn];
-    const slots: (T | 'BYE')[] = [];
-    let bi = 0;
-    let pi = 0;
-    for (let m = 0; m < bracketSize / 2; m++) {
-        if (bi < byeRecipients.length) {
-            slots.push(byeRecipients[bi++], 'BYE');
-        } else {
-            slots.push(pvp[pi++], pvp[pi++]);
+
+    if (playInMatchCount === 0) {
+        const slots: (T | 'BYE')[] = [];
+        for (let i = 0; i < pvp.length; i += 2) {
+            slots.push(pvp[i], pvp[i + 1]);
         }
+        return { bracketSize: mainDrawSize, slots, playInMatchCount: 0, byeRecipients: [] };
     }
-    return { bracketSize, slots };
+
+    const slots: (T | 'BYE')[] = [];
+    for (let i = 0; i < pvp.length; i += 2) {
+        slots.push(pvp[i], pvp[i + 1] ?? ('BYE' as const));
+    }
+    return { bracketSize: mainDrawSize, slots, playInMatchCount, byeRecipients };
 }
 
 /** 스위스 1라운드·홀수 명: orderedPool[0]이 최강일 때 부전승으로 뺄 인덱스 */

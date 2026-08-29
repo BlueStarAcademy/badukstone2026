@@ -137,7 +137,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
 
     return (
         <div className="modal-overlay">
-            <div className="modal-content tournament-player-mgmt-modal" style={{ maxWidth: 'min(920px, 96vw)', width: '96vw' }}>
+            <div className="modal-content tournament-player-mgmt-modal">
                 <h2>대회 선수 관리</h2>
                 <div className="modal-body tournament-player-mgmt-body">
                     <div className="form-group">
@@ -154,8 +154,8 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                         <div className="player-mgmt-col">
                             <div className="player-mgmt-header">
                                 전체 학생 ({availableStudents.length}명)
-                                <div style={{marginTop: '5px'}}>
-                                    <button className="btn-sm" onClick={handleSelectAll} style={{marginRight: '5px'}}>전체 선택</button>
+                                <div className="player-mgmt-header-actions">
+                                    <button className="btn-sm" onClick={handleSelectAll}>전체 선택</button>
                                 </div>
                             </div>
                             <ul className="player-mgmt-list">
@@ -178,7 +178,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                         <div className="player-mgmt-col">
                             <div className="player-mgmt-header">
                                 참가 예정 선수 ({selectedIds.size}명)
-                                <div style={{marginTop: '5px'}}>
+                                <div className="player-mgmt-header-actions">
                                     <button className="btn-sm" onClick={handleDeselectAll}>전체 해제</button>
                                 </div>
                             </div>
@@ -192,7 +192,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                                     </li>
                                 ))}
                                 {selectedStudentsList.length === 0 && (
-                                    <li style={{padding: '1rem', color: '#999', textAlign: 'center'}}>선택된 선수가 없습니다.</li>
+                                    <li className="player-mgmt-empty">선택된 선수가 없습니다.</li>
                                 )}
                             </ul>
                         </div>

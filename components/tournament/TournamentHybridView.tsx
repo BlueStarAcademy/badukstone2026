@@ -6,14 +6,26 @@ import type {
     TournamentSettings,
     SwissPlayer,
     SwissMatch,
-    TournamentPlayer,
     TournamentBracket,
     TournamentMatch,
+    TournamentAwardGrant,
+    TournamentAwardRequest,
     TournamentSwissGroupPrizes,
 } from '../../types';
 import { parseRank, generateId } from '../../utils';
-import { buildElimRoundOneSlotOrder, DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
+import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
+import { buildSingleElimRounds } from '../../utils/elimBracket';
+import { asArray, normalizeHybridPreliminaryGroups } from '../../utils/tournament/compatibility';
 import { computeStandingsInPreliminaryGroup, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
+import {
+    createRoundRobinMatches,
+    distributeHybridGroups,
+    getHybridAdvanceCountPerGroup,
+    resolveParticipants,
+    selectHybridQualifiersPerGroup,
+    toSwissPlayer,
+    toTournamentPlayer,
+} from '../../utils/tournament';
 import { TournamentBracketView } from './TournamentBracketView';
 import { HybridPrelimPrizeModal } from './HybridPrelimPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
@@ -24,7 +36,8 @@ interface TournamentHybridViewProps {
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
     onOpenPlayerManagement: () => void;
-    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    awardEventKey: string;
 }
 
 interface PreliminaryGroupViewProps {
@@ -36,24 +49,35 @@ interface PreliminaryGroupViewProps {
 }
 
 const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, groupIndex, players, onSetWinner, onOpenPrize }) => {
-    const getPlayer = (id: string) => players.find(p => p.studentId === id);
+    const matches = asArray<SwissMatch>(group);
+    const safePlayers = asArray<SwissPlayer>(players);
+    const getPlayer = (id: string) => safePlayers.find(p => p.studentId === id);
+    const isGroupComplete = matches.length > 0 && matches.every(match => !!match.winnerId);
 
     const groupPlayers = useMemo(() => {
-        const playerIds = new Set(group.flatMap(m => m.players));
-        return players.filter(p => playerIds.has(p.studentId)).sort((a,b) => b.score - a.score);
-    }, [group, players]);
+        const playerIds = new Set(
+            matches.flatMap(m => asArray<string | 'BYE'>(m?.players)).filter(id => id && id !== 'BYE')
+        );
+        return safePlayers.filter(p => playerIds.has(p.studentId)).sort((a, b) => b.score - a.score);
+    }, [matches, safePlayers]);
 
     return (
-        <div className="swiss-round" style={{border: '1px solid var(--border-color)', borderRadius: '8px', padding: '1rem', background: 'var(--surface-color-hover)'}}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <h3 style={{ margin: 0 }}>{groupIndex + 1}조</h3>
+        <div className="swiss-round hybrid-preliminary-group">
+            <div className="hybrid-preliminary-header">
+                <h3>{groupIndex + 1}조</h3>
                 {onOpenPrize && (
-                    <button type="button" className="btn-sm primary" onClick={() => onOpenPrize(groupIndex)}>
+                    <button
+                        type="button"
+                        className="btn-sm primary"
+                        onClick={() => onOpenPrize(groupIndex)}
+                        disabled={!isGroupComplete}
+                        title={!isGroupComplete ? '이 조의 모든 경기 결과를 입력해야 시상할 수 있습니다.' : undefined}
+                    >
                         이 조 예선 시상
                     </button>
                 )}
             </div>
-            <table className="swiss-standings-table" style={{marginBottom: '1rem'}}>
+            <table className="swiss-standings-table hybrid-preliminary-table">
                 <thead><tr><th>선수</th><th>승점</th></tr></thead>
                 <tbody>
                     {groupPlayers.map(p => (
@@ -65,9 +89,10 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
                 </tbody>
             </table>
             <ul className="swiss-match-list">
-                {group.map(match => {
-                    const player1 = getPlayer(match.players[0] as string);
-                    const player2 = getPlayer(match.players[1] as string);
+                {matches.map(match => {
+                    const matchPlayers = asArray<string | 'BYE'>(match.players);
+                    const player1 = getPlayer(matchPlayers[0] as string);
+                    const player2 = getPlayer(matchPlayers[1] as string);
                     return (
                         <li key={match.id} className="swiss-match">
                             <div className={`swiss-player clickable ${match.winnerId === player1?.studentId ? 'winner' : ''} ${match.winnerId && match.winnerId !== player1?.studentId ? 'loser' : ''}`} onClick={() => player1 && onSetWinner(match.id, player1.studentId)}>
@@ -88,7 +113,7 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
 };
 
 export const TournamentHybridView = (props: TournamentHybridViewProps) => {
-    const { students, data, setData, settings, onOpenPlayerManagement, onBulkAddTransaction } = props;
+    const { students, data, setData, settings, onOpenPlayerManagement, onAwardBatch, awardEventKey } = props;
     const { hybridParticipantIds } = data;
     const { hybridMode, hybridAdvanceCount, hybridGroupCount } = settings;
 
@@ -97,57 +122,27 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const [prelimPrizeGroupIndex, setPrelimPrizeGroupIndex] = useState<number | null>(null);
 
     const handleGeneratePreliminaries = () => {
-        const participants = (hybridParticipantIds || [])
-            .map(id => students.find(s => s.id === id))
-            .filter((s): s is Student => !!s);
-        
-        if (participants.length < (hybridAdvanceCount || 8)) {
-            alert(`참가 인원(${participants.length}명)이 본선 진출 인원(${hybridAdvanceCount}명)보다 적습니다.`);
+        const participants = resolveParticipants(hybridParticipantIds || [], students);
+        const numGroups = Math.min(
+            participants.length,
+            Math.max(1, hybridGroupCount || Math.ceil(participants.length / 5))
+        );
+        const advancePerGroup = getHybridAdvanceCountPerGroup(hybridAdvanceCount);
+        if (participants.length < advancePerGroup * numGroups) {
+            alert(`각 조 상위 ${advancePerGroup}명 진출에는 최소 ${advancePerGroup * numGroups}명이 필요합니다.`);
             return;
         }
 
-        let sortedParticipants: Student[];
+        let sortedParticipants = [...participants];
         if (hybridMode === 'rank') {
             sortedParticipants = [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
         } else {
             sortedParticipants = [...participants].sort(() => 0.5 - Math.random());
         }
 
-        const numGroups = hybridGroupCount || Math.ceil(participants.length / 5);
-        const groups: Student[][] = Array.from({ length: numGroups }, () => []);
-
-        sortedParticipants.forEach((player, index) => {
-            const groupIndex = index % numGroups;
-            const reverseGroupIndex = numGroups - 1 - groupIndex;
-            if (Math.floor(index / numGroups) % 2 === 0) {
-                groups[groupIndex].push(player);
-            } else {
-                groups[reverseGroupIndex].push(player);
-            }
-        });
-
-        const swissPlayers: SwissPlayer[] = participants.map(p => ({
-            studentId: p.id,
-            name: p.name,
-            score: 0,
-            opponents: [],
-            sos: 0,
-            sosos: 0,
-        }));
-
-        const preliminaryGroups: SwissMatch[][] = groups.map(group => {
-            const matches: SwissMatch[] = [];
-            for (let i = 0; i < group.length; i++) {
-                for (let j = i + 1; j < group.length; j++) {
-                    matches.push({
-                        id: generateId(),
-                        players: [group[i].id, group[j].id],
-                        winnerId: null,
-                    });
-                }
-            }
-            return matches;
-        });
+        const groups = distributeHybridGroups(sortedParticipants, numGroups);
+        const swissPlayers = participants.map(toSwissPlayer);
+        const preliminaryGroups = groups.map(group => createRoundRobinMatches(group, generateId));
         
         setData(prev => ({
             ...prev,
@@ -155,7 +150,8 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 players: swissPlayers,
                 preliminaryGroups,
                 bracket: null,
-            }
+            },
+            awardSessionIds: { ...prev.awardSessionIds, hybrid: generateId() },
         }));
     };
 
@@ -163,24 +159,29 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         setData(prev => {
             if (!prev.hybrid) return prev;
             const newData = JSON.parse(JSON.stringify(prev));
+            const groups = normalizeHybridPreliminaryGroups(newData.hybrid.preliminaryGroups) as SwissMatch[][];
+            newData.hybrid.preliminaryGroups = groups;
             let matchFound = false;
 
-            for (const group of newData.hybrid.preliminaryGroups) {
-                const match = group.find((m: SwissMatch) => m.id === matchId);
+            for (const group of groups) {
+                const match = asArray<SwissMatch>(group).find((m: SwissMatch) => m.id === matchId);
                 if (match) {
-                    const newWinnerId = match.winnerId === winnerId ? null : winnerId;
-                    match.winnerId = newWinnerId;
+                    match.winnerId = match.winnerId === winnerId ? null : winnerId;
                     matchFound = true;
                     break;
                 }
             }
-            
+
             if (matchFound) {
-                newData.hybrid.players.forEach((p: SwissPlayer) => p.score = 0);
-                newData.hybrid.preliminaryGroups.flat().forEach((m: SwissMatch) => {
+                asArray<SwissPlayer>(newData.hybrid.players).forEach((p: SwissPlayer) => {
+                    p.score = 0;
+                });
+                groups.flat().forEach((m: SwissMatch) => {
                     if (m.winnerId) {
-                        const winner = newData.hybrid.players.find((p: SwissPlayer) => p.studentId === m.winnerId);
-                        if(winner) winner.score++;
+                        const winner = asArray<SwissPlayer>(newData.hybrid.players).find(
+                            (p: SwissPlayer) => p.studentId === m.winnerId
+                        );
+                        if (winner) winner.score++;
                     }
                 });
             }
@@ -192,76 +193,40 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         if (prelimPrizeGroupIndex === null || !data.hybrid) return;
         const gi = prelimPrizeGroupIndex;
         const group = data.hybrid.preliminaryGroups[gi];
+        if (!group.length || group.some(match => !match.winnerId)) return;
         const sorted = computeStandingsInPreliminaryGroup(group, data.hybrid.players);
         const label = `예선 ${gi + 1}조`;
+        const grants: TournamentAwardGrant[] = [];
         forEachSwissStylePayout(sorted, prizes, settings, label, (ids, desc, amt) =>
-            onBulkAddTransaction(ids, desc, amt)
+            ids.forEach(studentId => grants.push({ studentId, description: desc, amount: amt }))
         );
-        setPrelimPrizeGroupIndex(null);
-        alert('예선 시상이 완료되었습니다.');
+        if (onAwardBatch({
+            eventKey: `${awardEventKey}:prelim:${gi}`,
+            mode: 'hybrid',
+            label: `예선+본선 ${gi + 1}조 예선`,
+            grants,
+            metadata: { phase: 'preliminary', groupIndex: gi },
+        })) setPrelimPrizeGroupIndex(null);
     };
 
     const handleAdvanceToBracket = () => {
         if (!data.hybrid) return;
 
-        const advanceCount = hybridAdvanceCount || 8;
-        const qualifiedPlayers = [...data.hybrid.players]
-            .sort((a, b) => b.score - a.score)
-            .slice(0, advanceCount);
-
-        const createPlayer = (p: SwissPlayer): TournamentPlayer => {
-            const student = students.find(s => s.id === p.studentId);
-            return {
-                studentId: p.studentId, name: p.name, rank: student?.rank || 'N/A',
-                game1Handicap: 0, game1Color: 'black', game1Result: null,
-                game2Score: null, game2LastStone: false, game3Score: null,
-            };
-        };
-        const tournamentPlayers = qualifiedPlayers.map(createPlayer);
+        const qualifiedPlayers = selectHybridQualifiersPerGroup(
+            data.hybrid.players,
+            data.hybrid.preliminaryGroups,
+            getHybridAdvanceCountPerGroup(hybridAdvanceCount)
+        );
+        const tournamentPlayers = qualifiedPlayers.map(player =>
+            toTournamentPlayer({
+                id: player.studentId,
+                name: player.name,
+                rank: students.find(student => student.id === player.studentId)?.rank || 'N/A',
+            })
+        );
 
         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
-        const { bracketSize, slots: playersForRound1 } = buildElimRoundOneSlotOrder(tournamentPlayers, byePriority, true);
-        
-        const firstRoundMatches: TournamentMatch[] = [];
-        for (let i = 0; i < playersForRound1.length; i += 2) {
-            firstRoundMatches.push({
-                id: generateId(),
-                players: [playersForRound1[i], playersForRound1[i + 1] || null],
-                winnerId: null,
-            });
-        }
-        firstRoundMatches.forEach(match => {
-            const player1 = match.players[0];
-            if (player1 !== 'BYE' && player1 !== null && match.players[1] === 'BYE') {
-                match.winnerId = player1.studentId;
-            }
-        });
-        
-        const rounds = [{ title: `${bracketSize}강`, matches: firstRoundMatches }];
-        let currentRoundMatches = firstRoundMatches;
-        
-        while (currentRoundMatches.length > 2) {
-            const currentRoundSize = currentRoundMatches.length * 2;
-            const nextRoundMatches: TournamentMatch[] = [];
-            for (let i = 0; i < currentRoundMatches.length; i += 2) {
-                nextRoundMatches.push({ 
-                    id: generateId(), 
-                    players: [null, null], 
-                    winnerId: null,
-                });
-            }
-            const nextRoundTitle = currentRoundSize / 2 === 4 ? '준결승' : `${currentRoundSize / 2}강`;
-            rounds.push({ title: nextRoundTitle, matches: nextRoundMatches });
-            currentRoundMatches = nextRoundMatches;
-        }
-
-        if (currentRoundMatches.length === 2) {
-            const finalMatch = { id: generateId(), players: [null, null], winnerId: null };
-            const thirdPlaceMatch = { id: generateId(), players: [null, null], winnerId: null };
-            rounds.push({ title: '결승 & 3/4위전', matches: [finalMatch, thirdPlaceMatch] });
-        } else if (currentRoundMatches.length === 1) {
-             rounds[rounds.length-1].title = '결승';
-        }
+        const { rounds } = buildSingleElimRounds(tournamentPlayers, byePriority, true);
 
         setData(prev => ({
             ...prev,
@@ -309,12 +274,14 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
 
     if (!data.hybrid) {
         return (
-             <div className="tournament-bracket-view" style={{ textAlign: 'center', padding: '3rem' }}>
-                <div style={{marginBottom: '1.5rem'}}>
+             <div className="tournament-bracket-view tournament-empty-state">
+                <span className="tournament-empty-kicker">HYBRID SETUP</span>
+                <h3>예선 리그 준비</h3>
+                <div className="tournament-empty-actions">
                     <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
                 </div>
-                <p style={{ marginBottom: '1rem' }}>참가 선수를 선택하고 예선 리그를 생성하세요.</p>
-                <div style={{display: 'flex', justifyContent: 'center', gap: '1rem'}}>
+                <p>참가 선수를 선택하고 예선 리그를 생성하세요.</p>
+                <div className="tournament-empty-actions">
                     <button className="btn primary" onClick={handleGeneratePreliminaries} disabled={(hybridParticipantIds || []).length < 2}>예선 리그 생성</button>
                 </div>
             </div>
@@ -322,15 +289,20 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     }
     
     if (data.hybrid && !data.hybrid.bracket) {
-        const allMatchesPlayed = data.hybrid.preliminaryGroups.flat().every(m => m.winnerId);
-        const totalParticipants = data.hybrid.players.length;
-        const useGroupTabs = totalParticipants >= 16 && data.hybrid.preliminaryGroups.length >= 2;
+        const preliminaryGroups = normalizeHybridPreliminaryGroups(
+            data.hybrid.preliminaryGroups
+        ) as SwissMatch[][];
+        const hybridPlayers = asArray<SwissPlayer>(data.hybrid.players);
+        const allMatchesPlayed =
+            preliminaryGroups.length > 0 && preliminaryGroups.flat().every(m => m.winnerId);
+        const totalParticipants = hybridPlayers.length;
+        const useGroupTabs = totalParticipants >= 16 && preliminaryGroups.length >= 2;
 
-        const activeGroupTab = Math.min(groupTab, data.hybrid.preliminaryGroups.length - 1);
+        const activeGroupTab = Math.min(groupTab, Math.max(0, preliminaryGroups.length - 1));
         const content = useGroupTabs ? (
             <div className="tournament-group-tabs">
                 <div className="group-tab-buttons">
-                    {data.hybrid.preliminaryGroups.map((_, i) => (
+                    {preliminaryGroups.map((_, i) => (
                         <button
                             key={i}
                             className={`tab-btn ${activeGroupTab === i ? 'active' : ''}`}
@@ -340,22 +312,22 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 </div>
                 <div className="group-tab-content">
                     <PreliminaryGroupView
-                        group={data.hybrid.preliminaryGroups[activeGroupTab]}
+                        group={preliminaryGroups[activeGroupTab] || []}
                         groupIndex={activeGroupTab}
-                        players={data.hybrid.players}
+                        players={hybridPlayers}
                         onSetWinner={handleSetPreliminaryWinner}
                         onOpenPrize={setPrelimPrizeGroupIndex}
                     />
                 </div>
             </div>
         ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem', marginTop: '1rem' }}>
-                {data.hybrid.preliminaryGroups.map((group, i) => (
+            <div className="hybrid-preliminary-grid">
+                {preliminaryGroups.map((group, i) => (
                     <PreliminaryGroupView
                         key={i}
                         group={group}
                         groupIndex={i}
-                        players={data.hybrid!.players}
+                        players={hybridPlayers}
                         onSetWinner={handleSetPreliminaryWinner}
                         onOpenPrize={setPrelimPrizeGroupIndex}
                     />
@@ -370,7 +342,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                     <button className="btn primary" onClick={handleAdvanceToBracket} disabled={!allMatchesPlayed}>본선 대진표 생성</button>
                     <button className="btn danger" onClick={handleReset}>대진표 초기화</button>
                 </div>
-                <p>각 조의 모든 경기를 진행한 후, '본선 대진표 생성' 버튼을 누르세요. 상위 {hybridAdvanceCount || 8}명이 진출합니다.</p>
+                <p>각 조의 모든 경기를 진행한 후, '본선 대진표 생성' 버튼을 누르세요. 각 조 상위 {getHybridAdvanceCountPerGroup(hybridAdvanceCount)}명이 진출합니다.</p>
                 {content}
                 {prelimPrizeGroupIndex !== null && data.hybrid && (
                     <HybridPrelimPrizeModal
@@ -379,8 +351,8 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                         settings={settings}
                         groupIndex={prelimPrizeGroupIndex}
                         groupLabel={`${prelimPrizeGroupIndex + 1}조`}
-                        groupMatches={data.hybrid.preliminaryGroups[prelimPrizeGroupIndex]}
-                        allPlayers={data.hybrid.players}
+                        groupMatches={preliminaryGroups[prelimPrizeGroupIndex] || []}
+                        allPlayers={hybridPlayers}
                         onAward={handlePrelimPrizeAward}
                     />
                 )}
@@ -395,7 +367,8 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 students={students}
                 setData={handleBracketDataUpdate}
                 settings={settings}
-                onBulkAddTransaction={onBulkAddTransaction}
+                onAwardBatch={onAwardBatch}
+                awardEventKey={`${awardEventKey}:final`}
                 onOpenPlayerManagement={onOpenPlayerManagement}
                 bracketPrizeKey="hybridBracket"
                 prizeModalMode="hybridBracket"

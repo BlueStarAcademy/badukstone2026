@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import type { Student, TournamentData, TournamentSettings, DoubleElimData, DoubleElimMatch } from '../../types';
-import { parseRank } from '../../utils';
+import type { Student, TournamentAwardRequest, TournamentData, TournamentSettings, DoubleElimData, DoubleElimMatch } from '../../types';
+import { generateId, parseRank } from '../../utils';
 import {
     buildDoubleElim,
     applyByeWinners,
@@ -9,10 +9,11 @@ import {
     getLoserFromMatch,
 } from '../../utils/doubleElimBracket';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
-import { getDoubleElimPlacements } from '../../utils/tournamentPrizes';
+import { getDoubleElimPlacements, buildBracketStyleGrants, getBracketPaidRankCount, type BracketPrizePayout } from '../../utils/tournamentPrizes';
 import { DoubleElimBracketTree } from './DoubleElimBracketTree';
 import { DoubleElimResultPanel } from './DoubleElimResultPanel';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
+import { ConfirmationModal } from '../modals/ConfirmationModal';
 
 interface TournamentDoubleElimViewProps {
     data: TournamentData;
@@ -20,14 +21,16 @@ interface TournamentDoubleElimViewProps {
     setData: React.Dispatch<React.SetStateAction<TournamentData>>;
     settings: TournamentSettings;
     onOpenPlayerManagement: () => void;
-    onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
+    onAwardBatch: (request: TournamentAwardRequest) => boolean;
+    awardEventKey: string;
 }
 
 export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) => {
-    const { data, students, setData, settings, onOpenPlayerManagement, onBulkAddTransaction } = props;
+    const { data, students, setData, settings, onOpenPlayerManagement, onAwardBatch, awardEventKey } = props;
     const doubleElim = data.doubleElim;
     const participantIds = data.doubleElimParticipantIds || [];
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
+    const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
 
     const getPlayerName = (id: string | 'BYE' | null) => {
         if (!id || id === 'BYE') return id === 'BYE' ? '부전승' : '—';
@@ -50,6 +53,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
             ...prev,
             doubleElimParticipantIds: sorted,
             doubleElim: buildDoubleElim(sorted, prio),
+            awardSessionIds: { ...prev.awardSessionIds, doubleelim: generateId() },
         }));
     };
 
@@ -70,32 +74,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
 
             if (bracket === 'winners') {
                 const match = W[roundIndex].matches[matchIndex];
-                const prevWinner = match.winnerId;
                 match.winnerId = winnerId;
-                const loserId = winnerId ? getLoserFromMatch(match, winnerId) : null;
-
-                const nextRoundIndex = roundIndex + 1;
-                const nextMatchInW = nextRoundIndex < W.length ? W[nextRoundIndex].matches[Math.floor(matchIndex / 2)] : null;
-                if (nextMatchInW) {
-                    const slot = matchIndex % 2;
-                    if (winnerId) nextMatchInW.players[slot] = winnerId;
-                    else nextMatchInW.players[slot] = null;
-                }
-                if (nextRoundIndex === W.length && GF) {
-                    if (winnerId) GF.players[0] = winnerId;
-                    else GF.players[0] = null;
-                }
-
-                if (roundIndex < L.length) {
-                    const lrMatches = L[roundIndex].matches;
-                    const lrMatchIndex = roundIndex === 0 ? Math.floor(matchIndex / 2) : Math.min(matchIndex, lrMatches.length - 1);
-                    const lrSlot = roundIndex === 0 ? matchIndex % 2 : 0;
-                    const skipLoser = roundIndex > 0 && lrMatches.length === 1 && matchIndex > 0;
-                    if (!skipLoser && lrMatchIndex >= 0 && lrMatchIndex < lrMatches.length) {
-                        if (loserId != null) lrMatches[lrMatchIndex].players[lrSlot] = loserId;
-                        else lrMatches[lrMatchIndex].players[lrSlot] = null;
-                    }
-                }
                 applyByeWinners(next);
                 propagateAllWinners(next);
                 return { ...prev, doubleElim: next };
@@ -104,20 +83,6 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
             if (bracket === 'losers') {
                 const match = L[roundIndex].matches[matchIndex];
                 match.winnerId = winnerId;
-                const nextLr = roundIndex + 1;
-                if (nextLr < L.length) {
-                    const nextRoundMatches = L[nextLr].matches;
-                    const nextMatchIndex = nextRoundMatches.length === 1 ? 0 : matchIndex;
-                    const nextMatch = nextRoundMatches[nextMatchIndex];
-                    const slot = (nextRoundMatches.length === 1 && matchIndex > 0) ? -1 : 1;
-                    if (nextMatch && slot >= 0) {
-                        if (winnerId) nextMatch.players[slot] = winnerId;
-                        else nextMatch.players[slot] = null;
-                    }
-                } else if (GF) {
-                    if (winnerId) GF.players[1] = winnerId;
-                    else GF.players[1] = null;
-                }
                 applyByeWinners(next);
                 propagateAllWinners(next);
                 return { ...prev, doubleElim: next };
@@ -128,26 +93,26 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
     };
 
     const handleReset = () => {
-        if (!window.confirm('더블엘리미네이션을 초기화하시겠습니까?')) return;
         setData(prev => ({ ...prev, doubleElim: undefined, doubleElimParticipantIds: [] }));
+        setResetConfirmationOpen(false);
     };
 
-    const handleAwardPrizes = (prizes: { champion: number; runnerUp: number; semiFinalist: number; participant: number }) => {
+    const handleAwardPrizes = (prizes: BracketPrizePayout) => {
         if (!doubleElim) return;
-        const { championId, runnerUpId, semiFinalistIds } = getDoubleElimPlacements(doubleElim);
-        const prizeSet = new Set([championId, runnerUpId, ...semiFinalistIds].filter(Boolean) as string[]);
-        const rest = doubleElim.playerIds.filter(id => !prizeSet.has(id));
-
-        if (championId && prizes.champion > 0) onBulkAddTransaction([championId], '더블엘리미네이션 우승', prizes.champion);
-        if (runnerUpId && prizes.runnerUp > 0) onBulkAddTransaction([runnerUpId], '더블엘리미네이션 준우승', prizes.runnerUp);
-        if (semiFinalistIds.length > 0 && prizes.semiFinalist > 0) {
-            onBulkAddTransaction(semiFinalistIds, '더블엘리미네이션 3-4위', prizes.semiFinalist);
-        }
-        if (rest.length > 0 && prizes.participant > 0) {
-            onBulkAddTransaction(rest, '더블엘리미네이션 참가상', prizes.participant);
-        }
-        setIsPrizeModalOpen(false);
-        alert('시상이 완료되었습니다.');
+        const { placementIds } = getDoubleElimPlacements(doubleElim);
+        const grants = buildBracketStyleGrants(
+            placementIds,
+            prizes,
+            getBracketPaidRankCount(settings),
+            '더블엘리미네이션'
+        );
+        if (onAwardBatch({
+            eventKey: awardEventKey,
+            mode: 'doubleelim',
+            label: '더블엘리미네이션 결과',
+            grants,
+            metadata: { phase: 'final' },
+        })) setIsPrizeModalOpen(false);
     };
 
     const isFinished = !!doubleElim?.grandFinal?.winnerId;
@@ -161,8 +126,10 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                 </div>
                 <div className="bracket-view-body">
                     <div className="bracket-main">
-                        <div className="bracket-wrapper" style={{ textAlign: 'center', padding: '3rem' }}>
-                            <p style={{ marginBottom: '1rem' }}>더블엘리미네이션 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
+                        <div className="bracket-wrapper tournament-empty-state">
+                            <span className="tournament-empty-kicker">DOUBLE ELIMINATION SETUP</span>
+                            <h3>더블엘리미네이션 준비</h3>
+                            <p>더블엘리미네이션 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
                             <button className="btn primary" onClick={handleStart} disabled={participantIds.length < 2}>
                                 더블엘리미네이션 시작
                             </button>
@@ -178,7 +145,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
         <div className="tournament-doubleelim-view">
             <div className="bracket-controls">
                 <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                <button className="btn danger" onClick={handleReset}>초기화</button>
+                <button className="btn danger" onClick={() => setResetConfirmationOpen(true)}>초기화</button>
             </div>
             <div className="bracket-view-body">
                 <div className="bracket-main">
@@ -248,6 +215,16 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                     prizeKey="bracket"
                     mode="doubleelim"
                     onAwardPrizes={handleAwardPrizes}
+                />
+            )}
+            {resetConfirmationOpen && (
+                <ConfirmationModal
+                    message="더블엘리미네이션을 초기화하시겠습니까? 모든 경기 결과가 사라집니다."
+                    onClose={() => setResetConfirmationOpen(false)}
+                    actions={[
+                        { text: '취소', onClick: () => setResetConfirmationOpen(false) },
+                        { text: '초기화', className: 'danger', onClick: handleReset },
+                    ]}
                 />
             )}
         </div>

@@ -92,7 +92,7 @@ export interface UsedCouponInfo {
 export interface Transaction {
     id: string;
     studentId: string;
-    type: 'mission' | 'attendance' | 'purchase' | 'adjustment' | 'gacha' | 'roulette' | 'chess_attendance' | 'penalty' | 'joseki_mission' | 'transfer' | 'special_mission' | 'mission_adjustment';
+    type: 'mission' | 'attendance' | 'purchase' | 'adjustment' | 'gacha' | 'roulette' | 'chess_attendance' | 'penalty' | 'joseki_mission' | 'transfer' | 'special_mission' | 'mission_adjustment' | 'tournament_award' | 'tournament_award_reversal';
     description: string;
     amount: number;
     timestamp: string;
@@ -106,6 +106,10 @@ export interface Transaction {
     personalMissionId?: string;
     personalMissionNoBefore?: number;
     personalMissionNoAfter?: number;
+    /** 대회 시상 원장과 연결되는 감사 메타데이터 */
+    tournamentAwardBatchId?: string;
+    tournamentAwardRecordId?: string;
+    reversesTransactionId?: string;
 }
 
 export interface Coupon {
@@ -311,6 +315,8 @@ export interface DoubleElimData {
     losersRounds: { title: string; matches: DoubleElimMatch[] }[];
     grandFinal: DoubleElimMatch | null;
     playerIds: string[];
+    /** 예선→본선 구조일 때 본선 부전승 시드(복원용) */
+    mainDrawByeSeeds?: string[];
 }
 
 export interface TournamentData {
@@ -334,6 +340,61 @@ export interface TournamentData {
     };
     fullLeague?: FullLeagueData;
     doubleElim?: DoubleElimData;
+    /** 대회 형식별 현재 세션 식별자. 없는 레거시 데이터는 화면에서 안정적인 대체 키를 사용한다. */
+    awardSessionIds?: Partial<Record<'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim', string>>;
+}
+
+export type TournamentAwardMode = 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim';
+
+export interface TournamentAwardGrant {
+    studentId: string;
+    amount: number;
+    description: string;
+}
+
+export interface TournamentAwardRequest {
+    /** mode + 현재 대회 세션/단계로 구성한 중복 방지 키 */
+    eventKey: string;
+    mode: TournamentAwardMode;
+    label: string;
+    grants: TournamentAwardGrant[];
+    awardedAt?: string;
+    metadata?: Record<string, string | number | boolean | null>;
+}
+
+export interface TournamentAwardCouponCancellation {
+    couponId: string;
+    cancelledAt: string;
+    value: number;
+}
+
+export interface TournamentAwardRecord {
+    id: string;
+    studentId: string;
+    studentName: string;
+    description: string;
+    requestedAmount: number;
+    appliedAmount: number;
+    overflowAmount: number;
+    transactionId: string;
+    couponId?: string;
+    status: 'active' | 'reversed';
+    reversedAt?: string;
+    actualReversedAmount?: number;
+    reversalTransactionId?: string;
+    couponCancellation?: TournamentAwardCouponCancellation;
+}
+
+export interface TournamentAwardBatch {
+    id: string;
+    eventKey: string;
+    mode: TournamentAwardMode;
+    label: string;
+    awardedAt: string;
+    status: 'active' | 'partially_reversed' | 'reversed';
+    grants: TournamentAwardRecord[];
+    metadata?: Record<string, string | number | boolean | null>;
+    reversedAt?: string;
 }
 
 export type GameKey = 'game1' | 'game2' | 'game3';
@@ -343,8 +404,15 @@ export type GameSelection = GameKey | 'none';
 export interface TournamentBracketGroupPrizes {
     champion: number;
     runnerUp: number;
+    /** 레거시: third/fourth 미설정 시 3·4위 공통 금액 */
     semiFinalist: number;
+    /** 3위 (없으면 semiFinalist) */
+    third?: number;
+    /** 4위 (없으면 semiFinalist) */
+    fourth?: number;
     participant: number;
+    /** 5위 이상 상금. 길이 = (설정의 순위 상금 개수 − 4) */
+    extraRanks?: number[];
 }
 
 /** 스위스·예선+본선(예선) 시상 (조별 행) */
@@ -388,14 +456,25 @@ export interface TournamentSettings {
     relayMannerPenalty: number;
     championPrize: number;
     runnerUpPrize: number;
+    /** 레거시 3-4위 공통 기본값 (thirdPlacePrize/fourthPlacePrize 미설정 시) */
     semiFinalistPrize: number;
+    /** 3위 기본 상금 */
+    thirdPlacePrize?: number;
+    /** 4위 기본 상금 */
+    fourthPlacePrize?: number;
     participantPrize: number;
+    /** 토너먼트·풀리그·더블엘리 1위부터 몇 등까지 순위 상금 (기본 4). 참가상 별도 */
+    bracketPaidRankCount?: number;
+    /** 토너먼트 계열 5위 이상 기본 상금 */
+    bracketExtraRankPrizes?: number[];
     swissRounds: number;
     swiss1stPrize: number;
     swiss2ndPrize: number;
     swiss3rdPrize: number;
     /** 1위부터 몇 등까지 순위 상금 칸을 둘지 (기본 3). 참가상은 별도 */
     swissPaidRankCount?: number;
+    /** 스위스 계열 4위 이상 기본 상금 */
+    swissExtraRankPrizes?: number[];
     /** true면 스위스 시작 시 조별로 나눔 (인원은 swissGroupSizes 합과 일치해야 함) */
     swissUseGroups: boolean;
     /** 쉼표로 구분, 예: "4,4,8" — 급수 순/무작위 시드 후 앞에서부터 조에 배정 */
@@ -427,6 +506,7 @@ export interface TournamentSettings {
             reward: number;
         }[];
     };
+    /** 예선 각 조에서 본선으로 진출하는 인원 (레거시 필드명 유지) */
     hybridAdvanceCount?: number;
     hybridGroupCount?: number;
     hybridMode?: 'rank' | 'random';
@@ -501,6 +581,8 @@ export interface AppData {
     personalMissionTemplates?: PersonalMissionTemplate[];
     /** 학생이 그룹 기본 미션 카드를 삭제한 템플릿 id — 다시 자동 부여하지 않음 */
     personalMissionTemplateDismissals?: { [studentId: string]: string[] };
+    /** 원자적으로 적용·취소되는 대회 시상 감사 원장 (레거시 데이터에서는 없음) */
+    tournamentAwardLedger?: TournamentAwardBatch[];
 }
 
 export interface ChessMatch {
