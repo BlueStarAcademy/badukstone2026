@@ -693,12 +693,15 @@ export const AdminPanel = (props: AdminPanelProps) => {
             
             {activeTab === 'missions' && (
                 <>
-                    <div className="view-header-actions" style={{ marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <h2 style={{ margin: 0 }}>단체 미션 관리</h2>
-                            <button className="btn-sm" onClick={() => setIsSpecialMissionModalOpen(true)}>✨ 특별 미션 관리</button>
-                            <button className="btn-sm" onClick={() => setIsPersonalMissionTemplateModalOpen(true)}>📋 그룹 기본 개인 미션</button>
-                            <button className="btn-sm primary" onClick={() => openAssignPersonalMissionModal()}>학생별 개인미션 부여</button>
+                    <div className="view-header-actions mission-admin-header">
+                        <div className="mission-admin-heading">
+                            <h2>미션 관리</h2>
+                            <p>단체·특별·개인미션을 목적에 맞게 설정합니다.</p>
+                        </div>
+                        <div className="mission-admin-toolbar">
+                            <button className="btn-sm" onClick={() => setIsSpecialMissionModalOpen(true)}>특별 미션</button>
+                            <button className="btn-sm" onClick={() => setIsPersonalMissionTemplateModalOpen(true)}>공통 개인미션</button>
+                            <button className="btn-sm primary" onClick={() => openAssignPersonalMissionModal()}>학생별 미션 부여</button>
                         </div>
                     </div>
 
