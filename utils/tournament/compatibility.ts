@@ -310,7 +310,16 @@ export function normalizeAppDataCompatibility<T extends AppData>(
 
     const normalized: UnknownRecord = { ...defaults, ...incoming };
     for (const key of APP_ARRAY_KEYS) {
-        normalized[key] = Array.isArray(incoming[key]) ? incoming[key] : defaults[key];
+        if (incoming[key] === undefined || incoming[key] === null) {
+            normalized[key] = defaults[key];
+            continue;
+        }
+        if (Array.isArray(incoming[key])) {
+            normalized[key] = incoming[key];
+            continue;
+        }
+        const legacyArray = asArray(incoming[key]);
+        normalized[key] = legacyArray.length > 0 ? legacyArray : defaults[key];
     }
 
     normalized.generalSettings = mergeSettingDefaults(defaults.generalSettings, incoming.generalSettings);

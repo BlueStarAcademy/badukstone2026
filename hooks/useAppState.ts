@@ -67,6 +67,10 @@ export function useAppState<T extends AppData>(
         return compact;
     };
 
+    const hasPendingLocalEdits = useCallback(() => {
+        return isDirty.current || isPendingWrite.current || writeTimeout.current !== null;
+    }, []);
+
     const saveToServer = useCallback(async (data: T) => {
         if (!userId || !enabled) return;
 
@@ -101,6 +105,8 @@ export function useAppState<T extends AppData>(
 
             lastSavedJson.current = currentJson;
             isDirty.current = false;
+            localTruthRef.current = finalData;
+            setState(finalData);
         } catch (e: unknown) {
             console.error('[API Error] Save failed:', e);
             setSaveError(e instanceof Error ? e : new Error('Save failed'));
@@ -128,6 +134,7 @@ export function useAppState<T extends AppData>(
 
     const reloadFromServer = useCallback(async () => {
         if (!userId || !enabled) return;
+        if (hasPendingLocalEdits()) return;
         try {
             const result = await api.getAppData();
             if (!result.data) return;
@@ -142,7 +149,7 @@ export function useAppState<T extends AppData>(
         } catch (err) {
             console.error('[API Error] Reload failed:', err);
         }
-    }, [userId, enabled, mergeData]);
+    }, [userId, enabled, mergeData, hasPendingLocalEdits]);
 
     useEffect(() => {
         if (!userId || !enabled) return;
@@ -179,13 +186,13 @@ export function useAppState<T extends AppData>(
 
         if (!isDemoMode) {
             const unsubscribe = api.subscribeAppData((lastUpdatedAt) => {
-                if (isPendingWrite.current) return;
+                if (hasPendingLocalEdits()) return;
                 if (lastUpdatedAt <= lastServerUpdatedAt.current) return;
                 reloadFromServer();
             });
             return unsubscribe;
         }
-    }, [userId, enabled, mergeData, getInitialData, reloadFromServer]);
+    }, [userId, enabled, mergeData, getInitialData, reloadFromServer, hasPendingLocalEdits]);
 
     const setDebouncedState: SetState<T> = useCallback((newStateOrFn) => {
         setState((prevState) => {
@@ -204,7 +211,8 @@ export function useAppState<T extends AppData>(
 
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
             writeTimeout.current = window.setTimeout(() => {
-                saveToServer(compactedNext);
+                const latest = localTruthRef.current;
+                if (latest) saveToServer(latest);
                 writeTimeout.current = null;
             }, 1000);
 

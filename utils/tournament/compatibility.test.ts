@@ -264,6 +264,33 @@ describe('legacy AppData compatibility', () => {
         expect(() => hybrid.preliminaryGroups[0].flatMap((m: any) => m.players)).not.toThrow();
     });
 
+    it('normalizes numeric-keyed top-level arrays (legacy Firestore students/transactions)', () => {
+        const student = {
+            id: 'student-1',
+            name: '테스트',
+            stones: 42,
+            maxStones: 100,
+            rank: '1급',
+            group: 'A',
+        };
+        const transaction = {
+            id: 'tx-1',
+            studentId: 'student-1',
+            type: 'earn',
+            description: '미션',
+            amount: 5,
+            timestamp: '2026-01-01T00:00:00.000Z',
+        };
+
+        const normalized = normalizeAppDataCompatibility({
+            students: { 0: student },
+            transactions: { 0: transaction },
+        }, defaults());
+
+        expect(normalized.students).toEqual([student]);
+        expect(normalized.transactions).toEqual([transaction]);
+    });
+
     it('retains explicit participant selections and tolerates null tournament data', () => {
         const selected = normalizeAppDataCompatibility({
             students: [],
