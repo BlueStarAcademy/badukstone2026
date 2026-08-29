@@ -198,7 +198,8 @@
 }
 
 .summary-box {
-    background: linear-gradient(135deg, #2c3e50, #4ca1af);
+    /* Converged with the ops console's dark ink surface (was a standalone teal gradient) */
+    background: var(--t-ink, #2c3e50);
     border-radius: 16px;
     padding: 2rem;
     color: white;
@@ -218,6 +219,30 @@
     font-weight: 900;
     margin: 0.5rem 0;
     text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.summary-mvp-badge {
+    margin-top: 2rem;
+    padding: 1rem;
+    text-align: center;
+    background: var(--t-gold-soft, #fbf5e6);
+    border: 1px solid var(--t-gold, #b4872d);
+    border-radius: 8px;
+}
+
+.summary-mvp-title {
+    margin: 0 0 0.5rem;
+    color: var(--t-gold, #b4872d);
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.summary-mvp-name {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: bold;
 }
 
 /* NEW RELAY GRID LAYOUT */
@@ -412,7 +437,7 @@
 }
 
 .vs-badge {
-    background: #eee;
+    background: var(--surface-muted);
     color: var(--color-muted);
     font-size: 0.7rem;
     font-weight: bold;
@@ -427,6 +452,12 @@
     border-radius: 12px;
     padding: 1.5rem;
     box-shadow: var(--shadow);
+}
+
+.summary-details-title {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: var(--t-muted, var(--color-muted));
 }
 
 .summary-after-game-stats {
@@ -2805,8 +2836,8 @@
 }
 
 .summary-box {
+    /* background already converged to var(--t-ink) at the base rule above */
     padding: 1.4rem;
-    background: var(--t-ink);
     border: 1px solid var(--t-ink-strong);
     border-radius: 12px;
     box-shadow: none;

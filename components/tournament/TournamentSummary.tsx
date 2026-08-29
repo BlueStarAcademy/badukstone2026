@@ -132,7 +132,7 @@ export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus
             </div>
 
              <div className="summary-details">
-                <h4 style={{textAlign: 'center', marginBottom: '1rem', color: '#cfd8dc'}}>GAME STATS</h4>
+                <h4 className="summary-details-title">GAME STATS</h4>
                 <div className="game-score-row">
                     <span>바둑</span>
                     <div className="score-bar-container">
@@ -163,9 +163,9 @@ export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus
             )}
 
             {mvp && (
-                <div style={{marginTop: '2rem', textAlign: 'center', padding: '1rem', background: 'rgba(255,215,0,0.2)', borderRadius: '8px', border: '1px solid gold'}}>
-                    <h4 style={{color: 'gold', marginBottom: '0.5rem'}}>🏆 대회 MVP 🏆</h4>
-                    <p style={{fontSize: '1.2rem', fontWeight: 'bold'}}>{mvp.name} <small>({mvp.rank})</small></p>
+                <div className="summary-mvp-badge">
+                    <h4 className="summary-mvp-title">대회 MVP</h4>
+                    <p className="summary-mvp-name">{mvp.name} <small>({mvp.rank})</small></p>
                 </div>
             )}
         </div>
