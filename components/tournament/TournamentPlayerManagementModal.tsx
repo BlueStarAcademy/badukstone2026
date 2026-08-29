@@ -14,10 +14,11 @@ interface TournamentPlayerManagementModalProps {
     currentView: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
     tournamentSettings?: TournamentSettings;
     onStartSwiss: (mode: 'random' | 'ranked', ids: string[]) => void;
-    onInitMission?: (ids: string[]) => void;
-    onInitHybrid?: (ids: string[]) => void;
-    onInitFullLeague?: (ids: string[]) => void;
-    onInitDoubleElim?: (ids: string[]) => void;
+    onInitMission?: (mode: 'random' | 'ranked', ids: string[]) => void;
+    onInitHybrid?: (mode: 'random' | 'ranked', ids: string[]) => void;
+    onInitFullLeague?: (mode: 'random' | 'ranked', ids: string[]) => void;
+    onInitDoubleElim?: (mode: 'random' | 'ranked', ids: string[]) => void;
+    onInitBracket?: (mode: 'random' | 'ranked', ids: string[]) => void;
 }
 
 export const TournamentPlayerManagementModal = (props: TournamentPlayerManagementModalProps) => {
@@ -35,6 +36,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         onInitHybrid,
         onInitFullLeague,
         onInitDoubleElim,
+        onInitBracket,
     } = props;
 
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -99,16 +101,15 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         } else if (currentView === 'swiss') {
             onStartSwiss(assignmentMode, ids);
         } else if (currentView === 'mission' && onInitMission) {
-            onInitMission(ids);
+            onInitMission(assignmentMode, ids);
         } else if (currentView === 'hybrid' && onInitHybrid) {
-            onInitHybrid(ids);
-        } else if (currentView === 'bracket') {
-            onUpdateParticipants(ids);
-            onClose();
+            onInitHybrid(assignmentMode, ids);
+        } else if (currentView === 'bracket' && onInitBracket) {
+            onInitBracket(assignmentMode, ids);
         } else if (currentView === 'fullleague' && onInitFullLeague) {
-            onInitFullLeague(ids);
+            onInitFullLeague(assignmentMode, ids);
         } else if (currentView === 'doubleelim' && onInitDoubleElim) {
-            onInitDoubleElim(ids);
+            onInitDoubleElim(assignmentMode, ids);
         }
     };
 
@@ -117,8 +118,15 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         return participantIds.every(id => selectedIds.has(id));
     }, [selectedIds, participantIds]);
 
-    const showFinalizeButton = currentView === 'relay' || currentView === 'swiss' || currentView === 'mission' || currentView === 'hybrid' || currentView === 'fullleague' || currentView === 'doubleelim';
-    const showAssignmentOptions = currentView === 'relay' || currentView === 'swiss';
+    const showFinalizeButton =
+        currentView === 'relay' ||
+        currentView === 'swiss' ||
+        currentView === 'mission' ||
+        currentView === 'hybrid' ||
+        currentView === 'fullleague' ||
+        currentView === 'doubleelim' ||
+        currentView === 'bracket';
+    const showAssignmentOptions = showFinalizeButton;
 
     const swissGroupHint = useMemo(() => {
         if (currentView !== 'swiss' || !tournamentSettings?.swissUseGroups) return null;
@@ -134,6 +142,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     else if (currentView === 'hybrid') finalizeButtonText = '예선 리그 생성';
     else if (currentView === 'fullleague') finalizeButtonText = '풀리그 시작';
     else if (currentView === 'doubleelim') finalizeButtonText = '더블엘리미네이션 시작';
+    else if (currentView === 'bracket') finalizeButtonText = '대진표 생성';
 
     return (
         <div className="modal-overlay">
@@ -220,7 +229,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                     {showFinalizeButton && (
                         <div className="tournament-player-mgmt-actions-finalize">
                             {showAssignmentOptions && (
-                                <div className="form-group inline-group tournament-player-mgmt-assign">
+                                <div className="tournament-player-mgmt-assign">
                                     <label htmlFor="assignment-mode">배정/시드</label>
                                     <select
                                         id="assignment-mode"
