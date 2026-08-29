@@ -429,6 +429,29 @@
     color: #94a3b8;
 }
 
+.form-hint {
+    display: block;
+    margin-top: 4px;
+    color: var(--color-muted);
+}
+
+.form-note {
+    font-size: 0.85rem;
+    color: var(--color-muted);
+    margin-bottom: 1rem;
+}
+
+.insufficient-text {
+    color: var(--danger-color);
+}
+
+.inline-desc-box {
+    font-weight: 500;
+    padding: 0.5rem;
+    background: var(--bg-color);
+    border-radius: 4px;
+}
+
 .settings-form-row {
     display: grid;
     grid-template-columns: 1fr 2fr;

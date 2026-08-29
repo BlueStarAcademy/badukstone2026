@@ -9,8 +9,8 @@
 }
 
 .mission-item {
-    background: white;
-    border: 1px solid #eee;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 0.8rem;
     display: flex;
@@ -22,6 +22,27 @@
 }
 
 .mission-item:hover { border-color: var(--primary-color); }
+
+.mission-item-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.mission-item-title {
+    font-weight: 500;
+}
+
+.mission-item-completions {
+    font-size: 0.8rem;
+    color: var(--text-color-secondary);
+}
+
+.class-mission-heading {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
 
 .mission-actions {
     display: flex;
@@ -77,23 +98,46 @@
 }
 
 .mission-top-box {
-    background: #f8f9fa;
-    border: 1px solid #e0e0e0;
-    border-radius: 16px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
     padding: 1rem;
     display: flex;
     flex-direction: column;
     min-height: 140px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    box-shadow: var(--shadow-sm);
 }
 
 .mission-top-box h4 {
     margin: 0 0 0.8rem 0;
-    font-size: 0.95rem;
-    color: #444;
-    border-bottom: 1px solid #eee;
     padding-bottom: 0.4rem;
+    padding-left: 0.6rem;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    border-bottom: 1px solid var(--border-color);
+    border-left: 3px solid var(--border-color);
     flex-shrink: 0;
+}
+
+/* 헤딩 이모지를 대체하는 색상 접근 마커 */
+.attendance-box h4 { border-left-color: var(--primary-color); }
+.penalty-box h4 { border-left-color: var(--danger-color); }
+.special-box h4 { border-left-color: var(--accent-color); }
+
+.attendance-status-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.attendance-time-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9rem;
+    color: var(--color-muted);
 }
 
 .attendance-content, .special-content {
@@ -218,6 +262,20 @@
     border-top: 1px solid rgba(251, 192, 45, 0.2);
 }
 
+.special-actions-buttons {
+    display: flex;
+    gap: 4px;
+}
+
+.special-status-badge-sm {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.special-answer-btn {
+    font-weight: 800;
+}
+
 .special-mission-answer-container {
     flex: 1;
     min-width: 0;
@@ -299,6 +357,66 @@
 /* 개인미션 탭 전용 */
 .personal-mission-section {
     margin-bottom: 1rem;
+}
+
+.target-group-row {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+.target-group-label {
+    font-weight: 600;
+    margin-right: 0.25rem;
+}
+
+.target-group-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    cursor: pointer;
+}
+
+.target-group-checkbox--strong {
+    font-weight: 600;
+}
+
+.personal-mission-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.personal-mission-section-title {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.personal-mission-section-desc {
+    font-size: 0.78rem;
+    color: var(--color-muted);
+    margin: 0 0 0.75rem;
+    line-height: 1.45;
+}
+
+.personal-mission-filter-tabs {
+    display: flex;
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+}
+
+.personal-mission-card-subtext {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--color-muted);
+    margin-top: 2px;
 }
 
 .personal-mission-series-box {
@@ -1458,6 +1576,24 @@
     margin-left: 4px;
 }
 
+.control-label-mini--primary {
+    color: var(--primary-color);
+}
+
+.personal-mission-type-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.continuous-mission-line--wrap {
+    flex-wrap: wrap;
+}
+
+.mission-score-input-sm {
+    width: 60px;
+}
+
 .continuous-mission-line {
     display: flex;
     align-items: center;
@@ -1483,6 +1619,12 @@
     align-items: center;
     gap: 3px;
     flex-shrink: 0;
+}
+
+.mission-progress-group label {
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: var(--color-muted);
 }
 
 .mission-no-input {
@@ -1566,11 +1708,11 @@
 
 .stone-mgmt-card {
     flex: 1;
-    background: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 16px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
     padding: 1.2rem;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    box-shadow: var(--shadow-sm);
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -1580,7 +1722,7 @@
     margin: 0;
     font-size: 1.1rem;
     color: var(--secondary-color);
-    border-bottom: 1px solid #f1f3f5;
+    border-bottom: 1px solid var(--border-color);
     padding-bottom: 0.8rem;
     display: flex;
     align-items: center;
@@ -1594,7 +1736,12 @@
 .stone-mgmt-card .form-group label {
     font-size: 0.85rem;
     margin-bottom: 0.4rem;
-    color: #666;
+    color: var(--color-muted);
+}
+
+.stone-mgmt-submit-btn {
+    width: 100%;
+    margin-top: auto;
 }
 
 @keyframes bounce {

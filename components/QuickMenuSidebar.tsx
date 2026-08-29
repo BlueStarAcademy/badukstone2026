@@ -598,12 +598,12 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                            <>
                                 <div className="mission-top-row-triple">
                                     <div className="mission-top-box attendance-box">
-                                        <h4>📅 오늘 출석</h4>
+                                        <h4>오늘 출석</h4>
                                         <div className="attendance-content">
                                             {isAttendedToday && attendanceTransactionToday ? (
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                                                <div className="attendance-status-wrap">
                                                     <div className="status-badge success">출석 완료</div>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.9rem', color: '#666' }}>
+                                                    <div className="attendance-time-row">
                                                         {editingTransaction?.id === attendanceTransactionToday.id ? (
                                                             <div className="timestamp-edit-inline">
                                                                 <input 
@@ -627,7 +627,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </div>
                                     </div>
                                     <div className="mission-top-box penalty-box">
-                                        <h4 style={{ color: 'var(--danger-color)' }}>⚠️ 예절 불량 감점</h4>
+                                        <h4>예절 불량 감점</h4>
                                         <div className="penalty-content">
                                             <form onSubmit={handleApplyPenalty} className="penalty-form-inline">
                                                 <input 
@@ -646,7 +646,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </div>
                                     </div>
                                     <div className={`mission-top-box special-box ${dailySpecialMission ? 'revealed' : ''}`}>
-                                        <h4>✨ 오늘의 특별 미션</h4>
+                                        <h4>오늘의 특별 미션</h4>
                                         <div className="special-content">
                                             {dailySpecialMission ? (
                                                 <div className="special-mission-display">
@@ -661,7 +661,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                         <div className="special-mission-answer-container">
                                                             {(showSpecialAnswer || isSpecialMissionCompletedToday) && dailySpecialMission.answer ? (
                                                                 <div className="special-mission-answer">
-                                                                    <span className="answer-label">💡 답:</span>
+                                                                    <span className="answer-label">답:</span>
                                                                     <span className="answer-text">{dailySpecialMission.answer}</span>
                                                                 </div>
                                                             ) : (
@@ -673,9 +673,9 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
 
                                                         <span className="mission-stones">+{dailySpecialMission.stones}</span>
                                                         
-                                                        <div style={{display: 'flex', gap: '4px'}}>
+                                                        <div className="special-actions-buttons">
                                                             {isSpecialMissionCompletedToday ? (
-                                                                <div className="status-badge success" style={{padding: '0.3rem 0.8rem', fontSize: '0.85rem'}}>완료</div>
+                                                                <div className="status-badge success special-status-badge-sm">완료</div>
                                                             ) : (
                                                                 <>
                                                                     {showSpecialAnswer ? (
@@ -684,7 +684,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                                             <button className="btn-sm danger" onClick={handleFailSpecialMission}>실패</button>
                                                                         </>
                                                                     ) : (
-                                                                        <button className="btn-sm" onClick={() => setShowSpecialAnswer(true)} style={{fontWeight: '800'}}>정답</button>
+                                                                        <button className="btn-sm special-answer-btn" onClick={() => setShowSpecialAnswer(true)}>정답</button>
                                                                     )}
                                                                     <button 
                                                                         className="btn-sm" 
@@ -700,7 +700,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                 <div className="special-draw-zone">
                                                     <span className="draw-placeholder">?</span>
                                                     <button className="btn draw-btn" onClick={() => onAssignSpecialMission(student.id)}>
-                                                        미션 뽑기 🎲
+                                                        특별 미션 뽑기
                                                     </button>
                                                 </div>
                                             )}
@@ -708,21 +708,21 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     </div>
                                 </div>
 
-                                <h3 style={{ fontSize: '1.2rem', marginBottom: '1rem' }}>수업 미션</h3>
+                                <h3 className="class-mission-heading">수업 미션</h3>
                                 <ul className="mission-list">
                                     {groupMissions.map((mission: any) => {
                                         const completionsToday = missionCompletionCounts.get(mission.description) || 0;
 
                                         return (
                                             <li key={mission.id} className="mission-item">
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                                                    <span style={{ fontWeight: 500 }}>
+                                                <div className="mission-item-content">
+                                                    <span className="mission-item-title">
                                                         {mission.description}
                                                     </span>
                                                 </div>
                                                 <div className="mission-actions">
                                                     {completionsToday > 0 && (
-                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-color-secondary)' }}>({completionsToday}회)</span>
+                                                        <span className="mission-item-completions">({completionsToday}회)</span>
                                                     )}
                                                     <span className="mission-stones">+{mission.stones}</span>
                                                     <button className="btn-sm" onClick={() => handleOpenPartialMissionModal(mission)} disabled={student.stones >= student.maxStones}>부분</button>
@@ -737,8 +737,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                         {activeTab === 'personal_missions' && student && (
                            <>
                                 <div className="mission-control-wrapper personal-mission-section">
-                                    <span className="control-label-mini" style={{ color: 'var(--primary-color)' }}>개인 미션 추가</span>
-                                    <div className="personal-mission-type-tabs" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <span className="control-label-mini control-label-mini--primary">개인 미션 추가</span>
+                                    <div className="personal-mission-type-tabs">
                                         <button
                                             type="button"
                                             className={`btn-sm ${personalMissionType === 'continuous' ? 'primary' : ''}`}
@@ -768,7 +768,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             업적 미션 (1회성)
                                         </button>
                                     </div>
-                                    <div className="continuous-mission-line" style={{ flexWrap: 'wrap' }}>
+                                    <div className="continuous-mission-line continuous-mission-line--wrap">
                                         <input 
                                             type="text" 
                                             className="mission-name-input"
@@ -786,7 +786,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         />
                                         {personalMissionType === 'continuous' && (
                                             <div className="mission-progress-group">
-                                                <label style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#666' }}>No.</label>
+                                                <label>No.</label>
                                                 <input 
                                                     type="number" 
                                                     className="mission-no-input"
@@ -798,18 +798,17 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         )}
                                         <input
                                             type="number"
-                                            className="mission-no-input"
+                                            className="mission-no-input mission-score-input-sm"
                                             value={personalMissionScoreInput}
                                             onChange={e => setPersonalMissionScoreInput(e.target.value)}
                                             min="1"
                                             placeholder={String(generalSettings.josekiMissionValue)}
-                                            style={{ width: '60px' }}
                                         />
                                         <button className="btn-sm" onClick={handleUpdateJoseki}>저장</button>
                                     </div>
-                                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem 0.75rem', alignItems: 'center', fontSize: '0.8rem' }}>
-                                        <span style={{ fontWeight: 600, marginRight: '0.25rem' }}>노출 반:</span>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', fontWeight: 600 }}>
+                                    <div className="target-group-row">
+                                        <span className="target-group-label">노출 반:</span>
+                                        <label className="target-group-checkbox target-group-checkbox--strong">
                                             <input
                                                 type="checkbox"
                                                 checked={personalMissionTargetGroups.includes(MISSION_ALL_GROUPS)}
@@ -818,7 +817,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             공동
                                         </label>
                                         {generalSettings.groupOrder.map(gk => (
-                                            <label key={gk} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer' }}>
+                                            <label key={gk} className="target-group-checkbox">
                                                 <input
                                                     type="checkbox"
                                                     checked={!personalMissionTargetGroups.includes(MISSION_ALL_GROUPS) && personalMissionTargetGroups.includes(gk)}
@@ -838,18 +837,18 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1.2rem', marginBottom: '0.5rem' }}>
-                                    <h3 style={{ fontSize: '1.1rem', margin: 0 }}>📋 개인 미션</h3>
+                                <div className="personal-mission-section-header">
+                                    <h3 className="personal-mission-section-title">개인 미션</h3>
                                     {onAssignIndividualMission && (
                                         <button type="button" className="btn-sm" onClick={() => setShowLoadMissionModal(true)}>
                                             개인 미션 불러오기
                                         </button>
                                     )}
                                 </div>
-                                <p style={{ fontSize: '0.78rem', color: '#888', margin: '0 0 0.75rem', lineHeight: 1.45 }}>
+                                <p className="personal-mission-section-desc">
                                     위 폼에서 추가하는 미션은 이 학생 전용입니다. 반마다 기본으로 붙이는 미션은 관리자 → 단체 미션 탭 → 「그룹 기본 개인 미션」에서 설정합니다.
                                 </p>
-                                <div className="personal-mission-filter-tabs" style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.75rem' }}>
+                                <div className="personal-mission-filter-tabs">
                                     {(['all', 'continuous', 'weekly', 'monthly', 'achievement'] as const).map(f => (
                                         <button
                                             key={f}
@@ -967,7 +966,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                                                 {m.title}
                                                             </span>
                                                         )}
-                                                        <span style={{ display: 'block', fontSize: '0.72rem', color: '#888', marginTop: '2px' }}>
+                                                        <span className="personal-mission-card-subtext">
                                                             {m.templateId
                                                                 ? '그룹 기본 (관리자 템플릿)'
                                                                 : (!m.targetGroups || m.targetGroups.includes(MISSION_ALL_GROUPS))
@@ -1066,7 +1065,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             <ul className="cart-item-list">{cartDetails.items.map(item => (
                                                 <li key={item.id} className="cart-item"><span className="cart-item-name">{item.name}</span><div className="cart-item-controls"><input type="number" min="1" value={item.quantity} onChange={e => handleUpdateCartQuantity(item.id, parseInt(e.target.value) || 1)} /><span>x {item.price}</span><button onClick={() => handleUpdateCartQuantity(item.id, 0)}>&times;</button></div></li>
                                             ))}</ul>
-                                        ) : <div style={{textAlign: 'center', padding: '2rem 0', color: 'var(--text-color-secondary)'}}><p>장바구니가 비었습니다.</p></div>}
+                                        ) : <div className="empty-state-mini"><p>장바구니가 비었습니다.</p></div>}
                                     </div>
                                     <div className="cart-panel-footer">
                                         <div className="cart-total-details">
@@ -1080,7 +1079,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             {cartDetails.couponDeduction > 0 && <div className="coupon-deduction"><span>쿠폰 사용</span><span>-{cartDetails.couponDeduction}</span></div>}
                                             <div className="final-total">
                                                 <span>{cartDetails.couponDeduction > 0 ? '추가 스톤 결제' : '최종 결제'}</span>
-                                                <span style={{ color: cartDetails.isInsufficient ? 'var(--danger-color)' : 'inherit' }}>
+                                                <span className={cartDetails.isInsufficient ? 'insufficient-text' : ''}>
                                                     {cartDetails.finalStoneCost} 스톤
                                                 </span>
                                             </div>
@@ -1111,23 +1110,23 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                         {activeTab === 'send' && (
                             <div className="stone-mgmt-row">
                                 <div className="stone-mgmt-card">
-                                    <h3>💎 스톤 수동 지급/차감</h3>
+                                    <h3>스톤 수동 지급/차감</h3>
                                     <form onSubmit={handleSendStones}>
                                         <div className="form-group">
                                             <label htmlFor="sendAmount">지급/차감할 스톤</label>
                                             <input type="number" id="sendAmount" value={sendAmount} onChange={e => setSendAmount(e.target.value)} placeholder="0" />
-                                            <small style={{display: 'block', marginTop: '4px', color: '#888'}}>양수는 지급, 음수는 차감입니다.</small>
+                                            <small className="form-hint">양수는 지급, 음수는 차감입니다.</small>
                                         </div>
                                         <div className="form-group">
                                             <label htmlFor="sendReason">사유</label>
                                             <input type="text" id="sendReason" value={sendReason} onChange={e => setSendReason(e.target.value)} placeholder="예: 착한 일을 해서 스톤 지급" />
                                         </div>
-                                        <button type="submit" className="btn primary" style={{width: '100%', marginTop: 'auto'}}>적용</button>
+                                        <button type="submit" className="btn primary stone-mgmt-submit-btn">적용</button>
                                     </form>
                                 </div>
 
                                 <div className="stone-mgmt-card">
-                                    <h3>🤝 물물교환</h3>
+                                    <h3>물물교환</h3>
                                     <form onSubmit={handleTransfer}>
                                         <div className="form-group">
                                             <label htmlFor="recipient">받는 학생</label>
@@ -1142,8 +1141,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </div>
                                         <button 
                                             type="submit" 
-                                            className="btn primary" 
-                                            style={{width: '100%', marginTop: 'auto'}}
+                                            className="btn primary stone-mgmt-submit-btn" 
                                             disabled={(parseInt(transferAmount, 10) || 0) <= 0 || !recipientId || student.stones < (parseInt(transferAmount, 10) || 0)}
                                         >
                                             보내기
@@ -1210,7 +1208,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                             );
                                         }) : (
                                             <tr>
-                                                <td colSpan={4} style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>활동 기록이 없습니다.</td>
+                                                <td colSpan={4} className="empty-state-mini">활동 기록이 없습니다.</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -1236,7 +1234,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                 }
             >
                 <form id="quick-menu-partial-mission-form" onSubmit={handlePartialMissionSubmit}>
-                    <div className="form-group"><label>미션</label><p style={{ fontWeight: '500', padding: '0.5rem', background: 'var(--bg-color)', borderRadius: '4px' }}>{partialMission.description}</p></div>
+                    <div className="form-group"><label>미션</label><p className="inline-desc-box">{partialMission.description}</p></div>
                     <div className="form-group"><label htmlFor="partial-amount">지급할 스톤 (최대 {partialMission.stones})</label><input type="number" id="partial-amount" value={partialAmount} onChange={(e) => setPartialAmount(e.target.value)} min="1" max={partialMission.stones} required autoFocus placeholder="점수 입력" /></div>
                 </form>
             </ModalShell>
@@ -1279,7 +1277,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                 }
             >
                     {editingPersonalMission.templateId && (
-                        <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+                        <p className="form-note">
                             그룹 기본 미션입니다. 현재 진행 No.와 이 학생의 점수는 여기서 조정할 수 있습니다.
                             공통 내용·유형·대상 반은 관리자 → 「그룹 기본 개인 미션」에서 수정하세요.
                         </p>
@@ -1391,8 +1389,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                         {!editingPersonalMission.templateId && (
                             <div className="form-group">
                                 <label>노출 반</label>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem 0.75rem', marginTop: '0.35rem' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', fontWeight: 600 }}>
+                                <div className="target-group-row">
+                                    <label className="target-group-checkbox target-group-checkbox--strong">
                                         <input
                                             type="checkbox"
                                             checked={editPersonalTargetGroups.includes(MISSION_ALL_GROUPS)}
@@ -1401,7 +1399,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         공동
                                     </label>
                                     {generalSettings.groupOrder.map(gk => (
-                                        <label key={gk} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                                        <label key={gk} className="target-group-checkbox">
                                             <input
                                                 type="checkbox"
                                                 checked={!editPersonalTargetGroups.includes(MISSION_ALL_GROUPS) && editPersonalTargetGroups.includes(gk)}
