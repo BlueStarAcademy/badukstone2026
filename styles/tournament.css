@@ -1707,26 +1707,41 @@
     position: absolute;
     top: 1rem;
     right: 1rem;
-    background: none;
-    border: none;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
     color: white;
     font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0;
     line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
 }
 
+.chess-mission-sidebar .close-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: rotate(4deg);
+}
+
+/* Header treatment shared with QuickMenuSidebar's gradient header */
 .chess-mission-sidebar .sidebar-header {
     padding: 1.5rem;
-    background: var(--primary-color);
     color: white;
     position: relative;
+    background:
+        radial-gradient(circle at 88% 10%, rgba(255, 255, 255, 0.2), transparent 28%),
+        linear-gradient(135deg, #2563a9 0%, var(--primary-color) 58%, #68a8ed 100%);
 }
 
 .chess-mission-sidebar .sidebar-header h2 {
     margin: 0;
-    font-size: 1.25rem;
-    padding-right: 2rem;
+    font-size: 1.3rem;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    padding-right: 3rem;
+    word-break: keep-all;
 }
 
 .chess-mission-sidebar .sidebar-content {
@@ -1804,6 +1819,97 @@
     top: 0;
     z-index: 2;
     background: var(--surface-muted);
+}
+
+/* Chess match history table */
+.chess-match-history {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chess-match-history-title {
+    margin-bottom: 1rem;
+}
+
+.chess-match-table-wrap {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.chess-match-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.chess-match-table th,
+.chess-match-table td {
+    padding: 0.8rem;
+}
+
+.chess-match-date {
+    font-size: 0.85rem;
+}
+
+.chess-match-row {
+    background-color: var(--surface-color);
+}
+
+.chess-match-row.is-cancelled {
+    opacity: 0.5;
+    background-color: var(--surface-muted);
+    text-decoration: line-through;
+}
+
+.chess-match-player {
+    font-weight: 600;
+}
+
+.chess-match-vs {
+    color: var(--color-muted);
+    margin: 0 4px;
+}
+
+.chess-match-delta {
+    font-weight: bold;
+}
+
+.chess-delta-positive { color: var(--primary-color); }
+.chess-delta-negative { color: var(--danger-color); }
+
+.chess-match-cancel-btn {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+}
+
+.chess-empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-muted);
+}
+
+/* Chess result chips (tokenized) */
+.chess-result-chip {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #fff;
+}
+
+.chess-result-chip--white {
+    background: var(--primary-color);
+}
+
+.chess-result-chip--black {
+    background: var(--danger-color);
+}
+
+.chess-result-chip--draw {
+    background: var(--surface-muted);
+    color: var(--color-muted);
 }
 
 .new-match-recorder {
