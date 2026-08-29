@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 // FIX: Corrected import path for type definitions.
-import type { Student, Mission, ShopItem, AdminTab, ShopSettings, Coupon, GroupSettings, GeneralSettings, ShopCategory, AppData, SpecialMission, PersonalMissionTemplate } from '../types';
+import type { Student, Mission, ShopItem, AdminTab, ShopSettings, Coupon, GroupSettings, GeneralSettings, ShopCategory, AppData, SpecialMission, PersonalMissionTemplate, PersonalMissionType } from '../types';
 import { generateId, parseRank } from '../utils';
 import { exportDataToExcel, importDataFromExcel } from '../utils/excelUtils';
 import { StudentFormModal } from './modals/StudentFormModal';
@@ -14,6 +14,7 @@ import { GroupSettingsModal } from './modals/GroupSettingsModal';
 import { ShopSettingsModal } from './modals/ShopSettingsModal';
 import { SpecialMissionManagerModal } from './modals/SpecialMissionManagerModal';
 import { PersonalMissionTemplateModal } from './modals/PersonalMissionTemplateModal';
+import { AssignPersonalMissionModal } from './modals/AssignPersonalMissionModal';
 
 type StudentStatus = '재원' | '휴원';
 
@@ -132,6 +133,10 @@ interface AdminPanelProps {
     personalMissionTemplates: PersonalMissionTemplate[];
     onUpsertPersonalMissionTemplate: (template: PersonalMissionTemplate) => void;
     onDeletePersonalMissionTemplate: (templateId: string) => void;
+    onBulkAddPersonalMission: (
+        studentIds: string[],
+        mission: { title: string; stones: number; no: number; missionType?: PersonalMissionType }
+    ) => void;
     shopItems: ShopItem[];
     shopSettings: ShopSettings;
     shopCategories: ShopCategory[];
@@ -169,7 +174,7 @@ const SHOP_ITEM_HEADER_MAP = { name: '상품명', price: '가격', category: '�
 
 export const AdminPanel = (props: AdminPanelProps) => {
     const { 
-        students, missions, chessMissions, specialMissions, personalMissionTemplates, onUpsertPersonalMissionTemplate, onDeletePersonalMissionTemplate, shopItems, shopSettings, shopCategories, groupSettings, generalSettings,
+        students, missions, chessMissions, specialMissions, personalMissionTemplates, onUpsertPersonalMissionTemplate, onDeletePersonalMissionTemplate, onBulkAddPersonalMission, shopItems, shopSettings, shopCategories, groupSettings, generalSettings,
         setMissions, setChessMissions, setSpecialMissions, setShopItems, setShopSettings, setShopCategories,
         onSaveStudent, onDeleteStudent, onUpdateGroupSettings, onUpdateGeneralSettings,
         onBulkAddTransaction, onBulkUpdateStudents, onAddCoupon,
@@ -193,6 +198,8 @@ export const AdminPanel = (props: AdminPanelProps) => {
     const [isShopSettingsModalOpen, setIsShopSettingsModalOpen] = useState(false);
     const [isSpecialMissionModalOpen, setIsSpecialMissionModalOpen] = useState(false);
     const [isPersonalMissionTemplateModalOpen, setIsPersonalMissionTemplateModalOpen] = useState(false);
+    const [isAssignPersonalMissionModalOpen, setIsAssignPersonalMissionModalOpen] = useState(false);
+    const [personalMissionInitialStudentIds, setPersonalMissionInitialStudentIds] = useState<string[]>([]);
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode; actions: ActionButton[] } | null>(null);
     
@@ -424,6 +431,11 @@ export const AdminPanel = (props: AdminPanelProps) => {
         setIsCouponModalOpen(true);
     };
 
+    const openAssignPersonalMissionModal = (studentIds: string[] = []) => {
+        setPersonalMissionInitialStudentIds(studentIds);
+        setIsAssignPersonalMissionModalOpen(true);
+    };
+
     const handleSaveCoupon = (couponFormData: Omit<Coupon, 'id' | 'studentId'>) => {
         if (studentForCoupon) {
             onAddCoupon({
@@ -623,6 +635,7 @@ export const AdminPanel = (props: AdminPanelProps) => {
                             <p>{selectedStudentIds.size}명 선택됨</p>
                             <div className="bulk-actions-controls">
                                 <button className="btn" onClick={() => setIsBulkAwardModalOpen(true)}>스톤 지급/차감</button>
+                                <button className="btn" onClick={() => openAssignPersonalMissionModal(Array.from(selectedStudentIds))}>개인미션 부여</button>
                                 <select value={bulkEditRank} onChange={e => setBulkEditRank(e.target.value)}>
                                     <option value="">급수 변경</option>
                                     {rankOptions.map(r => <option key={r} value={r}>{r}</option>)}
@@ -685,6 +698,7 @@ export const AdminPanel = (props: AdminPanelProps) => {
                             <h2 style={{ margin: 0 }}>단체 미션 관리</h2>
                             <button className="btn-sm" onClick={() => setIsSpecialMissionModalOpen(true)}>✨ 특별 미션 관리</button>
                             <button className="btn-sm" onClick={() => setIsPersonalMissionTemplateModalOpen(true)}>📋 그룹 기본 개인 미션</button>
+                            <button className="btn-sm primary" onClick={() => openAssignPersonalMissionModal()}>학생별 개인미션 부여</button>
                         </div>
                     </div>
 
@@ -850,6 +864,20 @@ export const AdminPanel = (props: AdminPanelProps) => {
                     onDelete={onDeletePersonalMissionTemplate}
                     groupSettings={groupSettings}
                     groupOrder={generalSettings.groupOrder}
+                />
+            )}
+            {isAssignPersonalMissionModalOpen && (
+                <AssignPersonalMissionModal
+                    isOpen={isAssignPersonalMissionModalOpen}
+                    onClose={() => setIsAssignPersonalMissionModalOpen(false)}
+                    students={students}
+                    groupSettings={groupSettings}
+                    groupOrder={generalSettings.groupOrder}
+                    initialStudentIds={personalMissionInitialStudentIds}
+                    onAssign={(studentIds, mission) => {
+                        onBulkAddPersonalMission(studentIds, mission);
+                        setSelectedStudentIds(new Set());
+                    }}
                 />
             )}
             {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}

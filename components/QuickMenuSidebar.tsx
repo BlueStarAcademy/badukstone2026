@@ -1248,7 +1248,8 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                     <h2>개인 미션 수정</h2>
                     {editingPersonalMission.templateId && (
                         <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
-                            그룹 기본 미션입니다. 내용·유형·No·노출 반은 관리자 → 「그룹 기본 개인 미션」에서 수정할 수 있습니다. 여기서는 점수만 바꿀 수 있습니다.
+                            그룹 기본 미션입니다. 현재 진행 No.와 이 학생의 점수는 여기서 조정할 수 있습니다.
+                            공통 내용·유형·대상 반은 관리자 → 「그룹 기본 개인 미션」에서 수정하세요.
                         </p>
                     )}
                     <form
@@ -1258,7 +1259,11 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                             const no = editPersonalType === 'continuous' ? parseInt(editPersonalNo, 10) : 0;
                             if (Number.isNaN(stones) || stones < 0) return;
                             if (editingPersonalMission.templateId) {
-                                onUpdatePersonalMission(student.id, editingPersonalMission.id, { stones });
+                                if (editPersonalType === 'continuous' && (Number.isNaN(no) || no < 1)) return;
+                                onUpdatePersonalMission(student.id, editingPersonalMission.id, {
+                                    stones,
+                                    ...(editPersonalType === 'continuous' ? { no } : {}),
+                                });
                                 setEditingPersonalMission(null);
                                 return;
                             }
@@ -1325,6 +1330,19 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                     </div>
                                 )}
                             </>
+                        )}
+                        {editingPersonalMission.templateId && editPersonalType === 'continuous' && (
+                            <div className="form-group">
+                                <label htmlFor="edit-template-personal-no">현재 진행 No.</label>
+                                <input
+                                    type="number"
+                                    id="edit-template-personal-no"
+                                    value={editPersonalNo}
+                                    onChange={e => setEditPersonalNo(e.target.value)}
+                                    min={1}
+                                    required
+                                />
+                            </div>
                         )}
                         <div className="form-group">
                             <label htmlFor="edit-personal-stones">점수</label>

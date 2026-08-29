@@ -123,7 +123,7 @@ export const PersonalMissionTemplateModal = ({
                 <h2>그룹 기본 개인 미션</h2>
                 <p style={{ fontSize: '0.88rem', color: 'var(--secondary-color)', marginTop: '-0.25rem' }}>
                     선택한 반(또는 공동)에 해당하는 학생에게 자동으로 개인 미션 카드가 붙습니다. 학생이 카드를 삭제하면 다시 붙이지 않습니다.
-                    학생에게만 주는 미션은 빠른 메뉴에서 추가하세요.
+                    공통 내용을 수정하면 연결된 모든 학생 카드에 반영되며, 학생별 현재 진행 번호는 유지됩니다.
                 </p>
 
                 {!isAdding ? (
@@ -161,7 +161,7 @@ export const PersonalMissionTemplateModal = ({
                         </div>
                         {missionType === 'continuous' && (
                             <div className="form-group">
-                                <label htmlFor="pmt-no">시작 No.</label>
+                                <label htmlFor="pmt-no">신규 학생 시작 No.</label>
                                 <input
                                     id="pmt-no"
                                     type="number"
@@ -170,6 +170,7 @@ export const PersonalMissionTemplateModal = ({
                                     onChange={e => setForm(f => ({ ...f, no: parseInt(e.target.value, 10) || 1 }))}
                                     style={{ width: '88px' }}
                                 />
+                                <small>새로 미션을 받는 학생에게만 적용되며 기존 학생의 현재 번호는 바뀌지 않습니다.</small>
                             </div>
                         )}
                         <div className="form-group">
