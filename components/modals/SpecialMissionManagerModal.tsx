@@ -303,9 +303,9 @@ export const SpecialMissionManagerModal = ({
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
                                                     <p style={{ fontWeight: 'bold', margin: 0 }}>{m.content}</p>
                                                 </div>
-                                                {m.answer && <p style={{ fontSize: '0.85rem', color: '#666', fontStyle: 'italic', margin: '0 0 0.3rem 0' }}>답: {m.answer}</p>}
+                                                {m.answer && <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)', fontStyle: 'italic', margin: '0 0 0.3rem 0' }}>답: {m.answer}</p>}
                                                 <p style={{ fontSize: '0.9rem', color: 'var(--accent-color)', margin: 0 }}>
-                                                    {'★'.repeat(m.stars)} <span style={{ color: '#888', marginLeft: '0.5rem' }}>{m.stones} 스톤</span>
+                                                    {'★'.repeat(m.stars)} <span style={{ color: 'var(--color-muted)', marginLeft: '0.5rem' }}>{m.stones} 스톤</span>
                                                 </p>
                                             </div>
                                             <div className="item-actions" style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-start' }}>
@@ -340,24 +340,24 @@ export const SpecialMissionManagerModal = ({
                                 );
                             })}
                             {sortedMissions.length === 0 && !isAdding && (
-                                <p style={{ textAlign: 'center', color: '#999', padding: '2rem' }}>등록된 특별 미션이 없습니다.</p>
+                                <p style={{ textAlign: 'center', color: 'var(--color-muted)', padding: '2rem' }}>등록된 특별 미션이 없습니다.</p>
                             )}
                         </div>
                     </>
                 ) : (
                     <div className="settings-card">
                         <h4>{groupSettings[activeGroup]?.name || activeGroup}반 미션 확률 설정</h4>
-                        <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
+                        <p className="form-note">
                             ★5 → ★2 순으로 각 난이도별 확률(%)을 적용해 시도합니다. 해당 별 미션이 풀에 없으면 건너뜁니다.
                             모두 통과하지 못하면, 노출 가능한 미션 중 <strong>가장 낮은 별(가장 쉬운 난이도)</strong>에서 반드시 하나가 선택됩니다.
                         </p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {[5, 4, 3, 2, 1].map(starCount => (
-                                <div key={starCount} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#f8f9fa', padding: '0.8rem 1.2rem', borderRadius: '10px' }}>
+                                <div key={starCount} className="ui-panel-muted" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
                                     <div style={{ width: '120px', fontWeight: 'bold', color: 'var(--accent-color)' }}>
                                         {'★'.repeat(starCount)}
-                                        {starCount === 1 && <span style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'normal', display: 'block' }}>(최종 보장)</span>}
+                                        {starCount === 1 && <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)', fontWeight: 'normal', display: 'block' }}>(최종 보장)</span>}
                                     </div>
                                     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                         <input
@@ -376,7 +376,7 @@ export const SpecialMissionManagerModal = ({
                                                 max={100}
                                                 value={getGroupWeights(activeGroup)[starCount]}
                                                 onChange={e => handleWeightChange(activeGroup, starCount, e.target.value)}
-                                                style={{ width: '100%', padding: '4px', textAlign: 'center', borderRadius: '4px', border: '1px solid #ddd' }}
+                                                style={{ width: '100%', padding: '4px', textAlign: 'center', borderRadius: '4px', border: '1px solid var(--border-color)' }}
                                                 disabled={starCount === 1}
                                             />
                                         </div>
@@ -386,8 +386,8 @@ export const SpecialMissionManagerModal = ({
                             ))}
                         </div>
 
-                        <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#e3f2fd', borderRadius: '8px', border: '1px solid #90caf9' }}>
-                            <p style={{ margin: 0, fontSize: '0.88rem', color: '#1565c0' }}>
+                        <div className="ui-inline-note">
+                            <p>
                                 ★1 구간은 “모든 시도가 실패했을 때” 선택되는 <strong>최종 안전망</strong>이라 확률 입력은 비활성화되어 있습니다.
                                 (★5~★2에서 한 번도 선택되지 않으면, 후보 중 가장 쉬운 난이도에서 무조건 뽑힙니다.)
                             </p>

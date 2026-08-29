@@ -388,7 +388,7 @@ export const LoadPersonalMissionModal = ({
                             <div className="load-mission-edit-panel">
                                 <h4>미션 수정</h4>
                                 {fromTemplate && (
-                                    <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.75rem' }}>
+                                    <p className="form-note" style={{ marginBottom: '0.75rem' }}>
                                         그룹 기본 미션입니다. 제목·유형·No·노출 반은 관리자 탭 「그룹 기본 개인 미션」에서 바꿀 수 있습니다.
                                     </p>
                                 )}
@@ -459,7 +459,7 @@ export const LoadPersonalMissionModal = ({
                                                             ? '월간'
                                                             : `No.${mission.no}`} · {mission.title} · +{mission.stones}
                                                 {' '}
-                                                <span style={{ fontSize: '0.78rem', color: '#888' }}>
+                                                <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)' }}>
                                                     {mission.templateId
                                                         ? '[그룹 기본]'
                                                         : (!mission.targetGroups || mission.targetGroups.includes(MISSION_ALL_GROUPS))

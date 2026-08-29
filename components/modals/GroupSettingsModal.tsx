@@ -13,7 +13,7 @@ interface GroupSettingsModalProps {
 }
 
 const DragHandle = () => (
-    <svg className="drag-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ cursor: 'grab', color: '#999' }}>
+    <svg className="drag-handle" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style={{ cursor: 'grab', color: 'var(--color-muted)' }}>
         <path d="M9 4V6m0 2V10m0 2v2m0 2v2m6-12V6m0 2V10m0 2v2m0 2v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
 );
@@ -113,7 +113,7 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
             footer={<button type="button" className="btn primary" onClick={onClose}>닫기</button>}
         >
                     <div className="settings-section">
-                        <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--secondary-color)' }}>일반 설정</h3>
+                        <h3 style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem', color: 'var(--secondary-color)' }}>일반 설정</h3>
                         <div className="general-settings-grid">
                             <div className="general-setting-item" style={{ gridColumn: '1 / span 2' }}>
                                 <label htmlFor="academy-name">학원 이름</label>
@@ -172,9 +172,9 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
                     </div>
 
                     <div className="settings-section" style={{ marginTop: '2rem' }}>
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #eee', paddingBottom: '0.5rem'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem'}}>
                             <h3 style={{ margin: 0, color: 'var(--secondary-color)' }}>그룹 설정</h3>
-                            <span style={{ fontSize: '0.85rem', color: '#666' }}>💡 드래그하여 순서 변경</span>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>💡 드래그하여 순서 변경</span>
                         </div>
                         
                         <div className="table-container">
@@ -201,7 +201,7 @@ export const GroupSettingsModal = ({ isOpen, onClose, groupSettings, generalSett
                                             className={`${draggedGroup === group ? 'dragging' : ''} ${dragOverGroup === group ? 'drag-over' : ''}`}
                                         >
                                             <td style={{textAlign: 'center'}}><DragHandle /></td>
-                                            <td style={{color: '#666', fontSize: '0.9rem'}}>{group}</td>
+                                            <td style={{color: 'var(--color-muted)', fontSize: '0.9rem'}}>{group}</td>
                                             <td>
                                                 <input
                                                     type="text"
