@@ -127,6 +127,11 @@ export function getTournamentOperationStatus(
                 ...asArray(doubleElim.winnersRounds).flatMap((round: any) => asArray(round.matches)),
                 ...asArray(doubleElim.losersRounds).flatMap((round: any) => asArray(round.matches)),
                 ...(doubleElim.grandFinal ? [doubleElim.grandFinal] : []),
+                ...(doubleElim.grandFinalReset &&
+                doubleElim.grandFinal?.winnerId &&
+                doubleElim.grandFinal.winnerId === doubleElim.grandFinal.players[1]
+                    ? [doubleElim.grandFinalReset]
+                    : []),
             ]
             : [];
         drawCreated = !!doubleElim;

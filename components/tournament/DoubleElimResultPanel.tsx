@@ -33,10 +33,12 @@ export const DoubleElimResultPanel = ({ doubleElim, students, isFinished, onOpen
         );
     }
 
-    const gf = doubleElim.grandFinal;
-    const championId = gf.winnerId;
+    const gf = doubleElim.grandFinalReset?.winnerId
+        ? doubleElim.grandFinalReset
+        : doubleElim.grandFinal;
+    const championId = gf?.winnerId ?? null;
     const champion = championId ? students.find(s => s.id === championId) ?? null : null;
-    const runnerUpId = gf.players.find(p => p && p !== 'BYE' && p !== championId) as string | undefined;
+    const runnerUpId = gf?.players.find(p => p && p !== 'BYE' && p !== championId) as string | undefined;
     const runnerUp = runnerUpId ? students.find(s => s.id === runnerUpId) ?? null : null;
 
     const lastLR = doubleElim.losersRounds[doubleElim.losersRounds.length - 1];

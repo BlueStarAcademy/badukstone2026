@@ -27,6 +27,10 @@ import { TournamentBracketView } from './TournamentBracketView';
 import { HybridPrelimPrizeModal } from './HybridPrelimPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { StartRoundSelect } from './StartRoundSelect';
+import {
+    loadStartRoundPreference,
+    saveStartRoundPreference,
+} from '../../utils/tournament/startRoundPreference';
 
 interface TournamentHybridViewProps {
     students: Student[];
@@ -167,8 +171,13 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const [prelimAssignmentMode, setPrelimAssignmentMode] = useState<'random' | 'ranked'>(
         hybridMode === 'rank' ? 'ranked' : 'random'
     );
-    const [finalStartRoundSize, setFinalStartRoundSize] = useState<number | null>(null);
-    const handleFinalStartRoundChange = useCallback((size: number | null) => setFinalStartRoundSize(size), []);
+    const [finalStartRoundSize, setFinalStartRoundSize] = useState<number | null>(() =>
+        loadStartRoundPreference('hybridFinal')
+    );
+    const handleFinalStartRoundChange = useCallback((size: number | null) => {
+        setFinalStartRoundSize(size);
+        saveStartRoundPreference('hybridFinal', size);
+    }, []);
 
     const preliminaryGroups = useMemo(
         () => (data.hybrid ? normalizeHybridPreliminaryGroups(data.hybrid.preliminaryGroups) as SwissMatch[][] : []),

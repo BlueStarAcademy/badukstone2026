@@ -4,6 +4,10 @@ import { parseRank } from '../../utils';
 import { parseSwissGroupSizes } from '../../utils/tournamentPrizes';
 import { ModalShell } from '../ui/ModalShell';
 import { StartRoundSelect } from './StartRoundSelect';
+import {
+    loadStartRoundPreference,
+    saveStartRoundPreference,
+} from '../../utils/tournament/startRoundPreference';
 
 interface TournamentPlayerManagementModalProps {
     isOpen: boolean;
@@ -51,9 +55,13 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
             setSelectedIds(new Set(participantIds));
             setSearchTerm('');
             setAssignmentMode('ranked');
-            setStartRoundSize(null);
+            if (currentView === 'bracket' || currentView === 'doubleelim') {
+                setStartRoundSize(loadStartRoundPreference(currentView));
+            } else {
+                setStartRoundSize(null);
+            }
         }
-    }, [isOpen, participantIds]);
+    }, [isOpen, participantIds, currentView]);
 
     const availableStudents = useMemo(() => {
         return allStudents
@@ -70,7 +78,10 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
 
     const handleStartRoundChange = useCallback((size: number | null) => {
         setStartRoundSize(size);
-    }, []);
+        if (currentView === 'bracket' || currentView === 'doubleelim') {
+            saveStartRoundPreference(currentView, size);
+        }
+    }, [currentView]);
 
     const isUnchanged = useMemo(() => {
         if (selectedIds.size !== participantIds.length) return false;

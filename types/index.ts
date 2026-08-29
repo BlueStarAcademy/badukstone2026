@@ -314,6 +314,8 @@ export interface DoubleElimData {
     winnersRounds: { title: string; matches: DoubleElimMatch[] }[];
     losersRounds: { title: string; matches: DoubleElimMatch[] }[];
     grandFinal: DoubleElimMatch | null;
+    /** LB가 GF1을 이긴 경우 치르는 리셋(GF2) */
+    grandFinalReset?: DoubleElimMatch | null;
     playerIds: string[];
     /** 예선→본선 구조일 때 본선 부전승 시드(복원용) */
     mainDrawByeSeeds?: string[];

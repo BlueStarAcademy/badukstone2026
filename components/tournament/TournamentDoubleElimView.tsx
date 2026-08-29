@@ -6,7 +6,7 @@ import {
     buildDoubleElim,
     applyByeWinners,
     propagateAllWinners,
-    getLoserFromMatch,
+    isDoubleElimComplete,
 } from '../../utils/doubleElimBracket';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { getDoubleElimPlacements, buildBracketStyleGrants, getBracketPaidRankCount, type BracketPrizePayout } from '../../utils/tournamentPrizes';
@@ -15,6 +15,10 @@ import { DoubleElimResultPanel } from './DoubleElimResultPanel';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { StartRoundSelect } from './StartRoundSelect';
+import {
+    loadStartRoundPreference,
+    saveStartRoundPreference,
+} from '../../utils/tournament/startRoundPreference';
 
 interface TournamentDoubleElimViewProps {
     data: TournamentData;
@@ -33,8 +37,13 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
     const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
     const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
-    const [startRoundSize, setStartRoundSize] = useState<number | null>(null);
-    const handleStartRoundChange = useCallback((size: number | null) => setStartRoundSize(size), []);
+    const [startRoundSize, setStartRoundSize] = useState<number | null>(() =>
+        loadStartRoundPreference('doubleelim')
+    );
+    const handleStartRoundChange = useCallback((size: number | null) => {
+        setStartRoundSize(size);
+        saveStartRoundPreference('doubleelim', size);
+    }, []);
 
     const getPlayerName = (id: string | 'BYE' | null) => {
         if (!id || id === 'BYE') return id === 'BYE' ? '부전승' : '—';
@@ -64,16 +73,25 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
         }));
     };
 
-    const setMatchWinner = (bracket: 'winners' | 'losers' | 'grand', roundIndex: number, matchIndex: number, winnerId: string | null) => {
+    const setMatchWinner = (bracket: 'winners' | 'losers' | 'grand' | 'grandReset', roundIndex: number, matchIndex: number, winnerId: string | null) => {
         setData(prev => {
             if (!prev.doubleElim) return prev;
             const next = JSON.parse(JSON.stringify(prev.doubleElim)) as DoubleElimData;
             const W = next.winnersRounds;
             const L = next.losersRounds;
+            if (!next.grandFinalReset) next.grandFinalReset = { id: generateId(), players: [null, null], winnerId: null };
             const GF = next.grandFinal!;
+            const GF2 = next.grandFinalReset;
 
             if (bracket === 'grand') {
                 GF.winnerId = winnerId;
+                applyByeWinners(next);
+                propagateAllWinners(next);
+                return { ...prev, doubleElim: next };
+            }
+
+            if (bracket === 'grandReset') {
+                GF2.winnerId = winnerId;
                 applyByeWinners(next);
                 propagateAllWinners(next);
                 return { ...prev, doubleElim: next };
@@ -122,7 +140,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
         })) setIsPrizeModalOpen(false);
     };
 
-    const isFinished = !!doubleElim?.grandFinal?.winnerId;
+    const isFinished = !!doubleElim && isDoubleElimComplete(doubleElim);
     const [bracketTab, setBracketTab] = useState<'winners' | 'losers'>('winners');
 
     if (!doubleElim || doubleElim.playerIds.length === 0) {
@@ -221,6 +239,18 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                                         getPlayerName={getPlayerName}
                                         onSetWinner={(_, __, winnerId) => setMatchWinner('grand', 0, 0, winnerId)}
                                         keyPrefix="g"
+                                    />
+                                </section>
+                            )}
+                            {doubleElim.grandFinalReset &&
+                                doubleElim.grandFinal?.winnerId &&
+                                doubleElim.grandFinal.winnerId === doubleElim.grandFinal.players[1] && (
+                                <section className="doubleelim-section doubleelim-grandfinal-section">
+                                    <DoubleElimBracketTree
+                                        rounds={[{ title: '그랜드 파이널 (리셋)', matches: [doubleElim.grandFinalReset] }]}
+                                        getPlayerName={getPlayerName}
+                                        onSetWinner={(_, __, winnerId) => setMatchWinner('grandReset', 0, 0, winnerId)}
+                                        keyPrefix="g2"
                                     />
                                 </section>
                             )}

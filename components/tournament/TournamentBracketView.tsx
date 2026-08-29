@@ -18,6 +18,10 @@ import {
 } from '../../utils/tournamentPrizes';
 import { BracketTree } from './BracketTree';
 import { StartRoundSelect } from './StartRoundSelect';
+import {
+    loadStartRoundPreference,
+    saveStartRoundPreference,
+} from '../../utils/tournament/startRoundPreference';
 
 interface TournamentBracketViewProps {
     data: TournamentData;
@@ -191,8 +195,13 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
     const [bracketTab, setBracketTab] = useState(0);
     const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
-    const [startRoundSize, setStartRoundSize] = useState<number | null>(null);
-    const handleStartRoundChange = useCallback((size: number | null) => setStartRoundSize(size), []);
+    const [startRoundSize, setStartRoundSize] = useState<number | null>(() =>
+        loadStartRoundPreference('bracket')
+    );
+    const handleStartRoundChange = useCallback((size: number | null) => {
+        setStartRoundSize(size);
+        saveStartRoundPreference('bracket', size);
+    }, []);
 
     const handleGenerateBracket = () => {
         const participants = (bracketParticipantIds || [])

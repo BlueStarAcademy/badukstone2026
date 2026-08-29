@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { DoubleElimData, SwissMatch, SwissPlayer } from '../../types';
 import { buildElimRoundOneSlotOrder, listValidStartRoundSizes, planElimBracket } from '../byePlacement';
-import { buildSingleElimRounds } from '../elimBracket';
-import { buildDoubleElim, propagateAllWinners } from '../doubleElimBracket';
+import { buildSingleElimRounds, playInFeederTarget, propagateSingleElimWinners } from '../elimBracket';
+import { buildDoubleElim, isDoubleElimComplete, propagateAllWinners } from '../doubleElimBracket';
 import { getDoubleElimPlacements } from '../tournamentPrizes';
 import { sortSwissPlayers } from '../index';
 import {
@@ -137,6 +137,43 @@ describe('forced start round size', () => {
         const byeWins = data.winnersRounds[0].matches.filter(match => match.winnerId).length;
         expect(byeWins).toBe(3);
     });
+
+    it('maps seven-player play-in winners into a four-player main draw without orphan slots', () => {
+        const players = Array.from({ length: 7 }, (_, index) => ({
+            studentId: `p${index + 1}`,
+            name: `p${index + 1}`,
+            rank: `${index + 1}급`,
+            game1Handicap: 0,
+            game1Color: 'black' as const,
+            game1Result: null,
+            game2Score: null,
+            game2LastStone: false,
+            game3Score: null,
+        }));
+        const { rounds, mainDrawSize, playInMatchCount } = buildSingleElimRounds(
+            players,
+            'min_byes',
+            false
+        );
+        expect(mainDrawSize).toBe(4);
+        expect(playInMatchCount).toBe(3);
+        expect(rounds[0].matches).toHaveLength(3);
+        expect(rounds[1].matches).toHaveLength(2);
+
+        // byeCount = 1 → first play-in → match0 slot1; remaining two → match1 both slots
+        expect(playInFeederTarget(0, 3, 4)).toEqual({ matchIndex: 0, slot: 1 });
+        expect(playInFeederTarget(1, 3, 4)).toEqual({ matchIndex: 1, slot: 0 });
+        expect(playInFeederTarget(2, 3, 4)).toEqual({ matchIndex: 1, slot: 1 });
+
+        rounds[0].matches.forEach(match => {
+            match.winnerId = (match.players[0] as { studentId: string }).studentId;
+        });
+        propagateSingleElimWinners({ rounds, players });
+        const main = rounds[1];
+        const filled = main.matches.flatMap(match => match.players).filter(Boolean);
+        expect(filled).toHaveLength(4);
+        expect(main.matches.every(match => match.players[0] && match.players[1])).toBe(true);
+    });
 });
 
 describe('full league', () => {
@@ -251,6 +288,7 @@ describe('hybrid advancement', () => {
 describe('double elimination', () => {
     it('propagates winners and reports final placements', () => {
         const data = buildDoubleElim(['a', 'b', 'c', 'd'], 'min_byes');
+        expect(data.losersRounds).toHaveLength(2);
         const [m1, m2] = data.winnersRounds[0].matches;
         m1.winnerId = m1.players[0] as string;
         m2.winnerId = m2.players[0] as string;
@@ -278,10 +316,42 @@ describe('double elimination', () => {
         });
     });
 
+    it('requires a reset grand final when the losers bracket wins GF1', () => {
+        const data = buildDoubleElim(['a', 'b', 'c', 'd'], 'min_byes');
+        data.grandFinal = { id: 'g1', players: ['a', 'b'], winnerId: 'b' };
+        data.grandFinalReset = { id: 'g2', players: ['a', 'b'], winnerId: null };
+        expect(isDoubleElimComplete(data)).toBe(false);
+        data.grandFinalReset.winnerId = 'a';
+        expect(isDoubleElimComplete(data)).toBe(true);
+        expect(getDoubleElimPlacements(data)).toMatchObject({
+            championId: 'a',
+            runnerUpId: 'b',
+        });
+    });
+
+    it('ends after GF1 when the winners bracket champion holds', () => {
+        const data = buildDoubleElim(['a', 'b', 'c', 'd'], 'min_byes');
+        data.grandFinal = { id: 'g1', players: ['a', 'b'], winnerId: 'a' };
+        data.grandFinalReset = { id: 'g2', players: [null, null], winnerId: null };
+        expect(isDoubleElimComplete(data)).toBe(true);
+        expect(getDoubleElimPlacements(data)).toMatchObject({
+            championId: 'a',
+            runnerUpId: 'b',
+        });
+    });
+
+    it('pads five players to an eight-bracket and builds a full losers bracket', () => {
+        const data = buildDoubleElim(['a', 'b', 'c', 'd', 'e'], 'min_byes');
+        expect(data.winnersRounds[0].matches).toHaveLength(4);
+        expect(data.losersRounds.length).toBeGreaterThanOrEqual(4);
+        expect(data.grandFinalReset).toBeTruthy();
+    });
+
     it('preserves the delayed seeded match in the six-player format', () => {
         const data = buildDoubleElim(['a', 'b', 'c', 'd', 'e', 'f'], 'min_matches');
         const delayedSeeds = [...data.winnersRounds[1].matches[1].players];
         propagateAllWinners(data);
         expect(data.winnersRounds[1].matches[1].players).toEqual(delayedSeeds);
+        expect(data.grandFinalReset).toBeTruthy();
     });
 });

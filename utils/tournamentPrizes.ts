@@ -404,13 +404,19 @@ export function getDoubleElimPlacements(de: DoubleElimData): {
     /** 1위부터 순서 (3·4위 분리, 이후 나머지) */
     placementIds: string[];
 } {
-    const gf = de.grandFinal;
-    if (!gf?.winnerId) {
+    const decisive =
+        de.grandFinalReset?.winnerId ? de.grandFinalReset : de.grandFinal;
+    if (!decisive?.winnerId) {
         return { championId: null, runnerUpId: null, semiFinalistIds: [], placementIds: [...de.playerIds] };
     }
-    const championId = gf.winnerId;
+    // GF2가 없으면 GF1 기준으로 종료 판정(WB 방어)이 선행되어야 함
+    if (!de.grandFinalReset?.winnerId && de.grandFinal?.winnerId === de.grandFinal.players[1]) {
+        return { championId: null, runnerUpId: null, semiFinalistIds: [], placementIds: [...de.playerIds] };
+    }
+
+    const championId = decisive.winnerId;
     const runnerUpId =
-        (gf.players.find(p => p && p !== 'BYE' && p !== championId) as string | undefined) || null;
+        (decisive.players.find(p => p && p !== 'BYE' && p !== championId) as string | undefined) || null;
 
     const lastLR = de.losersRounds[de.losersRounds.length - 1];
     const lbFinalMatch = lastLR?.matches[0];

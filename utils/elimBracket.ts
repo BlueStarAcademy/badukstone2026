@@ -53,13 +53,23 @@ export function pickElimSeedBuckets<T>(
 
 /**
  * 예선 경기 i 승자 → 본선(메인 드로우) 매치/슬롯.
- * 본선 앞쪽 playInMatchCount경기는 [부전승자, 예선승자], 나머지는 [부전승자, 부전승자].
+ * - 부전승이 있는 매치(앞쪽 byeCount개): [부전승, 예선승자] → slot 1
+ * - 나머지: [예선승자, 예선승자] 쌍 (playIn > mainMatches일 때, 예: 7→4)
  */
 export function playInFeederTarget(
     playInMatchIndex: number,
-    playInMatchCount: number
+    playInMatchCount: number,
+    mainDrawSize: number
 ): { matchIndex: number; slot: 0 | 1 } {
-    return { matchIndex: playInMatchIndex, slot: 1 };
+    const byeCount = Math.max(0, mainDrawSize - playInMatchCount);
+    if (playInMatchIndex < byeCount) {
+        return { matchIndex: playInMatchIndex, slot: 1 };
+    }
+    const dual = playInMatchIndex - byeCount;
+    return {
+        matchIndex: byeCount + Math.floor(dual / 2),
+        slot: (dual % 2) as 0 | 1,
+    };
 }
 
 /** 일반 라운드 진행 시 다음 매치 위치 (결승·3/4위전 제외) */
@@ -71,14 +81,16 @@ export function getElimFeederTarget(
     currentTitle: string,
     nextTitle: string,
     matchIndex: number,
-    playInMatchCount: number
+    playInMatchCount: number,
+    mainDrawSize?: number
 ): { matchIndex: number; slot: 0 | 1 } | null {
     if (nextTitle.includes('결승') && (currentTitle === '4강전' || currentTitle === '준결승')) {
         // 결승/3·4위는 호출측에서 별도 처리
         return null;
     }
     if (isPlayInRoundTitle(currentTitle)) {
-        return playInFeederTarget(matchIndex, playInMatchCount);
+        const size = mainDrawSize ?? playInMatchCount * 2;
+        return playInFeederTarget(matchIndex, playInMatchCount, size);
     }
     return standardFeederTarget(matchIndex);
 }
@@ -92,23 +104,27 @@ function emptyMatch(): TournamentMatch {
     return { id: generateId(), players: [null, null], winnerId: null };
 }
 
-/** 본선 라운드에 부전승 시드 배치 (예선 피더 슬롯은 null로 비움) */
+/**
+ * 본선 라운드에 부전승 시드 배치.
+ * 앞쪽 byeCount 매치: [부전승, null(예선 피더)]
+ * 이후 매치: [null, null] (예선승자 vs 예선승자)
+ */
 export function placeMainDrawSeeds(
     mainMatches: TournamentMatch[],
     byeRecipients: TournamentPlayer[],
-    playInMatchCount: number
+    _playInMatchCount?: number
 ): void {
     const byeQueue = [...byeRecipients];
+    const byeCount = byeQueue.length;
     for (let i = 0; i < mainMatches.length; i++) {
-        if (i < playInMatchCount) {
+        if (i < byeCount) {
             mainMatches[i].players[0] = byeQueue.shift() ?? null;
             mainMatches[i].players[1] = null;
-            mainMatches[i].winnerId = null;
         } else {
-            mainMatches[i].players[0] = byeQueue.shift() ?? null;
-            mainMatches[i].players[1] = byeQueue.shift() ?? null;
-            mainMatches[i].winnerId = null;
+            mainMatches[i].players[0] = null;
+            mainMatches[i].players[1] = null;
         }
+        mainMatches[i].winnerId = null;
     }
 }
 
@@ -255,9 +271,10 @@ export function propagateSingleElimWinners(bracket: TournamentBracket): void {
 
         if (isPlayInRoundTitle(currentRound.title)) {
             // 본선 부전승 시드는 유지하고 예선 승자 슬롯만 갱신
+            const mainDrawSize = nextRound.matches.length * 2;
             for (let mIdx = 0; mIdx < currentRound.matches.length; mIdx++) {
                 const winnerId = currentRound.matches[mIdx].winnerId;
-                const target = playInFeederTarget(mIdx, playInMatchCount);
+                const target = playInFeederTarget(mIdx, playInMatchCount, mainDrawSize);
                 const nextMatch = nextRound.matches[target.matchIndex];
                 if (!nextMatch) continue;
                 nextMatch.players[target.slot] = winnerId
