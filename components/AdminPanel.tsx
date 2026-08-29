@@ -208,6 +208,8 @@ export const AdminPanel = (props: AdminPanelProps) => {
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode; actions: ActionButton[] } | null>(null);
     
     const [activeTab, setActiveTab] = useState<AdminTab>('students');
+    const [isDataMenuOpen, setIsDataMenuOpen] = useState(false);
+    const dataMenuRef = useRef<HTMLDivElement>(null);
     const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
     
     const [draggedMissionId, setDraggedMissionId] = useState<string | null>(null);
@@ -260,6 +262,21 @@ export const AdminPanel = (props: AdminPanelProps) => {
     useEffect(() => {
         setSelectedStudentIds(new Set());
     }, [activeTab, activeStudentGroup]);
+
+    useEffect(() => {
+        setIsDataMenuOpen(false);
+    }, [activeTab]);
+
+    useEffect(() => {
+        if (!isDataMenuOpen) return;
+        const onPointerDown = (event: PointerEvent) => {
+            if (dataMenuRef.current && !dataMenuRef.current.contains(event.target as Node)) {
+                setIsDataMenuOpen(false);
+            }
+        };
+        document.addEventListener('pointerdown', onPointerDown);
+        return () => document.removeEventListener('pointerdown', onPointerDown);
+    }, [isDataMenuOpen]);
 
     const handleSaveStudent = (studentData: Omit<Student, 'id' | 'group' | 'maxStones' | 'stones' | 'chessRating'>) => {
         onSaveStudent(studentData, studentToEdit ? studentToEdit.id : null);
@@ -592,9 +609,33 @@ export const AdminPanel = (props: AdminPanelProps) => {
                 </div>
                 <div className="controls-group">
                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} accept=".xlsx, .xls, .csv" />
-                    <button className="btn" onClick={handleDownloadTemplate} >{templateButtonText}</button>
-                    <button className="btn" onClick={handleDownloadData} >{downloadButtonText}</button>
-                    <button className="btn" onClick={() => fileInputRef.current?.click()} >{uploadButtonText}</button>
+                    {(activeTab === 'students' || activeTab === 'missions' || activeTab === 'shop') && (
+                        <div className={`admin-data-menu${isDataMenuOpen ? ' open' : ''}`} ref={dataMenuRef}>
+                            <button
+                                type="button"
+                                className="btn"
+                                aria-expanded={isDataMenuOpen}
+                                aria-haspopup="menu"
+                                onClick={() => setIsDataMenuOpen(open => !open)}
+                            >
+                                명단/데이터 관리
+                                <span className="admin-data-menu-caret" aria-hidden>▾</span>
+                            </button>
+                            {isDataMenuOpen && (
+                                <div className="admin-data-menu-panel" role="menu">
+                                    <button type="button" role="menuitem" onClick={() => { handleDownloadTemplate(); setIsDataMenuOpen(false); }}>
+                                        {templateButtonText}
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => { handleDownloadData(); setIsDataMenuOpen(false); }}>
+                                        {downloadButtonText}
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => { fileInputRef.current?.click(); setIsDataMenuOpen(false); }}>
+                                        {uploadButtonText}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {activeTab === 'students' && (
                         <button className="btn primary" onClick={() => {
                             setStudentToEdit(null);
@@ -607,11 +648,11 @@ export const AdminPanel = (props: AdminPanelProps) => {
             {activeTab === 'students' && (
                 <>
                     <div className="admin-header-actions">
-                         <button className="btn primary" onClick={() => setIsBulkAllStudentsAwardModalOpen(true)}>💎 전체 스톤 지급</button>
-                         <button className="btn" onClick={() => setIsGroupSettingsModalOpen(true)}>⚙️ 그룹 및 일반 설정</button>
+                         <button className="btn primary" onClick={() => setIsBulkAllStudentsAwardModalOpen(true)}>전체 스톤 지급</button>
+                         <button className="btn" onClick={() => setIsGroupSettingsModalOpen(true)}>그룹 및 일반 설정</button>
                     </div>
 
-                    <div className="view-toggle">
+                    <div className="view-toggle admin-group-toggle">
                         {['전체', ...groups].map(group => (
                             <button
                                 key={group}
@@ -623,14 +664,14 @@ export const AdminPanel = (props: AdminPanelProps) => {
                         ))}
                     </div>
 
-                    <div className="form-group" style={{ margin: '1rem 0' }}>
+                    <div className="form-group admin-search-field">
                         <input
-                            type="text"
+                            type="search"
                             placeholder="학생 이름으로 검색..."
                             value={studentSearchTerm}
                             onChange={(e) => setStudentSearchTerm(e.target.value)}
                             className="search-input"
-                            style={{ width: '100%' }}
+                            aria-label="학생 이름으로 검색"
                         />
                     </div>
 
@@ -797,11 +838,9 @@ export const AdminPanel = (props: AdminPanelProps) => {
             
             {activeTab === 'shop' && (
                 <>
-                    <div className="view-header-actions" style={{ marginBottom: '1.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <h2 style={{ margin: 0 }}>상점 상품 관리</h2>
-                            <button className="btn-sm" onClick={() => setIsShopSettingsModalOpen(true)}>⚙️ 상점 설정</button>
-                        </div>
+                    <div className="view-header-actions shop-admin-header">
+                        <h2>상점 상품 관리</h2>
+                        <button className="btn-sm" onClick={() => setIsShopSettingsModalOpen(true)}>상점 설정</button>
                     </div>
 
                     <div className="admin-grid-layout">
