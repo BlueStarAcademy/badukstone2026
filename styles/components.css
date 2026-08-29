@@ -618,8 +618,13 @@
 
 .ui-modal-body {
     min-height: 0;
+    flex: 1 1 auto;
     padding: 1rem 1.2rem 1.15rem;
     overflow-y: auto;
+}
+
+.ui-modal-body > form {
+    min-height: 0;
 }
 
 .ui-modal-section {
