@@ -50,18 +50,7 @@ API Dockerfile은 모노레포 루트를 빌드 컨텍스트로 씁니다. API �
 1. **코드는 `main`에 있어야 합니다.** PR 브랜치만 푸시하면 Railway는 배포하지 않습니다.
 2. 각 서비스 Settings에서 **Source**가 `BlueStarAcademy/badukstone2026` + 브랜치 `main` 인지 확인하고 **Autodeploy**를 Enable 합니다.
 3. GitHub → Settings → Integrations → **Railway** 앱이 이 저장소에 접근 가능한지 확인합니다.
-4. (백업) GitHub Actions `Deploy Railway` 워크플로가 `main` 푸시마다 GitHub 소스를 재연결하고 `redeploy --from-source`로 최신 커밋을 배포합니다. 이를 쓰려면 아래 시크릿이 필요합니다.
-
-### GitHub Actions 시크릿 (한 번만)
-
-| Secret | 필수 | 만드는 곳 |
-|--------|------|-----------|
-| `RAILWAY_TOKEN` | 예 | Railway → Project Settings → Tokens → Project Token |
-| `RAILWAY_API_TOKEN` | 권장 | Railway → Account → Tokens (소스 재연결용) |
-
-GitHub 저장소 → **Settings → Secrets and variables → Actions**에 추가합니다.
-
-시크릿을 넣은 뒤 `main`에 빈 커밋을 푸시하거나 Actions에서 **Deploy Railway** → Run workflow를 실행하세요.
+4. Railway **Wait for CI**를 켠 경우, `CI` 워크플로만 성공하면 됩니다. (토큰이 필요한 별도 Deploy Actions는 사용하지 않습니다.)
 
 ### API 서비스 환경 변수
 
@@ -79,10 +68,9 @@ GitHub 저장소 → **Settings → Secrets and variables → Actions**에 추�
 
 1. Railway 대시보드에서 해당 서비스 → Deployments → **Show Skipped** 확인
 2. Autodeploy가 꺼져 있으면 Enable
-3. Source가 비어 있거나 CLI 업로드만 있으면: Settings → Connect Repo → `BlueStarAcademy/badukstone2026` / `main`  
-   또는 CLI: `railway service source connect --repo BlueStarAcademy/badukstone2026 --branch main --service badukstone2026`
+3. Source가 비어 있거나 CLI 업로드만 있으면: Settings → Connect Repo → `BlueStarAcademy/badukstone2026` / `main`
 4. Command Palette (`Cmd/Ctrl+K`) → **Deploy Latest Commit**
-5. GitHub Actions **Deploy Railway** 수동 실행 (시크릿 필요)
+5. Wait for CI가 켜져 있는데 Actions가 실패하면 배포가 대기 상태로 남을 수 있습니다. CI만 통과하는지 확인하세요.
 
 ### Firestore 데이터 이관 (1회)
 
