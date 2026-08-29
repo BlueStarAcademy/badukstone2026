@@ -3546,6 +3546,39 @@
     min-width: 7.5rem;
 }
 
+.tournament-start-round-hint {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    color: var(--t-muted, #94a3b8);
+    white-space: normal;
+    max-width: 12rem;
+}
+
+.tournament-empty-setup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    justify-content: center;
+    margin: 0.75rem 0 1rem;
+    max-width: 28rem;
+}
+
+.tournament-empty-setup .tournament-player-mgmt-assign {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+}
+
+.tournament-empty-setup .tournament-player-mgmt-assign label {
+    color: var(--t-muted, #64748b);
+}
+
+.hybrid-controls .hybrid-final-start-round {
+    min-width: 10rem;
+}
+
 .player-mgmt-header-actions {
     margin-top: 5px;
 }

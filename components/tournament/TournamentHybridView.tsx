@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type {
     Student,
     TournamentData,
@@ -26,6 +26,7 @@ import {
 import { TournamentBracketView } from './TournamentBracketView';
 import { HybridPrelimPrizeModal } from './HybridPrelimPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
+import { StartRoundSelect } from './StartRoundSelect';
 
 interface TournamentHybridViewProps {
     students: Student[];
@@ -163,6 +164,11 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const [groupTab, setGroupTab] = useState(0);
     const [phaseTab, setPhaseTab] = useState<'prelim' | 'final'>('prelim');
     const [prelimPrizeGroupIndex, setPrelimPrizeGroupIndex] = useState<number | null>(null);
+    const [prelimAssignmentMode, setPrelimAssignmentMode] = useState<'random' | 'ranked'>(
+        hybridMode === 'rank' ? 'ranked' : 'random'
+    );
+    const [finalStartRoundSize, setFinalStartRoundSize] = useState<number | null>(null);
+    const handleFinalStartRoundChange = useCallback((size: number | null) => setFinalStartRoundSize(size), []);
 
     const preliminaryGroups = useMemo(
         () => (data.hybrid ? normalizeHybridPreliminaryGroups(data.hybrid.preliminaryGroups) as SwissMatch[][] : []),
@@ -174,6 +180,10 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     );
     const advanceCount = getHybridAdvanceCountPerGroup(hybridAdvanceCount);
     const hasBracket = !!data.hybrid?.bracket;
+    const qualifierCount = useMemo(() => {
+        if (!data.hybrid) return 0;
+        return preliminaryGroups.length * advanceCount;
+    }, [data.hybrid, preliminaryGroups.length, advanceCount]);
 
     useEffect(() => {
         if (!preliminaryGroups.length) {
@@ -201,7 +211,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         }
 
         let sortedParticipants = [...participants];
-        if (hybridMode === 'rank') {
+        if (prelimAssignmentMode === 'ranked') {
             sortedParticipants = [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
         } else {
             sortedParticipants = [...participants].sort(() => 0.5 - Math.random());
@@ -295,7 +305,12 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         );
 
         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
-        const { rounds } = buildSingleElimRounds(tournamentPlayers, byePriority, true);
+        const { rounds } = buildSingleElimRounds(
+            tournamentPlayers,
+            byePriority,
+            true,
+            finalStartRoundSize
+        );
 
         setPhaseTab('final');
         setData(prev => ({
@@ -322,15 +337,20 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
 
     const handleBracketDataUpdate = (updateAction: React.SetStateAction<TournamentData>) => {
         setData(globalPrev => {
-            const fakePrev = { ...globalPrev, bracket: globalPrev.hybrid?.bracket || null };
-            const updateFn = typeof updateAction === 'function' ? updateAction : () => updateAction;
-            const nextState = updateFn(fakePrev);
+            if (!globalPrev.hybrid) return globalPrev;
+            const fakePrev: TournamentData = {
+                ...globalPrev,
+                bracket: globalPrev.hybrid.bracket || null,
+            };
+            const nextState =
+                typeof updateAction === 'function' ? updateAction(fakePrev) : updateAction;
             return {
                 ...globalPrev,
+                awardSessionIds: nextState.awardSessionIds ?? globalPrev.awardSessionIds,
                 hybrid: {
-                    ...globalPrev.hybrid!,
-                    bracket: nextState.bracket
-                }
+                    ...globalPrev.hybrid,
+                    bracket: nextState.bracket,
+                },
             };
         });
     };
@@ -344,6 +364,19 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                     <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
                 </div>
                 <p>참가 선수를 선택하고 예선 리그를 생성하세요.</p>
+                <div className="tournament-empty-setup">
+                    <div className="tournament-player-mgmt-assign">
+                        <label htmlFor="hybrid-empty-assign">배정/시드</label>
+                        <select
+                            id="hybrid-empty-assign"
+                            value={prelimAssignmentMode}
+                            onChange={e => setPrelimAssignmentMode(e.target.value as 'random' | 'ranked')}
+                        >
+                            <option value="ranked">급수 순</option>
+                            <option value="random">무작위</option>
+                        </select>
+                    </div>
+                </div>
                 <div className="tournament-empty-actions">
                     <button className="btn primary" onClick={handleGeneratePreliminaries} disabled={(hybridParticipantIds || []).length < 2}>예선 리그 생성</button>
                 </div>
@@ -394,9 +427,19 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
             <div className="swiss-controls hybrid-controls">
                 <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
                 {!hasBracket && (
-                    <button className="btn primary" onClick={handleAdvanceToBracket} disabled={!allMatchesPlayed}>
-                        본선 대진표 생성
-                    </button>
+                    <>
+                        <StartRoundSelect
+                            id="hybrid-final-start-round"
+                            playerCount={qualifierCount}
+                            value={finalStartRoundSize}
+                            onChange={handleFinalStartRoundChange}
+                            disabled={!allMatchesPlayed || qualifierCount < 2}
+                            className="tournament-player-mgmt-assign hybrid-final-start-round"
+                        />
+                        <button className="btn primary" onClick={handleAdvanceToBracket} disabled={!allMatchesPlayed}>
+                            본선 대진표 생성
+                        </button>
+                    </>
                 )}
                 <button className="btn danger" onClick={handleReset}>대진표 초기화</button>
             </div>

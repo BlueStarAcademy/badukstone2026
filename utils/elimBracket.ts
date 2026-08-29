@@ -14,6 +14,7 @@ export {
     planElimBracket,
     listValidStartRoundSizes,
     formatStartRoundLabel,
+    describeElimBracketPlan,
 } from './byePlacement';
 
 export function isPlayInRoundTitle(title: string): boolean {

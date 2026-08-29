@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { Student, TournamentAwardRequest, TournamentData, TournamentSettings, DoubleElimData, DoubleElimMatch } from '../../types';
 import { generateId, parseRank } from '../../utils';
 import {
@@ -14,6 +14,7 @@ import { DoubleElimBracketTree } from './DoubleElimBracketTree';
 import { DoubleElimResultPanel } from './DoubleElimResultPanel';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
+import { StartRoundSelect } from './StartRoundSelect';
 
 interface TournamentDoubleElimViewProps {
     data: TournamentData;
@@ -31,6 +32,9 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
     const participantIds = data.doubleElimParticipantIds || [];
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
     const [resetConfirmationOpen, setResetConfirmationOpen] = useState(false);
+    const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
+    const [startRoundSize, setStartRoundSize] = useState<number | null>(null);
+    const handleStartRoundChange = useCallback((size: number | null) => setStartRoundSize(size), []);
 
     const getPlayerName = (id: string | 'BYE' | null) => {
         if (!id || id === 'BYE') return id === 'BYE' ? '부전승' : '—';
@@ -43,16 +47,19 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
             alert('더블엘리미네이션을 시작하려면 최소 2명이 필요합니다.');
             return;
         }
-        const sorted = [...ids].sort((a, b) => {
-            const ra = students.find(s => s.id === a);
-            const rb = students.find(s => s.id === b);
-            return parseRank(rb?.rank || '') - parseRank(ra?.rank || '');
-        });
+        const sorted =
+            assignmentMode === 'ranked'
+                ? [...ids].sort((a, b) => {
+                    const ra = students.find(s => s.id === a);
+                    const rb = students.find(s => s.id === b);
+                    return parseRank(rb?.rank || '') - parseRank(ra?.rank || '');
+                })
+                : [...ids].sort(() => 0.5 - Math.random());
         const prio = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
         setData(prev => ({
             ...prev,
             doubleElimParticipantIds: sorted,
-            doubleElim: buildDoubleElim(sorted, prio),
+            doubleElim: buildDoubleElim(sorted, prio, startRoundSize),
             awardSessionIds: { ...prev.awardSessionIds, doubleelim: generateId() },
         }));
     };
@@ -130,6 +137,26 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                             <span className="tournament-empty-kicker">DOUBLE ELIMINATION SETUP</span>
                             <h3>더블엘리미네이션 준비</h3>
                             <p>더블엘리미네이션 대진이 없습니다. 선수 관리에서 참가자를 선택한 뒤 시작하세요.</p>
+                            <div className="tournament-empty-setup">
+                                <div className="tournament-player-mgmt-assign">
+                                    <label htmlFor="doubleelim-empty-assign">배정/시드</label>
+                                    <select
+                                        id="doubleelim-empty-assign"
+                                        value={assignmentMode}
+                                        onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                                    >
+                                        <option value="ranked">급수 순</option>
+                                        <option value="random">무작위</option>
+                                    </select>
+                                </div>
+                                <StartRoundSelect
+                                    id="doubleelim-empty-start-round"
+                                    playerCount={participantIds.length}
+                                    value={startRoundSize}
+                                    onChange={handleStartRoundChange}
+                                    disabled={participantIds.length < 2}
+                                />
+                            </div>
                             <button className="btn primary" onClick={handleStart} disabled={participantIds.length < 2}>
                                 더블엘리미네이션 시작
                             </button>

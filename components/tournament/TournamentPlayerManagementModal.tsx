@@ -1,14 +1,9 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Student, TournamentSettings } from '../../types';
 import { parseRank } from '../../utils';
 import { parseSwissGroupSizes } from '../../utils/tournamentPrizes';
-import {
-    formatStartRoundLabel,
-    listValidStartRoundSizes,
-    planCompactElimBracket,
-} from '../../utils/elimBracket';
 import { ModalShell } from '../ui/ModalShell';
+import { StartRoundSelect } from './StartRoundSelect';
 
 interface TournamentPlayerManagementModalProps {
     isOpen: boolean;
@@ -23,7 +18,7 @@ interface TournamentPlayerManagementModalProps {
     onInitMission?: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitHybrid?: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitFullLeague?: (mode: 'random' | 'ranked', ids: string[]) => void;
-    onInitDoubleElim?: (mode: 'random' | 'ranked', ids: string[]) => void;
+    onInitDoubleElim?: (mode: 'random' | 'ranked', ids: string[], startRoundSize?: number | null) => void;
     onInitBracket?: (mode: 'random' | 'ranked', ids: string[], startRoundSize?: number | null) => void;
 }
 
@@ -66,29 +61,28 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
             .filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase()))
             .sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
     }, [allStudents, searchTerm]);
-    
+
     const selectedStudentsList = useMemo(() => {
         return allStudents
             .filter(s => selectedIds.has(s.id))
             .sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
     }, [allStudents, selectedIds]);
 
-    const startRoundOptions = useMemo(
-        () => listValidStartRoundSizes(selectedIds.size),
-        [selectedIds.size]
-    );
+    const handleStartRoundChange = useCallback((size: number | null) => {
+        setStartRoundSize(size);
+    }, []);
 
-    const autoStartRound = useMemo(() => {
-        if (selectedIds.size < 2) return null;
-        return planCompactElimBracket(selectedIds.size).mainDrawSize;
-    }, [selectedIds.size]);
+    const isUnchanged = useMemo(() => {
+        if (selectedIds.size !== participantIds.length) return false;
+        return participantIds.every(id => selectedIds.has(id));
+    }, [selectedIds, participantIds]);
 
-    useEffect(() => {
-        if (startRoundSize == null) return;
-        if (!startRoundOptions.includes(startRoundSize)) {
-            setStartRoundSize(null);
-        }
-    }, [startRoundSize, startRoundOptions]);
+    const swissGroupHint = useMemo(() => {
+        if (currentView !== 'swiss' || !tournamentSettings?.swissUseGroups) return null;
+        const sizes = parseSwissGroupSizes(tournamentSettings.swissGroupSizes);
+        const sum = sizes.reduce((a, b) => a + b, 0);
+        return { sizes, sum };
+    }, [currentView, tournamentSettings?.swissUseGroups, tournamentSettings?.swissGroupSizes]);
 
     if (!isOpen) return null;
 
@@ -107,7 +101,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     const handleSelectAll = () => {
         setSelectedIds(new Set(availableStudents.map(s => s.id)));
     };
-    
+
     const handleDeselectAll = () => {
         setSelectedIds(new Set());
     };
@@ -119,7 +113,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
 
     const handleFinalize = () => {
         const ids = Array.from(selectedIds) as string[];
-        
+
         // 중요: 각 모드별 전용 초기화 함수만 호출하도록 변경 (onUpdateParticipants 중복 호출 제거)
         // 이는 여러 번의 setData 호출로 인한 상태 덮어쓰기(Race Condition)를 방지합니다.
         if (currentView === 'relay') {
@@ -135,14 +129,9 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         } else if (currentView === 'fullleague' && onInitFullLeague) {
             onInitFullLeague(assignmentMode, ids);
         } else if (currentView === 'doubleelim' && onInitDoubleElim) {
-            onInitDoubleElim(assignmentMode, ids);
+            onInitDoubleElim(assignmentMode, ids, startRoundSize);
         }
     };
-
-    const isUnchanged = useMemo(() => {
-        if (selectedIds.size !== participantIds.length) return false;
-        return participantIds.every(id => selectedIds.has(id));
-    }, [selectedIds, participantIds]);
 
     const showFinalizeButton =
         currentView === 'relay' ||
@@ -153,14 +142,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         currentView === 'doubleelim' ||
         currentView === 'bracket';
     const showAssignmentOptions = showFinalizeButton;
-    const showStartRoundOptions = currentView === 'bracket';
-
-    const swissGroupHint = useMemo(() => {
-        if (currentView !== 'swiss' || !tournamentSettings?.swissUseGroups) return null;
-        const sizes = parseSwissGroupSizes(tournamentSettings.swissGroupSizes);
-        const sum = sizes.reduce((a, b) => a + b, 0);
-        return { sizes, sum };
-    }, [currentView, tournamentSettings?.swissUseGroups, tournamentSettings?.swissGroupSizes]);
+    const showStartRoundOptions = currentView === 'bracket' || currentView === 'doubleelim';
 
     let finalizeButtonText = '시작';
     if (currentView === 'relay') finalizeButtonText = '배정';
@@ -205,27 +187,12 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                                 </div>
                             )}
                             {showStartRoundOptions && (
-                                <div className="tournament-player-mgmt-assign">
-                                    <label htmlFor="start-round-size">몇강전부터</label>
-                                    <select
-                                        id="start-round-size"
-                                        value={startRoundSize ?? 'auto'}
-                                        onChange={e => {
-                                            const value = e.target.value;
-                                            setStartRoundSize(value === 'auto' ? null : Number(value));
-                                        }}
-                                        disabled={selectedIds.size < 2}
-                                    >
-                                        <option value="auto">
-                                            자동{autoStartRound ? ` (${formatStartRoundLabel(autoStartRound)})` : ''}
-                                        </option>
-                                        {startRoundOptions.map(size => (
-                                            <option key={size} value={size}>
-                                                {formatStartRoundLabel(size)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
+                                <StartRoundSelect
+                                    playerCount={selectedIds.size}
+                                    value={startRoundSize}
+                                    onChange={handleStartRoundChange}
+                                    disabled={selectedIds.size < 2}
+                                />
                             )}
                             <button type="button" className="btn primary" onClick={handleFinalize}>
                                 {finalizeButtonText} ({selectedIds.size}명)
@@ -235,73 +202,73 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                 </>
             }
         >
-                    <div className="form-group">
-                        <input
-                            type="text"
-                            placeholder="이름으로 선수 검색..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            autoFocus
-                        />
-                    </div>
+            <div className="form-group">
+                <input
+                    type="text"
+                    placeholder="이름으로 선수 검색..."
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    autoFocus
+                />
+            </div>
 
-                    <div className="player-mgmt-container">
-                        <div className="player-mgmt-col">
-                            <div className="player-mgmt-header">
-                                전체 학생 ({availableStudents.length}명)
-                                <div className="player-mgmt-header-actions">
-                                    <button className="btn-sm" onClick={handleSelectAll}>전체 선택</button>
-                                </div>
-                            </div>
-                            <ul className="player-mgmt-list">
-                                {availableStudents.map(student => (
-                                    <li
-                                        key={student.id}
-                                        className={`player-mgmt-item ${selectedIds.has(student.id) ? 'selected' : ''}`}
-                                        onClick={() => handleToggleStudent(student.id)}
-                                    >
-                                        <span className="player-mgmt-item-text" title={`${student.name} (${student.rank})`}>
-                                            <span className="player-mgmt-name">{student.name}</span>
-                                            <small className="player-mgmt-rank">({student.rank})</small>
-                                        </span>
-                                        {selectedIds.has(student.id) && <span className="player-mgmt-check" aria-hidden>✔</span>}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                        
-                        <div className="player-mgmt-col">
-                            <div className="player-mgmt-header">
-                                참가 예정 선수 ({selectedIds.size}명)
-                                <div className="player-mgmt-header-actions">
-                                    <button className="btn-sm" onClick={handleDeselectAll}>전체 해제</button>
-                                </div>
-                            </div>
-                            <ul className="player-mgmt-list">
-                                {selectedStudentsList.map(student => (
-                                    <li key={student.id} className="player-mgmt-item" onClick={() => handleToggleStudent(student.id)}>
-                                        <span className="player-mgmt-item-text" title={`${student.name} (${student.rank})`}>
-                                            <span className="player-mgmt-name">{student.name}</span>
-                                            <small className="player-mgmt-rank">({student.rank})</small>
-                                        </span>
-                                    </li>
-                                ))}
-                                {selectedStudentsList.length === 0 && (
-                                    <li className="player-mgmt-empty">선택된 선수가 없습니다.</li>
-                                )}
-                            </ul>
+            <div className="player-mgmt-container">
+                <div className="player-mgmt-col">
+                    <div className="player-mgmt-header">
+                        전체 학생 ({availableStudents.length}명)
+                        <div className="player-mgmt-header-actions">
+                            <button className="btn-sm" onClick={handleSelectAll}>전체 선택</button>
                         </div>
                     </div>
+                    <ul className="player-mgmt-list">
+                        {availableStudents.map(student => (
+                            <li
+                                key={student.id}
+                                className={`player-mgmt-item ${selectedIds.has(student.id) ? 'selected' : ''}`}
+                                onClick={() => handleToggleStudent(student.id)}
+                            >
+                                <span className="player-mgmt-item-text" title={`${student.name} (${student.rank})`}>
+                                    <span className="player-mgmt-name">{student.name}</span>
+                                    <small className="player-mgmt-rank">({student.rank})</small>
+                                </span>
+                                {selectedIds.has(student.id) && <span className="player-mgmt-check" aria-hidden>✔</span>}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
 
-                    {showFinalizeButton && swissGroupHint && (
-                        <div className="tournament-player-mgmt-hint">
-                            조별 스위스: 대회 설정 조 인원 합 <strong>{swissGroupHint.sum}</strong>명 — 참가 예정{' '}
-                            <strong>{selectedIds.size}</strong>명
-                            {swissGroupHint.sum !== selectedIds.size ? (
-                                <span className="tournament-player-mgmt-hint-warn"> (합이 같아야 시작할 수 있습니다)</span>
-                            ) : null}
+                <div className="player-mgmt-col">
+                    <div className="player-mgmt-header">
+                        참가 예정 선수 ({selectedIds.size}명)
+                        <div className="player-mgmt-header-actions">
+                            <button className="btn-sm" onClick={handleDeselectAll}>전체 해제</button>
                         </div>
-                    )}
+                    </div>
+                    <ul className="player-mgmt-list">
+                        {selectedStudentsList.map(student => (
+                            <li key={student.id} className="player-mgmt-item" onClick={() => handleToggleStudent(student.id)}>
+                                <span className="player-mgmt-item-text" title={`${student.name} (${student.rank})`}>
+                                    <span className="player-mgmt-name">{student.name}</span>
+                                    <small className="player-mgmt-rank">({student.rank})</small>
+                                </span>
+                            </li>
+                        ))}
+                        {selectedStudentsList.length === 0 && (
+                            <li className="player-mgmt-empty">선택된 선수가 없습니다.</li>
+                        )}
+                    </ul>
+                </div>
+            </div>
+
+            {showFinalizeButton && swissGroupHint && (
+                <div className="tournament-player-mgmt-hint">
+                    조별 스위스: 대회 설정 조 인원 합 <strong>{swissGroupHint.sum}</strong>명 — 참가 예정{' '}
+                    <strong>{selectedIds.size}</strong>명
+                    {swissGroupHint.sum !== selectedIds.size ? (
+                        <span className="tournament-player-mgmt-hint-warn"> (합이 같아야 시작할 수 있습니다)</span>
+                    ) : null}
+                </div>
+            )}
         </ModalShell>
     );
 };

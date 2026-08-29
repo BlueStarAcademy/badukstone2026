@@ -83,7 +83,8 @@ describe('forced start round size', () => {
             playInMatchCount: 0,
             byeCount: 3,
         });
-        expect(listValidStartRoundSizes(5)).toEqual([4, 8, 16, 32]);
+        expect(listValidStartRoundSizes(5)).toEqual([4, 8]);
+        expect(listValidStartRoundSizes(20)).toEqual([16, 32]);
     });
 
     it('keeps play-in when forcing a compact smaller draw', () => {
@@ -92,6 +93,20 @@ describe('forced start round size', () => {
             playInMatchCount: 2,
             byeCount: 6,
         });
+    });
+
+    it('builds forced slot order with bye pads for larger draws', () => {
+        const seeds = ['a', 'b', 'c', 'd', 'e'];
+        const { bracketSize, slots, playInMatchCount, byeRecipients } = buildElimRoundOneSlotOrder(
+            seeds,
+            'min_byes',
+            false,
+            8
+        );
+        expect(bracketSize).toBe(8);
+        expect(playInMatchCount).toBe(0);
+        expect(byeRecipients).toHaveLength(0);
+        expect(slots.filter(slot => slot === 'BYE')).toHaveLength(3);
     });
 
     it('builds forced 8강 rounds for five players with bye auto-wins', () => {
@@ -112,6 +127,14 @@ describe('forced start round size', () => {
         expect(rounds[0].title).toBe('8강');
         expect(rounds[0].matches).toHaveLength(4);
         const byeWins = rounds[0].matches.filter(match => match.winnerId).length;
+        expect(byeWins).toBe(3);
+    });
+
+    it('builds forced double-elim 8강 for five players with bye auto-wins', () => {
+        const data = buildDoubleElim(['a', 'b', 'c', 'd', 'e'], 'min_byes', 8);
+        expect(data.winnersRounds[0].title).toBe('8강');
+        expect(data.winnersRounds[0].matches).toHaveLength(4);
+        const byeWins = data.winnersRounds[0].matches.filter(match => match.winnerId).length;
         expect(byeWins).toBe(3);
     });
 });

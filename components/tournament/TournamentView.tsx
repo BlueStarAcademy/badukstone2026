@@ -165,7 +165,7 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleInitDoubleElim = (mode: 'random' | 'ranked', ids: string[]) => {
+    const handleInitDoubleElim = (mode: 'random' | 'ranked', ids: string[], startRoundSize?: number | null) => {
         const list = ids.filter(id => students.some(s => s.id === id));
         if (list.length < 2) {
             alert('더블엘리미네이션을 시작하려면 최소 2명이 필요합니다.');
@@ -183,7 +183,7 @@ export const TournamentView = (props: TournamentViewProps) => {
         setData(prev => ({
             ...prev,
             doubleElimParticipantIds: sorted,
-            doubleElim: buildDoubleElim(sorted, prio),
+            doubleElim: buildDoubleElim(sorted, prio, startRoundSize ?? null),
             awardSessionIds: { ...prev.awardSessionIds, doubleelim: generateId() },
         }));
         setIsPlayerManagementModalOpen(false);

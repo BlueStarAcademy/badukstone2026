@@ -2,7 +2,7 @@ import type { DoubleElimData, DoubleElimMatch, TournamentByePriority } from '../
 import { generateId } from './index';
 import {
     DEFAULT_BYE_PRIORITY,
-    planCompactElimBracket,
+    planElimBracket,
     pickByeRecipientSeedIndices,
 } from './byePlacement';
 import { isPlayInRoundTitle, playInFeederTarget, standardFeederTarget } from './elimBracket';
@@ -122,15 +122,18 @@ export function propagateAllWinners(data: DoubleElimData) {
 
 /**
  * participantIds: 급수 순 등 **최강이 앞**인 배열.
+ * @param forcedMainDrawSize 승자조 몇강부터 (2의 거듭제곱). 미지정 시 자동.
+ *   6명은 자동일 때만 지연 시드 특수 포맷을 쓴다.
  */
 export function buildDoubleElim(
     participantIds: string[],
-    priority: TournamentByePriority = DEFAULT_BYE_PRIORITY
+    priority: TournamentByePriority = DEFAULT_BYE_PRIORITY,
+    forcedMainDrawSize?: number | null
 ): DoubleElimData {
     const n = participantIds.length;
     const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
 
-    if (n === 6) {
+    if (n === 6 && (forcedMainDrawSize == null || forcedMainDrawSize === undefined)) {
         const ids = [...participantIds];
         let r1four: string[];
         let delayed: [string, string];
@@ -174,19 +177,19 @@ export function buildDoubleElim(
         return built;
     }
 
-    const { mainDrawSize, playInMatchCount, byeCount } = planCompactElimBracket(n);
-    const byeIdx = new Set(pickByeRecipientSeedIndices(n, byeCount, priority));
-    const byeRecipients: string[] = [];
-    const playInPlayers: string[] = [];
-    participantIds.forEach((id, i) => {
-        (byeIdx.has(i) ? byeRecipients : playInPlayers).push(id);
-    });
-
+    const { mainDrawSize, playInMatchCount, byeCount } = planElimBracket(n, forcedMainDrawSize);
     const winnersRounds: { title: string; matches: DoubleElimMatch[] }[] = [];
     const losersRounds: { title: string; matches: DoubleElimMatch[] }[] = [];
     let mainDrawByeSeeds: string[] | undefined;
 
     if (playInMatchCount > 0) {
+        const byeIdx = new Set(pickByeRecipientSeedIndices(n, byeCount, priority));
+        const byeRecipients: string[] = [];
+        const playInPlayers: string[] = [];
+        participantIds.forEach((id, i) => {
+            (byeIdx.has(i) ? byeRecipients : playInPlayers).push(id);
+        });
+
         const shuffled = shuffle(playInPlayers);
         const playInMatches: DoubleElimMatch[] = [];
         for (let i = 0; i < playInMatchCount; i++) {
@@ -216,11 +219,28 @@ export function buildDoubleElim(
             matches: mainMatches,
         });
     } else {
-        const shuffled = shuffle(playInPlayers);
+        // 본선만: 전원 배치 + 빈 자리 부전승 (byeCount = 패딩)
+        const shuffled = shuffle([...participantIds]);
+        const queue = [...shuffled];
+        const byePads = Math.max(0, mainDrawSize - queue.length);
+        const paired: (string | 'BYE')[][] = [];
+        for (let i = 0; i < byePads; i++) {
+            const player = queue.shift();
+            if (player) paired.push([player, 'BYE']);
+            else paired.push(['BYE', 'BYE']);
+        }
+        while (queue.length > 0) {
+            paired.push([queue.shift()!, queue.shift() ?? 'BYE']);
+        }
+        while (paired.length < mainDrawSize / 2) {
+            paired.push(['BYE', 'BYE']);
+        }
+
         const firstMatches: DoubleElimMatch[] = [];
         for (let i = 0; i < mainDrawSize / 2; i++) {
             const m = createMatch();
-            m.players = [shuffled[i * 2], shuffled[i * 2 + 1]];
+            const [a, b] = paired[i] ?? ['BYE', 'BYE'];
+            m.players = [a, b];
             firstMatches.push(m);
         }
         const firstTitle =

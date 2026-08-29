@@ -71,11 +71,11 @@ export function planElimBracket(
     return planCompactElimBracket(count);
 }
 
-/** 선수 수에 대해 선택 가능한 몇강 목록 (자동 제외) */
+/** 선수 수에 대해 선택 가능한 몇강 목록 (자동 제외). 상한은 다음 2^n까지. */
 export function listValidStartRoundSizes(playerCount: number): number[] {
     const n = Math.max(0, playerCount);
     if (n < 2) return [];
-    const maxSize = Math.max(minimalPow2BracketSize(n), 32);
+    const maxSize = Math.max(minimalPow2BracketSize(n), 4);
     const sizes: number[] = [];
     for (let size = 4; size <= maxSize; size *= 2) {
         if (size >= n || 2 * size >= n) sizes.push(size);
@@ -88,6 +88,22 @@ export function formatStartRoundLabel(size: number): string {
     if (size <= 2) return '결승';
     if (size === 4) return '4강전';
     return `${size}강`;
+}
+
+/** 선택한 몇강 계획의 짧은 설명 (부전승·예선 수) */
+export function describeElimBracketPlan(
+    playerCount: number,
+    forcedMainDrawSize?: number | null
+): string {
+    const n = Math.max(0, playerCount);
+    if (n < 2) return '';
+    const { mainDrawSize, playInMatchCount, byeCount } = planElimBracket(n, forcedMainDrawSize);
+    const label = formatStartRoundLabel(mainDrawSize);
+    if (playInMatchCount > 0) {
+        return `예선 ${playInMatchCount}경기 → ${label}` + (byeCount > 0 ? `, 부전승 ${byeCount}` : '');
+    }
+    if (byeCount > 0) return `${label} · 부전승 ${byeCount}`;
+    return `${label} 본선`;
 }
 
 /**
@@ -127,10 +143,38 @@ export function pickByeRecipientSeedIndices(n: number, numByes: number, priority
 export function buildElimRoundOneSlotOrder<T>(
     seedsStrongestFirst: T[],
     priority: TournamentByePriority,
-    shuffleRemainingPairings: boolean
+    shuffleRemainingPairings: boolean,
+    forcedMainDrawSize?: number | null
 ): { bracketSize: number; slots: (T | 'BYE')[]; playInMatchCount: number; byeRecipients: T[] } {
     const n = seedsStrongestFirst.length;
-    const { mainDrawSize, playInMatchCount, byeCount } = planCompactElimBracket(n);
+    const { mainDrawSize, playInMatchCount, byeCount } = planElimBracket(n, forcedMainDrawSize);
+
+    // 본선만 (예선 없음): 전원 배치 후 빈 자리는 부전승 패딩
+    if (playInMatchCount === 0) {
+        const queue = shuffleRemainingPairings
+            ? [...seedsStrongestFirst].sort(() => Math.random() - 0.5)
+            : [...seedsStrongestFirst];
+        const byePads = Math.max(0, mainDrawSize - queue.length);
+        const paired: (T | 'BYE')[][] = [];
+        for (let i = 0; i < byePads; i++) {
+            const player = queue.shift();
+            if (player) paired.push([player, 'BYE']);
+            else paired.push(['BYE', 'BYE']);
+        }
+        while (queue.length > 0) {
+            paired.push([queue.shift()!, queue.shift() ?? ('BYE' as const)]);
+        }
+        while (paired.length < mainDrawSize / 2) {
+            paired.push(['BYE', 'BYE']);
+        }
+        return {
+            bracketSize: mainDrawSize,
+            slots: paired.flat(),
+            playInMatchCount: 0,
+            byeRecipients: [],
+        };
+    }
+
     const byeIdx = new Set(pickByeRecipientSeedIndices(n, byeCount, priority));
     const byeRecipients: T[] = [];
     const playIn: T[] = [];
@@ -138,14 +182,6 @@ export function buildElimRoundOneSlotOrder<T>(
         (byeIdx.has(i) ? byeRecipients : playIn).push(p);
     });
     const pvp = shuffleRemainingPairings ? [...playIn].sort(() => Math.random() - 0.5) : [...playIn];
-
-    if (playInMatchCount === 0) {
-        const slots: (T | 'BYE')[] = [];
-        for (let i = 0; i < pvp.length; i += 2) {
-            slots.push(pvp[i], pvp[i + 1]);
-        }
-        return { bracketSize: mainDrawSize, slots, playInMatchCount: 0, byeRecipients: [] };
-    }
 
     const slots: (T | 'BYE')[] = [];
     for (let i = 0; i < pvp.length; i += 2) {

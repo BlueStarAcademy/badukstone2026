@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import type { Student, TournamentAwardRequest, TournamentBracket, TournamentData, TournamentSettings, TournamentMatch, TournamentPlayer } from '../../types';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
@@ -17,6 +17,7 @@ import {
     type BracketPrizePayout,
 } from '../../utils/tournamentPrizes';
 import { BracketTree } from './BracketTree';
+import { StartRoundSelect } from './StartRoundSelect';
 
 interface TournamentBracketViewProps {
     data: TournamentData;
@@ -189,26 +190,38 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
     const [isPrizeModalOpen, setIsPrizeModalOpen] = useState(false);
     const [bracketTab, setBracketTab] = useState(0);
+    const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
+    const [startRoundSize, setStartRoundSize] = useState<number | null>(null);
+    const handleStartRoundChange = useCallback((size: number | null) => setStartRoundSize(size), []);
 
     const handleGenerateBracket = () => {
         const participants = (bracketParticipantIds || [])
             .map(id => students.find(s => s.id === id))
-            .filter((s): s is Student => !!s)
-            .sort((a, b) => parseRank(b.rank) - parseRank(a.rank)); 
-        
-        if (participants.length < 2) {
+            .filter((s): s is Student => !!s);
+
+        const ordered =
+            assignmentMode === 'ranked'
+                ? [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank))
+                : [...participants].sort(() => 0.5 - Math.random());
+
+        if (ordered.length < 2) {
             alert('토너먼트를 생성하려면 최소 2명의 참가자가 필요합니다.');
             return;
         }
 
-        const tournamentPlayers: TournamentPlayer[] = participants.map(p => ({
+        const tournamentPlayers: TournamentPlayer[] = ordered.map(p => ({
             studentId: p.id, name: p.name, rank: p.rank,
             game1Handicap: 0, game1Color: 'black', game1Result: null,
             game2Score: null, game2LastStone: false, game3Score: null,
         }));
 
         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
-        const { rounds } = buildSingleElimRounds(tournamentPlayers, byePriority, true);
+        const { rounds } = buildSingleElimRounds(
+            tournamentPlayers,
+            byePriority,
+            true,
+            startRoundSize
+        );
 
         setData(prev => ({
             ...prev,
@@ -278,6 +291,26 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
                             <span className="tournament-empty-kicker">BRACKET SETUP</span>
                             <h3>대진표 준비</h3>
                             <p>대진표가 없습니다. '선수 관리'에서 참가자를 선택하고 대진표를 생성해주세요.</p>
+                            <div className="tournament-empty-setup">
+                                <div className="tournament-player-mgmt-assign">
+                                    <label htmlFor="bracket-empty-assign">배정/시드</label>
+                                    <select
+                                        id="bracket-empty-assign"
+                                        value={assignmentMode}
+                                        onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                                    >
+                                        <option value="ranked">급수 순</option>
+                                        <option value="random">무작위</option>
+                                    </select>
+                                </div>
+                                <StartRoundSelect
+                                    id="bracket-empty-start-round"
+                                    playerCount={(bracketParticipantIds || []).length}
+                                    value={startRoundSize}
+                                    onChange={handleStartRoundChange}
+                                    disabled={(bracketParticipantIds || []).length < 2}
+                                />
+                            </div>
                             <div className="tournament-empty-actions">
                                 <button className="btn primary" onClick={handleGenerateBracket} disabled={(bracketParticipantIds || []).length < 2}>대진표 생성</button>
                             </div>

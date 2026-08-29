@@ -87,9 +87,12 @@ export function getTournamentOperationStatus(
     } else if (mode === 'hybrid') {
         const preliminary = normalizeHybridPreliminaryGroups(data.hybrid?.preliminaryGroups).flat();
         const bracket = flattenBracketMatches(data, mode);
-        items = [...preliminary, ...bracket] as any;
+        const prelimDone = preliminary.length > 0 && preliminary.every((match: any) => !!match.winnerId);
+        const hasBracket = !!data.hybrid?.bracket;
+        items = hasBracket ? ([...preliminary, ...bracket] as any) : (preliminary as any);
         drawCreated = !!data.hybrid;
-        requiredDrawComplete = preliminary.length === 0 || preliminary.every((match: any) => !!match.winnerId);
+        // 예선이 끝나도 본선 대진이 없으면 아직 대진 단계
+        requiredDrawComplete = prelimDone && hasBracket;
     } else if (mode === 'swiss') {
         const groups = asArray(data.swiss?.groups);
         const rounds = groups.length
@@ -142,15 +145,31 @@ export function getTournamentOperationStatus(
         nextAction = '참가자를 확인하고 대진을 생성하세요.';
     } else if (!matchesComplete) {
         stage = '경기';
-        nextAction = mode === 'swiss' && progress.remaining > 0
-            ? '현재 경기 결과를 입력하고 다음 라운드를 생성하세요.'
-            : '남은 경기 결과를 입력하세요.';
+        if (mode === 'hybrid') {
+            const preliminary = normalizeHybridPreliminaryGroups(data.hybrid?.preliminaryGroups).flat();
+            const prelimDone = preliminary.length > 0 && preliminary.every((match: any) => !!match.winnerId);
+            const hasBracket = !!data.hybrid?.bracket;
+            if (!prelimDone) {
+                nextAction = '예선 경기 결과를 입력하세요.';
+            } else if (!hasBracket) {
+                stage = '대진';
+                nextAction = '본선 대진표를 생성하세요.';
+            } else {
+                nextAction = '본선 경기 결과를 입력하세요.';
+            }
+        } else {
+            nextAction = mode === 'swiss' && progress.remaining > 0
+                ? '현재 경기 결과를 입력하고 다음 라운드를 생성하세요.'
+                : '남은 경기 결과를 입력하세요.';
+        }
     } else if (awardsCompleted < awardsRequired) {
         stage = '순위';
         nextAction = mode === 'relay' && relayIsDraw
             ? '현재 동점입니다. 보너스 또는 감점을 확인해 승리팀을 확정하세요.'
             : mode === 'relay'
             ? `승리팀과 패배팀 시상을 확인하세요. (${awardsCompleted}/${awardsRequired})`
+            : mode === 'hybrid'
+            ? '예선·본선 순위를 확인하고 시상을 진행하세요.'
             : '최종 순위를 확인하고 시상을 진행하세요.';
     } else {
         stage = '시상';
