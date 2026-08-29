@@ -13,7 +13,8 @@ import type {
     TournamentSwissGroupPrizes,
 } from '../../types';
 import { parseRank, generateId } from '../../utils';
-import { buildElimRoundOneSlotOrder, DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
+import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
+import { buildSingleElimRounds } from '../../utils/elimBracket';
 import { computeStandingsInPreliminaryGroup, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
 import {
     createRoundRobinMatches,
@@ -214,48 +215,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         );
 
         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
-        const { bracketSize, slots: playersForRound1 } = buildElimRoundOneSlotOrder(tournamentPlayers, byePriority, true);
-        
-        const firstRoundMatches: TournamentMatch[] = [];
-        for (let i = 0; i < playersForRound1.length; i += 2) {
-            firstRoundMatches.push({
-                id: generateId(),
-                players: [playersForRound1[i], playersForRound1[i + 1] || null],
-                winnerId: null,
-            });
-        }
-        firstRoundMatches.forEach(match => {
-            const player1 = match.players[0];
-            if (player1 !== 'BYE' && player1 !== null && match.players[1] === 'BYE') {
-                match.winnerId = player1.studentId;
-            }
-        });
-        
-        const rounds = [{ title: `${bracketSize}강`, matches: firstRoundMatches }];
-        let currentRoundMatches = firstRoundMatches;
-        
-        while (currentRoundMatches.length > 2) {
-            const currentRoundSize = currentRoundMatches.length * 2;
-            const nextRoundMatches: TournamentMatch[] = [];
-            for (let i = 0; i < currentRoundMatches.length; i += 2) {
-                nextRoundMatches.push({ 
-                    id: generateId(), 
-                    players: [null, null], 
-                    winnerId: null,
-                });
-            }
-            const nextRoundTitle = currentRoundSize / 2 === 4 ? '준결승' : `${currentRoundSize / 2}강`;
-            rounds.push({ title: nextRoundTitle, matches: nextRoundMatches });
-            currentRoundMatches = nextRoundMatches;
-        }
-
-        if (currentRoundMatches.length === 2) {
-            const finalMatch = { id: generateId(), players: [null, null], winnerId: null };
-            const thirdPlaceMatch = { id: generateId(), players: [null, null], winnerId: null };
-            rounds.push({ title: '결승 & 3/4위전', matches: [finalMatch, thirdPlaceMatch] });
-        } else if (currentRoundMatches.length === 1) {
-             rounds[rounds.length-1].title = '결승';
-        }
+        const { rounds } = buildSingleElimRounds(tournamentPlayers, byePriority, true);
 
         setData(prev => ({
             ...prev,

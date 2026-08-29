@@ -74,32 +74,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
 
             if (bracket === 'winners') {
                 const match = W[roundIndex].matches[matchIndex];
-                const prevWinner = match.winnerId;
                 match.winnerId = winnerId;
-                const loserId = winnerId ? getLoserFromMatch(match, winnerId) : null;
-
-                const nextRoundIndex = roundIndex + 1;
-                const nextMatchInW = nextRoundIndex < W.length ? W[nextRoundIndex].matches[Math.floor(matchIndex / 2)] : null;
-                if (nextMatchInW) {
-                    const slot = matchIndex % 2;
-                    if (winnerId) nextMatchInW.players[slot] = winnerId;
-                    else nextMatchInW.players[slot] = null;
-                }
-                if (nextRoundIndex === W.length && GF) {
-                    if (winnerId) GF.players[0] = winnerId;
-                    else GF.players[0] = null;
-                }
-
-                if (roundIndex < L.length) {
-                    const lrMatches = L[roundIndex].matches;
-                    const lrMatchIndex = roundIndex === 0 ? Math.floor(matchIndex / 2) : Math.min(matchIndex, lrMatches.length - 1);
-                    const lrSlot = roundIndex === 0 ? matchIndex % 2 : 0;
-                    const skipLoser = roundIndex > 0 && lrMatches.length === 1 && matchIndex > 0;
-                    if (!skipLoser && lrMatchIndex >= 0 && lrMatchIndex < lrMatches.length) {
-                        if (loserId != null) lrMatches[lrMatchIndex].players[lrSlot] = loserId;
-                        else lrMatches[lrMatchIndex].players[lrSlot] = null;
-                    }
-                }
                 applyByeWinners(next);
                 propagateAllWinners(next);
                 return { ...prev, doubleElim: next };
@@ -108,20 +83,6 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
             if (bracket === 'losers') {
                 const match = L[roundIndex].matches[matchIndex];
                 match.winnerId = winnerId;
-                const nextLr = roundIndex + 1;
-                if (nextLr < L.length) {
-                    const nextRoundMatches = L[nextLr].matches;
-                    const nextMatchIndex = nextRoundMatches.length === 1 ? 0 : matchIndex;
-                    const nextMatch = nextRoundMatches[nextMatchIndex];
-                    const slot = (nextRoundMatches.length === 1 && matchIndex > 0) ? -1 : 1;
-                    if (nextMatch && slot >= 0) {
-                        if (winnerId) nextMatch.players[slot] = winnerId;
-                        else nextMatch.players[slot] = null;
-                    }
-                } else if (GF) {
-                    if (winnerId) GF.players[1] = winnerId;
-                    else GF.players[1] = null;
-                }
                 applyByeWinners(next);
                 propagateAllWinners(next);
                 return { ...prev, doubleElim: next };

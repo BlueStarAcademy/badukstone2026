@@ -315,6 +315,8 @@ export interface DoubleElimData {
     losersRounds: { title: string; matches: DoubleElimMatch[] }[];
     grandFinal: DoubleElimMatch | null;
     playerIds: string[];
+    /** 예선→본선 구조일 때 본선 부전승 시드(복원용) */
+    mainDrawByeSeeds?: string[];
 }
 
 export interface TournamentData {

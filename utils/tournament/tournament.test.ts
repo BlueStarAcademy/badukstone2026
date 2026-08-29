@@ -30,25 +30,48 @@ const swissPlayers = (...playerIds: string[]): SwissPlayer[] =>
     }));
 
 describe('elimination bye placement', () => {
-    it('creates exactly the minimum number of byes without losing a seed', () => {
+    it('uses a play-in into the previous power of two for six players', () => {
         const seeds = ['a', 'b', 'c', 'd', 'e', 'f'];
-        const { bracketSize, slots } = buildElimRoundOneSlotOrder(seeds, 'min_byes', false);
-        expect(bracketSize).toBe(8);
-        expect(slots.filter(slot => slot === 'BYE')).toHaveLength(2);
-        expect(slots.filter(slot => slot !== 'BYE').sort()).toEqual([...seeds].sort());
+        const { bracketSize, slots, playInMatchCount, byeRecipients } = buildElimRoundOneSlotOrder(
+            seeds,
+            'min_byes',
+            false
+        );
+        expect(bracketSize).toBe(4);
+        expect(playInMatchCount).toBe(2);
+        expect(byeRecipients).toHaveLength(2);
+        expect(slots).toHaveLength(4);
+        expect(slots).not.toContain('BYE');
+        expect([...slots, ...byeRecipients].sort()).toEqual([...seeds].sort());
     });
 
     it('creates a complete eight-match first round for 16 players', () => {
         const seeds = Array.from({ length: 16 }, (_, index) => `seed-${index + 1}`);
-        const { bracketSize, slots } = buildElimRoundOneSlotOrder(seeds, 'min_byes', false);
+        const { bracketSize, slots, playInMatchCount } = buildElimRoundOneSlotOrder(seeds, 'min_byes', false);
         const matches = Array.from({ length: slots.length / 2 }, (_, index) =>
             slots.slice(index * 2, index * 2 + 2)
         );
 
         expect(bracketSize).toBe(16);
+        expect(playInMatchCount).toBe(0);
         expect(matches).toHaveLength(8);
         expect(slots).not.toContain('BYE');
         expect(new Set(slots)).toEqual(new Set(seeds));
+    });
+
+    it('builds a 20-player field as 4 play-in matches into a 16-bracket', () => {
+        const seeds = Array.from({ length: 20 }, (_, index) => `seed-${index + 1}`);
+        const { bracketSize, slots, playInMatchCount, byeRecipients } = buildElimRoundOneSlotOrder(
+            seeds,
+            'min_byes',
+            false
+        );
+        expect(bracketSize).toBe(16);
+        expect(playInMatchCount).toBe(4);
+        expect(byeRecipients).toHaveLength(12);
+        expect(slots).toHaveLength(8);
+        expect(slots).not.toContain('BYE');
+        expect(new Set([...slots, ...byeRecipients])).toEqual(new Set(seeds));
     });
 });
 
