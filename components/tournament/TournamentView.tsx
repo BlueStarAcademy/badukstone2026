@@ -25,6 +25,7 @@ import { TournamentPlayerManagementModal } from './TournamentPlayerManagementMod
 import { TournamentSettingsModal } from '../modals/TournamentSettingsModal';
 import { TournamentSwissPrizeModal, type SwissPrizeAwardEntry } from './TournamentSwissPrizeModal';
 import { generateId, parseRank, sortSwissPlayers } from '../../utils';
+import { asArray, normalizeSwissRounds } from '../../utils/tournament/compatibility';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { buildDoubleElim } from '../../utils/doubleElimBracket';
 import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
@@ -443,7 +444,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                 const recomputed = recomputeSwissStats(targetPlayers, targetRounds);
                 if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
                     newSwiss.groups[groupIndex].players = recomputed;
-                    newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
+                    newSwiss.players = asArray<SwissGroupData>(newSwiss.groups).flatMap((group: SwissGroupData) => asArray(group.players));
                 } else {
                     newSwiss.players = recomputed;
                 }
@@ -478,7 +479,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                 );
                 g.rounds.push(nextRoundMatches);
                 g.players = recomputeSwissStats(g.players, g.rounds);
-                newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
+                newSwiss.players = asArray<SwissGroupData>(newSwiss.groups).flatMap((group: SwissGroupData) => asArray(group.players));
             } else {
                 if (newSwiss.rounds.length >= roundLimit) return prev;
                 const nextRoundMatches = createSwissPairings(
@@ -512,7 +513,7 @@ export const TournamentView = (props: TournamentViewProps) => {
             targetRounds.splice(0, targetRounds.length, ...cancelled.rounds);
             if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
                 newSwiss.groups[groupIndex].players = cancelled.players;
-                newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
+                newSwiss.players = asArray<SwissGroupData>(newSwiss.groups).flatMap((group: SwissGroupData) => asArray(group.players));
             } else {
                 newSwiss.players = cancelled.players;
             }
@@ -549,7 +550,7 @@ export const TournamentView = (props: TournamentViewProps) => {
             const recomputed = recomputeSwissStats(priorPlayers, targetRounds);
             if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
                 newSwiss.groups[groupIndex].players = recomputed;
-                newSwiss.players = newSwiss.groups.flatMap((group: SwissGroupData) => group.players);
+                newSwiss.players = asArray<SwissGroupData>(newSwiss.groups).flatMap((group: SwissGroupData) => asArray(group.players));
             } else {
                 newSwiss.players = recomputed;
             }

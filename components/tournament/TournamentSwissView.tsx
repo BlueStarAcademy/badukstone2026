@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { SwissData, SwissMatch, TournamentData, SwissPlayer } from '../../types';
 import { sortSwissPlayers } from '../../utils';
+import { asArray, normalizeSwissRounds } from '../../utils/tournament/compatibility';
 import { SwissGroupPlayerSwapModal } from './SwissGroupPlayerSwapModal';
 
 interface TournamentSwissViewProps {
@@ -43,7 +44,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     const [roundTab, setRoundTab] = useState(0);
     const [swissGroupTab, setSwissGroupTab] = useState(0);
 
-    const useGroups = !!(swissData?.groups && swissData.groups.length > 0);
+    const useGroups = asArray(swissData?.groups).length > 0;
     const groupIndexForCallbacks: number | undefined = useGroups ? swissGroupTab : undefined;
 
     useEffect(() => {
@@ -99,15 +100,18 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         );
     }
 
-    const players: SwissPlayer[] = useGroups
-        ? swissData!.groups![swissGroupTab].players
-        : swissData!.players;
-    const rounds: SwissMatch[][] = useGroups ? swissData!.groups![swissGroupTab].rounds : swissData!.rounds;
+    const groupList = asArray<{ players?: unknown; rounds?: unknown }>(swissData?.groups);
+    const players: SwissPlayer[] = asArray(
+        useGroups ? groupList[swissGroupTab]?.players : swissData!.players
+    );
+    const rounds: SwissMatch[][] = normalizeSwissRounds(
+        useGroups ? groupList[swissGroupTab]?.rounds : swissData!.rounds
+    ) as SwissMatch[][];
 
     const sortedPlayers = sortSwissPlayers(players, rounds);
     const latestRoundIndex = rounds.length - 1;
-    const latestRound = rounds[latestRoundIndex];
-    const isRoundComplete = latestRound.every(match => match.winnerId !== null);
+    const latestRound = rounds[latestRoundIndex] || [];
+    const isRoundComplete = latestRound.length > 0 && latestRound.every(match => match.winnerId !== null);
     const canAward = swissData!.status === 'finished';
 
     const useRoundTabs = players.length >= 16 && rounds.length >= 1;

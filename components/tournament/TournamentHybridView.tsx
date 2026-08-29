@@ -15,6 +15,7 @@ import type {
 import { parseRank, generateId } from '../../utils';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { buildSingleElimRounds } from '../../utils/elimBracket';
+import { asArray, normalizeHybridPreliminaryGroups } from '../../utils/tournament/compatibility';
 import { computeStandingsInPreliminaryGroup, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
 import {
     createRoundRobinMatches,
@@ -48,13 +49,17 @@ interface PreliminaryGroupViewProps {
 }
 
 const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, groupIndex, players, onSetWinner, onOpenPrize }) => {
-    const getPlayer = (id: string) => players.find(p => p.studentId === id);
-    const isGroupComplete = group.length > 0 && group.every(match => !!match.winnerId);
+    const matches = asArray<SwissMatch>(group);
+    const safePlayers = asArray<SwissPlayer>(players);
+    const getPlayer = (id: string) => safePlayers.find(p => p.studentId === id);
+    const isGroupComplete = matches.length > 0 && matches.every(match => !!match.winnerId);
 
     const groupPlayers = useMemo(() => {
-        const playerIds = new Set(group.flatMap(m => m.players));
-        return players.filter(p => playerIds.has(p.studentId)).sort((a,b) => b.score - a.score);
-    }, [group, players]);
+        const playerIds = new Set(
+            matches.flatMap(m => asArray<string | 'BYE'>(m?.players)).filter(id => id && id !== 'BYE')
+        );
+        return safePlayers.filter(p => playerIds.has(p.studentId)).sort((a, b) => b.score - a.score);
+    }, [matches, safePlayers]);
 
     return (
         <div className="swiss-round hybrid-preliminary-group">
@@ -84,9 +89,10 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
                 </tbody>
             </table>
             <ul className="swiss-match-list">
-                {group.map(match => {
-                    const player1 = getPlayer(match.players[0] as string);
-                    const player2 = getPlayer(match.players[1] as string);
+                {matches.map(match => {
+                    const matchPlayers = asArray<string | 'BYE'>(match.players);
+                    const player1 = getPlayer(matchPlayers[0] as string);
+                    const player2 = getPlayer(matchPlayers[1] as string);
                     return (
                         <li key={match.id} className="swiss-match">
                             <div className={`swiss-player clickable ${match.winnerId === player1?.studentId ? 'winner' : ''} ${match.winnerId && match.winnerId !== player1?.studentId ? 'loser' : ''}`} onClick={() => player1 && onSetWinner(match.id, player1.studentId)}>
@@ -153,24 +159,29 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         setData(prev => {
             if (!prev.hybrid) return prev;
             const newData = JSON.parse(JSON.stringify(prev));
+            const groups = normalizeHybridPreliminaryGroups(newData.hybrid.preliminaryGroups) as SwissMatch[][];
+            newData.hybrid.preliminaryGroups = groups;
             let matchFound = false;
 
-            for (const group of newData.hybrid.preliminaryGroups) {
-                const match = group.find((m: SwissMatch) => m.id === matchId);
+            for (const group of groups) {
+                const match = asArray<SwissMatch>(group).find((m: SwissMatch) => m.id === matchId);
                 if (match) {
-                    const newWinnerId = match.winnerId === winnerId ? null : winnerId;
-                    match.winnerId = newWinnerId;
+                    match.winnerId = match.winnerId === winnerId ? null : winnerId;
                     matchFound = true;
                     break;
                 }
             }
-            
+
             if (matchFound) {
-                newData.hybrid.players.forEach((p: SwissPlayer) => p.score = 0);
-                newData.hybrid.preliminaryGroups.flat().forEach((m: SwissMatch) => {
+                asArray<SwissPlayer>(newData.hybrid.players).forEach((p: SwissPlayer) => {
+                    p.score = 0;
+                });
+                groups.flat().forEach((m: SwissMatch) => {
                     if (m.winnerId) {
-                        const winner = newData.hybrid.players.find((p: SwissPlayer) => p.studentId === m.winnerId);
-                        if(winner) winner.score++;
+                        const winner = asArray<SwissPlayer>(newData.hybrid.players).find(
+                            (p: SwissPlayer) => p.studentId === m.winnerId
+                        );
+                        if (winner) winner.score++;
                     }
                 });
             }
@@ -278,15 +289,20 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     }
     
     if (data.hybrid && !data.hybrid.bracket) {
-        const allMatchesPlayed = data.hybrid.preliminaryGroups.flat().every(m => m.winnerId);
-        const totalParticipants = data.hybrid.players.length;
-        const useGroupTabs = totalParticipants >= 16 && data.hybrid.preliminaryGroups.length >= 2;
+        const preliminaryGroups = normalizeHybridPreliminaryGroups(
+            data.hybrid.preliminaryGroups
+        ) as SwissMatch[][];
+        const hybridPlayers = asArray<SwissPlayer>(data.hybrid.players);
+        const allMatchesPlayed =
+            preliminaryGroups.length > 0 && preliminaryGroups.flat().every(m => m.winnerId);
+        const totalParticipants = hybridPlayers.length;
+        const useGroupTabs = totalParticipants >= 16 && preliminaryGroups.length >= 2;
 
-        const activeGroupTab = Math.min(groupTab, data.hybrid.preliminaryGroups.length - 1);
+        const activeGroupTab = Math.min(groupTab, Math.max(0, preliminaryGroups.length - 1));
         const content = useGroupTabs ? (
             <div className="tournament-group-tabs">
                 <div className="group-tab-buttons">
-                    {data.hybrid.preliminaryGroups.map((_, i) => (
+                    {preliminaryGroups.map((_, i) => (
                         <button
                             key={i}
                             className={`tab-btn ${activeGroupTab === i ? 'active' : ''}`}
@@ -296,9 +312,9 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 </div>
                 <div className="group-tab-content">
                     <PreliminaryGroupView
-                        group={data.hybrid.preliminaryGroups[activeGroupTab]}
+                        group={preliminaryGroups[activeGroupTab] || []}
                         groupIndex={activeGroupTab}
-                        players={data.hybrid.players}
+                        players={hybridPlayers}
                         onSetWinner={handleSetPreliminaryWinner}
                         onOpenPrize={setPrelimPrizeGroupIndex}
                     />
@@ -306,12 +322,12 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
             </div>
         ) : (
             <div className="hybrid-preliminary-grid">
-                {data.hybrid.preliminaryGroups.map((group, i) => (
+                {preliminaryGroups.map((group, i) => (
                     <PreliminaryGroupView
                         key={i}
                         group={group}
                         groupIndex={i}
-                        players={data.hybrid!.players}
+                        players={hybridPlayers}
                         onSetWinner={handleSetPreliminaryWinner}
                         onOpenPrize={setPrelimPrizeGroupIndex}
                     />
@@ -335,8 +351,8 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                         settings={settings}
                         groupIndex={prelimPrizeGroupIndex}
                         groupLabel={`${prelimPrizeGroupIndex + 1}조`}
-                        groupMatches={data.hybrid.preliminaryGroups[prelimPrizeGroupIndex]}
-                        allPlayers={data.hybrid.players}
+                        groupMatches={preliminaryGroups[prelimPrizeGroupIndex] || []}
+                        allPlayers={hybridPlayers}
                         onAward={handlePrelimPrizeAward}
                     />
                 )}

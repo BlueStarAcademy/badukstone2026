@@ -1,4 +1,5 @@
 import type { TournamentData, TournamentSettings } from '../../types';
+import { asArray, normalizeHybridPreliminaryGroups, normalizeSwissRounds } from './compatibility';
 
 export interface OperationProgress {
     completed: number;
@@ -29,16 +30,18 @@ const participantIdsByMode = (data: TournamentData, mode: TournamentOperationMod
     if (selected?.length) return selected;
 
     // Older saved tournaments may predate per-mode participant ID lists.
-    if (mode === 'relay') return [...new Set(data.teams.flatMap(team => team.players.map(player => player.studentId)))];
-    if (mode === 'bracket') return data.bracket?.players.map(player => player.studentId) || [];
-    if (mode === 'swiss') return data.swiss?.players.map(player => player.studentId) || [];
-    if (mode === 'hybrid') return data.hybrid?.players.map(player => player.studentId) || [];
-    if (mode === 'fullleague') return data.fullLeague?.players.map(player => player.studentId) || [];
-    return data.doubleElim?.playerIds || [];
+    if (mode === 'relay') return [...new Set(asArray(data.teams).flatMap(team => asArray((team as any).players).map((player: any) => player.studentId)))];
+    if (mode === 'bracket') return asArray(data.bracket?.players).map((player: any) => player.studentId) || [];
+    if (mode === 'swiss') return asArray(data.swiss?.players).map((player: any) => player.studentId) || [];
+    if (mode === 'hybrid') return asArray(data.hybrid?.players).map((player: any) => player.studentId) || [];
+    if (mode === 'fullleague') return asArray(data.fullLeague?.players).map((player: any) => player.studentId) || [];
+    return asArray(data.doubleElim?.playerIds) || [];
 };
 
 const flattenBracketMatches = (data: TournamentData, mode: 'bracket' | 'hybrid') =>
-    (mode === 'bracket' ? data.bracket : data.hybrid?.bracket)?.rounds.flatMap(round => round.matches) || [];
+    asArray((mode === 'bracket' ? data.bracket : data.hybrid?.bracket)?.rounds).flatMap(
+        (round: any) => asArray(round?.matches)
+    );
 
 export function getTournamentOperationStatus(
     data: TournamentData,
@@ -82,35 +85,44 @@ export function getTournamentOperationStatus(
         items = flattenBracketMatches(data, mode);
         drawCreated = !!data.bracket;
     } else if (mode === 'hybrid') {
-        const preliminary = data.hybrid?.preliminaryGroups.flat() || [];
+        const preliminary = normalizeHybridPreliminaryGroups(data.hybrid?.preliminaryGroups).flat();
         const bracket = flattenBracketMatches(data, mode);
-        items = [...preliminary, ...bracket];
+        items = [...preliminary, ...bracket] as any;
         drawCreated = !!data.hybrid;
-        requiredDrawComplete = preliminary.length === 0 || preliminary.every(match => !!match.winnerId);
+        requiredDrawComplete = preliminary.length === 0 || preliminary.every((match: any) => !!match.winnerId);
     } else if (mode === 'swiss') {
-        const groups = data.swiss?.groups;
-        const rounds = groups?.length ? groups.flatMap(group => group.rounds) : data.swiss?.rounds || [];
+        const groups = asArray(data.swiss?.groups);
+        const rounds = groups.length
+            ? groups.flatMap((group: any) => normalizeSwissRounds(group.rounds))
+            : normalizeSwissRounds(data.swiss?.rounds);
         const generated = rounds.flat();
         const roundLimit = Math.max(1, Math.floor(settings.swissRounds || 1));
-        const expectedTotal = rounds.length
-            ? (groups?.length
-                ? groups.reduce((sum, group) => sum + (group.rounds[0]?.length || 0) * roundLimit, 0)
-                : (rounds[0]?.length || 0) * roundLimit)
-            : 0;
+        let expectedTotal = 0;
+        if (rounds.length) {
+            if (groups.length) {
+                for (const group of groups) {
+                    const firstRoundLen = asArray(normalizeSwissRounds((group as any)?.rounds)[0]).length || 0;
+                    expectedTotal += firstRoundLen * roundLimit;
+                }
+            } else {
+                expectedTotal = (asArray(rounds[0]).length || 0) * roundLimit;
+            }
+        }
+        const placeholderCount = Math.max(0, expectedTotal - generated.length);
         items = [
             ...generated,
-            ...Array.from({ length: Math.max(0, expectedTotal - generated.length) }, () => ({ winnerId: null })),
-        ];
+            ...Array.from({ length: placeholderCount }, () => ({ winnerId: null })),
+        ] as any;
         drawCreated = generated.length > 0;
     } else if (mode === 'fullleague') {
-        items = data.fullLeague?.matches || [];
-        drawCreated = !!data.fullLeague?.matches.length;
+        items = asArray(data.fullLeague?.matches);
+        drawCreated = asArray(data.fullLeague?.matches).length > 0;
     } else {
         const doubleElim = data.doubleElim;
         items = doubleElim
             ? [
-                ...doubleElim.winnersRounds.flatMap(round => round.matches),
-                ...doubleElim.losersRounds.flatMap(round => round.matches),
+                ...asArray(doubleElim.winnersRounds).flatMap((round: any) => asArray(round.matches)),
+                ...asArray(doubleElim.losersRounds).flatMap((round: any) => asArray(round.matches)),
                 ...(doubleElim.grandFinal ? [doubleElim.grandFinal] : []),
             ]
             : [];

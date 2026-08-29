@@ -1,11 +1,14 @@
 import type { SwissMatch, SwissPlayer, TournamentByePriority } from '../../types';
 import { pickSwissByeSortedIndex, pickSwissOddByePoolIndex } from '../byePlacement';
+import { asArray, normalizeSwissRounds } from './compatibility';
 import type { IdFactory } from './fullLeague';
 
 export type RandomSource = () => number;
 
 export function recomputeSwissStats(players: SwissPlayer[], rounds: SwissMatch[][]): SwissPlayer[] {
-    const next = players.map(player => ({
+    const safePlayers = asArray<SwissPlayer>(players);
+    const safeRounds = normalizeSwissRounds(rounds) as SwissMatch[][];
+    const next = safePlayers.map(player => ({
         ...player,
         score: 0,
         opponents: [] as string[],
@@ -14,10 +17,12 @@ export function recomputeSwissStats(players: SwissPlayer[], rounds: SwissMatch[]
     }));
     const byId = new Map(next.map(player => [player.studentId, player]));
 
-    for (const match of rounds.flat()) {
-        const [id1, id2] = match.players;
-        if (id1 !== 'BYE') byId.get(id1)?.opponents.push(id2);
-        if (id2 !== 'BYE') byId.get(id2)?.opponents.push(id1);
+    for (const match of safeRounds.flat()) {
+        const matchPlayers = asArray<string | 'BYE'>(match?.players);
+        const id1 = matchPlayers[0];
+        const id2 = matchPlayers[1];
+        if (id1 && id1 !== 'BYE') byId.get(id1)?.opponents.push(id2 ?? 'BYE');
+        if (id2 && id2 !== 'BYE') byId.get(id2)?.opponents.push(id1 ?? 'BYE');
         if (match.winnerId && match.winnerId !== 'BYE') {
             const winner = byId.get(match.winnerId);
             if (winner) winner.score += 1;

@@ -20,6 +20,19 @@ const APP_ARRAY_KEYS = [
 const isRecord = (value: unknown): value is UnknownRecord =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
 
+/** Array or numeric-keyed object (일부 직렬화/레거시 저장) → 배열 */
+export const asArray = <T = unknown>(value: unknown): T[] => {
+    if (Array.isArray(value)) return value as T[];
+    if (!isRecord(value)) return [];
+    const keys = Object.keys(value);
+    if (keys.length === 0) return [];
+    if (!keys.every(key => /^\d+$/.test(key))) return [];
+    return keys
+        .map(key => Number(key))
+        .sort((a, b) => a - b)
+        .map(key => value[String(key)] as T);
+};
+
 /**
  * Recursively fills newly introduced setting fields while retaining legacy and
  * unknown fields. Arrays are values, not mergeable records.
@@ -49,16 +62,14 @@ const pushPlayer = (ids: string[], value: unknown) => {
 };
 
 const pushPlayers = (ids: string[], value: unknown) => {
-    if (!Array.isArray(value)) return;
-    value.forEach(player => {
+    asArray(value).forEach(player => {
         if (typeof player === 'string') pushId(ids, player);
         else pushPlayer(ids, player);
     });
 };
 
 const pushMatches = (ids: string[], value: unknown) => {
-    if (!Array.isArray(value)) return;
-    value.forEach(match => {
+    asArray(value).forEach(match => {
         if (!isRecord(match)) return;
         pushPlayers(ids, match.players);
         pushId(ids, match.player1Id);
@@ -67,12 +78,26 @@ const pushMatches = (ids: string[], value: unknown) => {
 };
 
 const pushRounds = (ids: string[], value: unknown) => {
-    if (!Array.isArray(value)) return;
-    value.forEach(round => {
-        if (Array.isArray(round)) pushMatches(ids, round);
-        else if (isRecord(round)) pushMatches(ids, round.matches);
+    asArray(value).forEach(round => {
+        if (Array.isArray(round) || (isRecord(round) && !Array.isArray((round as UnknownRecord).players))) {
+            if (Array.isArray(round)) pushMatches(ids, round);
+            else if (isRecord(round)) pushMatches(ids, round.matches);
+        }
     });
 };
+
+const normalizeMatch = (value: unknown): UnknownRecord | null => {
+    if (!isRecord(value)) return null;
+    return {
+        ...value,
+        players: asArray(value.players),
+    };
+};
+
+const normalizeMatchList = (value: unknown): unknown[] =>
+    asArray(value)
+        .map(normalizeMatch)
+        .filter((match): match is UnknownRecord => match !== null);
 
 /**
  * Firestore cannot persist nested arrays, so the legacy client stored rounds as
@@ -80,35 +105,76 @@ const pushRounds = (ids: string[], value: unknown) => {
  * PostgreSQL can store the native nested arrays; normalize both representations.
  */
 export const normalizeSwissRounds = (value: unknown): unknown[][] => {
-    if (!Array.isArray(value)) return [];
-    if (value.length === 0) return [];
+    const arr = asArray(value);
+    if (arr.length === 0) return [];
 
-    const looksLikeFlatMatchList = value.every(
-        item => isRecord(item) && Array.isArray(item.players)
-    );
-    if (looksLikeFlatMatchList) return [value];
+    // Flat match list: [{ players, winnerId, id }, ...]
+    if (arr.every(item => isRecord(item) && 'players' in item && !('matches' in item))) {
+        return [normalizeMatchList(arr)];
+    }
 
-    return value
-        .map(round => {
-            if (Array.isArray(round)) return round;
-            if (isRecord(round) && Array.isArray(round.matches)) return round.matches;
-            return null;
-        })
-        .filter((round): round is unknown[] => round !== null);
+    // Round wrappers: [{ roundIndex, matches }, ...]
+    if (arr.every(item => isRecord(item) && 'matches' in item && !('players' in item))) {
+        return arr.map(item => normalizeMatchList((item as UnknownRecord).matches));
+    }
+
+    // Native SwissMatch[][] (or numeric-keyed rows)
+    return arr.map(round => {
+        const list = asArray(round);
+        if (list.length === 0) {
+            if (isRecord(round) && 'matches' in round) return normalizeMatchList(round.matches);
+            return [];
+        }
+        if (list.every(item => isRecord(item) && 'players' in item)) return normalizeMatchList(list);
+        if (list.every(item => isRecord(item) && 'matches' in item && !('players' in item))) {
+            return list.flatMap(item => normalizeMatchList((item as UnknownRecord).matches));
+        }
+        if (isRecord(round) && 'matches' in round) return normalizeMatchList(round.matches);
+        return normalizeMatchList(list);
+    });
+};
+
+/** 예선 조: SwissMatch[][] — Firestore `{groupIndex,matches}[]` 및 숫자키 객체 지원 */
+export const normalizeHybridPreliminaryGroups = (value: unknown): unknown[][] => {
+    const arr = asArray(value);
+    if (arr.length === 0) return [];
+
+    // [{ groupIndex, matches: Match[] }, ...]
+    if (arr.every(item => isRecord(item) && 'matches' in item && !('players' in item))) {
+        return arr.map(item => normalizeMatchList((item as UnknownRecord).matches));
+    }
+
+    // 이미 Match[][] 이거나 숫자키 그룹
+    return arr.map(group => {
+        if (isRecord(group) && 'matches' in group && !('players' in group)) {
+            return normalizeMatchList(group.matches);
+        }
+        const list = asArray(group);
+        if (list.every(item => isRecord(item) && 'players' in item)) return normalizeMatchList(list);
+        if (list.every(item => isRecord(item) && 'matches' in item && !('players' in item))) {
+            return list.flatMap(item => normalizeMatchList((item as UnknownRecord).matches));
+        }
+        return normalizeMatchList(list);
+    });
 };
 
 const normalizeSwissData = (value: unknown): unknown => {
     if (!isRecord(value)) return value;
     const normalized: UnknownRecord = {
         ...value,
+        players: asArray(value.players),
         rounds: normalizeSwissRounds(value.rounds),
     };
-    if (Array.isArray(value.groups)) {
-        normalized.groups = value.groups.map(group =>
-            isRecord(group)
-                ? { ...group, rounds: normalizeSwissRounds(group.rounds) }
-                : group
-        );
+    const groups = asArray(value.groups);
+    if (groups.length > 0 || value.groups != null) {
+        normalized.groups = groups.map(group => {
+            if (!isRecord(group)) return group;
+            return {
+                ...group,
+                players: asArray(group.players),
+                rounds: normalizeSwissRounds(group.rounds),
+            };
+        });
     }
     return normalized;
 };
@@ -117,7 +183,8 @@ const normalizeHybridData = (value: unknown): unknown => {
     if (!isRecord(value)) return value;
     return {
         ...value,
-        preliminaryGroups: normalizeSwissRounds(value.preliminaryGroups),
+        players: asArray(value.players),
+        preliminaryGroups: normalizeHybridPreliminaryGroups(value.preliminaryGroups),
     };
 };
 

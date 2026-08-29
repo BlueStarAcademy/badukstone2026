@@ -201,6 +201,69 @@ describe('legacy AppData compatibility', () => {
         expect(legacy.coupons).toBeNull();
     });
 
+    it('normalizes numeric-keyed swiss/hybrid shapes so flatMap and sort never crash', () => {
+        const incoming = {
+            tournamentData: {
+                swiss: {
+                    status: 'in_progress',
+                    players: {
+                        0: { studentId: 'a', name: 'A', score: 1, opponents: [], sos: 0, sosos: 0 },
+                        1: { studentId: 'b', name: 'B', score: 0, opponents: [], sos: 0, sosos: 0 },
+                    },
+                    rounds: {
+                        0: {
+                            0: { id: 'm1', players: { 0: 'a', 1: 'b' }, winnerId: 'a' },
+                        },
+                    },
+                    groups: {
+                        0: {
+                            id: 'g1',
+                            label: '1조',
+                            players: {
+                                0: { studentId: 'a', name: 'A', score: 1, opponents: [], sos: 0, sosos: 0 },
+                            },
+                            rounds: {
+                                0: [{ id: 'gm1', players: ['a', 'BYE'], winnerId: 'a' }],
+                            },
+                        },
+                    },
+                },
+                hybrid: {
+                    players: {
+                        0: { studentId: 'h1', name: 'H', score: 0, opponents: [], sos: 0, sosos: 0 },
+                    },
+                    preliminaryGroups: {
+                        0: {
+                            groupIndex: 0,
+                            matches: [{ id: 'hm1', players: ['h1', 'h2'], winnerId: 'h1' }],
+                        },
+                    },
+                    bracket: null,
+                },
+            },
+        };
+
+        const normalized = normalizeAppDataCompatibility(incoming, defaults());
+        const swiss = normalized.tournamentData.swiss as any;
+        const hybrid = normalized.tournamentData.hybrid as any;
+
+        expect(Array.isArray(swiss.players)).toBe(true);
+        expect(Array.isArray(swiss.rounds)).toBe(true);
+        expect(Array.isArray(swiss.rounds[0])).toBe(true);
+        expect(Array.isArray(swiss.rounds[0][0].players)).toBe(true);
+        expect(Array.isArray(swiss.groups)).toBe(true);
+        expect(Array.isArray(swiss.groups[0].players)).toBe(true);
+        expect(Array.isArray(swiss.groups[0].rounds)).toBe(true);
+
+        expect(Array.isArray(hybrid.players)).toBe(true);
+        expect(Array.isArray(hybrid.preliminaryGroups)).toBe(true);
+        expect(Array.isArray(hybrid.preliminaryGroups[0])).toBe(true);
+        expect(hybrid.preliminaryGroups[0][0]).toMatchObject({ id: 'hm1', winnerId: 'h1' });
+
+        expect(() => swiss.groups.flatMap((g: any) => g.players)).not.toThrow();
+        expect(() => hybrid.preliminaryGroups[0].flatMap((m: any) => m.players)).not.toThrow();
+    });
+
     it('retains explicit participant selections and tolerates null tournament data', () => {
         const selected = normalizeAppDataCompatibility({
             students: [],
