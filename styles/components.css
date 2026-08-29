@@ -128,6 +128,60 @@
     background: var(--surface-color);
 }
 
+.admin-student-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 0.65rem 0.75rem;
+    padding: 0.75rem 0.9rem;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.admin-student-filters .admin-search-field {
+    flex: 1 1 12rem;
+    min-width: 10rem;
+    max-width: 18rem;
+}
+
+.admin-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--color-muted);
+}
+
+.admin-filter-field select {
+    min-height: var(--control-height);
+    min-width: 6.5rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-color);
+    color: var(--color-ink);
+    font-weight: 600;
+}
+
+.admin-filter-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: var(--control-height);
+    margin-left: 0.25rem;
+}
+
+.admin-filter-count {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--color-ink);
+    white-space: nowrap;
+}
+
 .admin-data-menu {
     position: relative;
 }

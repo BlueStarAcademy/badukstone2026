@@ -218,6 +218,10 @@ export const AdminPanel = (props: AdminPanelProps) => {
 
     const [activeStudentGroup, setActiveStudentGroup] = useState('전체');
     const [studentSearchTerm, setStudentSearchTerm] = useState('');
+    const [studentStatusFilter, setStudentStatusFilter] = useState<'all' | StudentStatus>('all');
+    const [studentChessFilter, setStudentChessFilter] = useState<'all' | 'yes' | 'no'>('all');
+    const [studentRankFilter, setStudentRankFilter] = useState('');
+    const [studentBirthdayMonthFilter, setStudentBirthdayMonthFilter] = useState('');
     const [bulkEditRank, setBulkEditRank] = useState('');
     const [bulkEditStatus, setBulkEditStatus] = useState<Student['status'] | ''>('');
     const [studentSort, setStudentSort] = useState<{
@@ -255,9 +259,36 @@ export const AdminPanel = (props: AdminPanelProps) => {
         }
 
         if (studentSearchTerm.trim() !== '') {
-            filtered = filtered.filter(s =>
-                s.name.toLowerCase().includes(studentSearchTerm.trim().toLowerCase())
-            );
+            const term = studentSearchTerm.trim().toLowerCase();
+            filtered = filtered.filter(s => s.name.toLowerCase().includes(term));
+        }
+
+        if (studentStatusFilter !== 'all') {
+            filtered = filtered.filter(s => s.status === studentStatusFilter);
+        }
+
+        if (studentChessFilter === 'yes') {
+            filtered = filtered.filter(s => !!s.takesChess);
+        } else if (studentChessFilter === 'no') {
+            filtered = filtered.filter(s => !s.takesChess);
+        }
+
+        if (studentRankFilter) {
+            filtered = filtered.filter(s => s.rank === studentRankFilter);
+        }
+
+        if (studentBirthdayMonthFilter) {
+            filtered = filtered.filter(s => {
+                const birthday = (s.birthday || '').trim();
+                if (!birthday) return false;
+                // MM-DD 또는 YYYY-MM-DD
+                const month = birthday.includes('-')
+                    ? birthday.split('-').length === 3
+                        ? birthday.split('-')[1]
+                        : birthday.split('-')[0]
+                    : '';
+                return month.padStart(2, '0') === studentBirthdayMonthFilter;
+            });
         }
 
         const dir = studentSort.direction === 'asc' ? 1 : -1;
@@ -284,7 +315,32 @@ export const AdminPanel = (props: AdminPanelProps) => {
         };
 
         return [...filtered].sort(compare);
-    }, [students, activeStudentGroup, studentSearchTerm, studentSort, groupSettings]);
+    }, [
+        students,
+        activeStudentGroup,
+        studentSearchTerm,
+        studentStatusFilter,
+        studentChessFilter,
+        studentRankFilter,
+        studentBirthdayMonthFilter,
+        studentSort,
+        groupSettings,
+    ]);
+
+    const hasActiveStudentFilters =
+        studentSearchTerm.trim() !== '' ||
+        studentStatusFilter !== 'all' ||
+        studentChessFilter !== 'all' ||
+        studentRankFilter !== '' ||
+        studentBirthdayMonthFilter !== '';
+
+    const clearStudentFilters = () => {
+        setStudentSearchTerm('');
+        setStudentStatusFilter('all');
+        setStudentChessFilter('all');
+        setStudentRankFilter('');
+        setStudentBirthdayMonthFilter('');
+    };
 
     const setStudentSortKey = (
         key: 'group' | 'name' | 'rank' | 'stones' | 'status' | 'birthday',
@@ -331,7 +387,14 @@ export const AdminPanel = (props: AdminPanelProps) => {
 
     useEffect(() => {
         setSelectedStudentIds(new Set());
-    }, [activeTab, activeStudentGroup]);
+    }, [
+        activeTab,
+        activeStudentGroup,
+        studentStatusFilter,
+        studentChessFilter,
+        studentRankFilter,
+        studentBirthdayMonthFilter,
+    ]);
 
     useEffect(() => {
         setIsDataMenuOpen(false);
@@ -734,15 +797,78 @@ export const AdminPanel = (props: AdminPanelProps) => {
                         ))}
                     </div>
 
-                    <div className="form-group admin-search-field">
-                        <input
-                            type="search"
-                            placeholder="학생 이름으로 검색..."
-                            value={studentSearchTerm}
-                            onChange={(e) => setStudentSearchTerm(e.target.value)}
-                            className="search-input"
-                            aria-label="학생 이름으로 검색"
-                        />
+                    <div className="admin-student-filters">
+                        <div className="form-group admin-search-field">
+                            <input
+                                type="search"
+                                placeholder="학생 이름으로 검색..."
+                                value={studentSearchTerm}
+                                onChange={(e) => setStudentSearchTerm(e.target.value)}
+                                className="search-input"
+                                aria-label="학생 이름으로 검색"
+                            />
+                        </div>
+                        <label className="admin-filter-field">
+                            <span>상태</span>
+                            <select
+                                value={studentStatusFilter}
+                                onChange={e => setStudentStatusFilter(e.target.value as 'all' | StudentStatus)}
+                                aria-label="상태 필터"
+                            >
+                                <option value="all">전체</option>
+                                <option value="재원">재원</option>
+                                <option value="휴원">휴원</option>
+                            </select>
+                        </label>
+                        <label className="admin-filter-field">
+                            <span>체스</span>
+                            <select
+                                value={studentChessFilter}
+                                onChange={e => setStudentChessFilter(e.target.value as 'all' | 'yes' | 'no')}
+                                aria-label="체스 수강 필터"
+                            >
+                                <option value="all">전체</option>
+                                <option value="yes">수강</option>
+                                <option value="no">미수강</option>
+                            </select>
+                        </label>
+                        <label className="admin-filter-field">
+                            <span>급수/단</span>
+                            <select
+                                value={studentRankFilter}
+                                onChange={e => setStudentRankFilter(e.target.value)}
+                                aria-label="급수 필터"
+                            >
+                                <option value="">전체</option>
+                                {rankOptions.map(rank => (
+                                    <option key={rank} value={rank}>{rank}</option>
+                                ))}
+                            </select>
+                        </label>
+                        <label className="admin-filter-field">
+                            <span>생일 월</span>
+                            <select
+                                value={studentBirthdayMonthFilter}
+                                onChange={e => setStudentBirthdayMonthFilter(e.target.value)}
+                                aria-label="생일 월 필터"
+                            >
+                                <option value="">전체</option>
+                                {Array.from({ length: 12 }, (_, i) => {
+                                    const month = String(i + 1).padStart(2, '0');
+                                    return (
+                                        <option key={month} value={month}>{i + 1}월</option>
+                                    );
+                                })}
+                            </select>
+                        </label>
+                        <div className="admin-filter-meta">
+                            <span className="admin-filter-count">{studentsInCurrentTab.length}명</span>
+                            {hasActiveStudentFilters && (
+                                <button type="button" className="btn-sm" onClick={clearStudentFilters}>
+                                    필터 초기화
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     {selectedStudentIds.size > 0 && (
