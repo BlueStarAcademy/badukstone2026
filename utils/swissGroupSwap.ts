@@ -1,5 +1,6 @@
 import type { SwissData, SwissMatch } from '../types';
 import { recomputeSwissStats } from './tournament/swiss';
+import { cloneDeep } from './tournament/clone';
 
 function replacePlayerIdInGroupRounds(rounds: SwissMatch[][], fromId: string, toId: string): void {
     for (const round of rounds) {
@@ -34,7 +35,7 @@ export function swapSwissPlayersBetweenGroups(
     const ib = gb.players.findIndex(p => p.studentId === studentIdB);
     if (ia < 0 || ib < 0) return { ok: false, message: '선택한 선수를 해당 조에서 찾을 수 없습니다.' };
 
-    const cloned = JSON.parse(JSON.stringify(swiss)) as SwissData;
+    const cloned = cloneDeep(swiss) as SwissData;
     const cga = cloned.groups![groupIndexA];
     const cgb = cloned.groups![groupIndexB];
 

@@ -7,6 +7,7 @@ import { parseRank, generateId } from '../../utils';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import {
     buildSingleElimRounds,
+    isSemiFinalRoundTitle,
     resetAndPropagateSingleElim,
 } from '../../utils/elimBracket';
 import type { BracketPrizeSettingsKey, TournamentBracketPrizeModalMode } from '../../utils/tournamentPrizes';
@@ -18,6 +19,7 @@ import {
 } from '../../utils/tournamentPrizes';
 import { BracketTree } from './BracketTree';
 import { StartRoundSelect } from './StartRoundSelect';
+import { cloneDeep } from '../../utils/tournament/clone';
 import {
     loadStartRoundPreference,
     saveStartRoundPreference,
@@ -118,7 +120,7 @@ const TournamentResultPanel = ({
     }
 
     const finalRound = bracketData.rounds[bracketData.rounds.length - 1];
-    const semiFinalRound = bracketData.rounds.find(r => r.title === '4강전' || r.title === '준결승');
+    const semiFinalRound = bracketData.rounds.find(r => isSemiFinalRoundTitle(r.title));
     const championId = finalRound.matches[0].winnerId;
     const champion = championId ? students.find(s => s.id === championId) : null;
     const runnerUpPlayer = finalRound.matches[0].players.find(p => p && p !== 'BYE' && p.studentId !== championId);
@@ -248,7 +250,7 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     const handleSetMatchWinner = (roundIndex: number, matchIndex: number, clickedPlayerId: string) => {
         setData(prev => {
             if (!prev.bracket) return prev;
-            const newBracket = JSON.parse(JSON.stringify(prev.bracket)) as TournamentBracket;
+            const newBracket = cloneDeep(prev.bracket) as TournamentBracket;
             
             const match = newBracket.rounds[roundIndex].matches[matchIndex];
             const newWinnerId = match.winnerId === clickedPlayerId ? null : clickedPlayerId;

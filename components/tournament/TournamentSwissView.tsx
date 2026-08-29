@@ -5,6 +5,7 @@ import { sortSwissPlayers } from '../../utils';
 import { asArray, normalizeSwissRounds } from '../../utils/tournament/compatibility';
 import { getSwissGroupReadiness } from '../../utils/tournament/rosterGuards';
 import { SwissGroupPlayerSwapModal } from './SwissGroupPlayerSwapModal';
+import { cloneDeep } from '../../utils/tournament/clone';
 
 interface TournamentSwissViewProps {
     swissData?: SwissData;
@@ -229,7 +230,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         if (source.playerId === target.playerId) return;
         const gIdx = groupIndexForCallbacks;
         onPlayerSwap(prev => {
-            const newData = JSON.parse(JSON.stringify(prev));
+            const newData = cloneDeep(prev);
             if (!newData.swiss) return newData;
 
             let roundList: SwissMatch[][];

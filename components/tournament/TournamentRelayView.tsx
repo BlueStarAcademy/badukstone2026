@@ -8,6 +8,7 @@ import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { TournamentAwardModal } from './TournamentAwardModal';
 import { parseRank } from '../../utils';
 import { getRelayPrizeRow } from '../../utils/tournamentPrizes';
+import { cloneDeep } from '../../utils/tournament/clone';
 
 interface TournamentRelayViewProps {
     data: TournamentData;
@@ -85,7 +86,7 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
         droppedOn: { teamName: 'A' | 'B'; playerIndex: number }
     ) => {
         setData(prev => {
-            const teamsCopy = JSON.parse(JSON.stringify(prev.teams));
+            const teamsCopy = cloneDeep(prev.teams);
             const teamA = teamsCopy.find((t: { name: string }) => t.name === 'A');
             const teamB = teamsCopy.find((t: { name: string }) => t.name === 'B');
 
@@ -176,7 +177,7 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
         const { teamName, playerIndex } = playerToSwap;
         
         setData(prev => {
-            const teamsCopy = JSON.parse(JSON.stringify(prev.teams));
+            const teamsCopy = cloneDeep(prev.teams);
             const targetTeam = teamsCopy.find((t: any) => t.name === teamName);
             const otherTeam = teamsCopy.find((t: any) => t.name !== teamName);
 

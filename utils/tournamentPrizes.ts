@@ -11,6 +11,8 @@ import type {
     TournamentPlayer,
 } from '../types';
 import { sortSwissPlayers } from './index';
+import { getLoserFromMatch } from './doubleElimBracket';
+import { isSemiFinalRoundTitle } from './elimBracket';
 
 export type BracketPrizeSettingsKey = 'bracket' | 'hybridBracket';
 
@@ -241,9 +243,7 @@ export function getBracketOrderedPlacementIds(bracketData: TournamentBracket): s
 
     let thirdId: string | null = null;
     let fourthId: string | null = null;
-    const semiFinalRound = bracketData.rounds.find(
-        r => r.title === '4강전' || r.title === '준결승' || r.title === '4강'
-    );
+    const semiFinalRound = bracketData.rounds.find(r => isSemiFinalRoundTitle(r.title));
 
     if (finalRound.matches.length > 1 && finalRound.matches[1]) {
         const m = finalRound.matches[1];
@@ -403,7 +403,7 @@ export function getDoubleElimPlacements(de: DoubleElimData): {
     championId: string | null;
     runnerUpId: string | null;
     semiFinalistIds: string[];
-    /** 1위부터 순서 (3·4위 분리, 이후 나머지) */
+    /** 1위부터 순서 (3·4위 분리, 이후는 패자조 탈락 깊이) */
     placementIds: string[];
 } {
     const decisive =
@@ -436,7 +436,36 @@ export function getDoubleElimPlacements(de: DoubleElimData): {
 
     const semiFinalistIds = [thirdId, fourthId].filter(Boolean) as string[];
     const top4 = new Set([championId, runnerUpId, ...semiFinalistIds].filter(Boolean) as string[]);
-    const rest = de.playerIds.filter(id => !top4.has(id));
+
+    // 패자조를 뒤에서부터 훑어 늦게 탈락한 선수를 앞에 둔다 (싱글 엘리미와 동일 취지).
+    const rest: string[] = [];
+    for (let ri = de.losersRounds.length - 1; ri >= 0; ri--) {
+        const round = de.losersRounds[ri];
+        for (const match of round.matches) {
+            if (!match.winnerId) continue;
+            const loserId = getLoserFromMatch(match, match.winnerId);
+            if (loserId && !top4.has(loserId) && !rest.includes(loserId)) {
+                rest.push(loserId);
+            }
+        }
+    }
+
+    // 승자조에서만 탈락하고 패자조 기록이 없는 경우(미완료·레거시) 보완
+    for (let ri = de.winnersRounds.length - 1; ri >= 0; ri--) {
+        const round = de.winnersRounds[ri];
+        for (const match of round.matches) {
+            if (!match.winnerId) continue;
+            const loserId = getLoserFromMatch(match, match.winnerId);
+            if (loserId && !top4.has(loserId) && !rest.includes(loserId)) {
+                rest.push(loserId);
+            }
+        }
+    }
+
+    for (const id of de.playerIds) {
+        if (!top4.has(id) && !rest.includes(id)) rest.push(id);
+    }
+
     const placementIds = [championId, runnerUpId, thirdId, fourthId, ...rest].filter(Boolean) as string[];
     return { championId, runnerUpId, semiFinalistIds, placementIds };
 }

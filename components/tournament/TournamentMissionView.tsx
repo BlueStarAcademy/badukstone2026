@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import type { Student, TournamentData, TournamentSettings, MissionBadukPlayer, MissionBadukActiveMission, MissionBadukData } from '../../types';
 import { getMissionPrizeRow, missionPrizeGroupCount } from '../../utils/tournamentPrizes';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
+import { cloneDeep } from '../../utils/tournament/clone';
 
 interface TournamentMissionViewProps {
     students: Student[];
@@ -489,7 +490,7 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
 
     const saveHistory = () => {
         if (data.missionBaduk) {
-            setHistory(prev => [...prev.slice(-9), JSON.parse(JSON.stringify(data.missionBaduk))]);
+            setHistory(prev => [...prev.slice(-9), cloneDeep(data.missionBaduk)]);
         }
     };
 

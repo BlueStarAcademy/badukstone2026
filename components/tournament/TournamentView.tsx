@@ -39,6 +39,7 @@ import {
 import { TournamentAwardHistory } from './TournamentAwardHistory';
 import { TournamentOperationsHeader } from './TournamentOperationsHeader';
 import { getTournamentOperationStatus, type TournamentOperationMode } from '../../utils/tournament/operationProgress';
+import { cloneDeep } from '../../utils/tournament/clone';
 import {
     cancelLastSwissRound,
     createFullLeague,
@@ -486,7 +487,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const handleSetSwissWinner = (groupIndex: number | undefined, roundIndex: number, matchId: string, winnerId: string | null) => {
         setData(prev => {
             if (!prev.swiss) return prev;
-            const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            const newSwiss = cloneDeep(prev.swiss);
             const targetRounds =
                 groupIndex !== undefined && newSwiss.groups?.[groupIndex]
                     ? newSwiss.groups[groupIndex].rounds
@@ -524,7 +525,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const handleGenerateNextRoundSwiss = (groupIndex?: number) => {
         setData(prev => {
             if (!prev.swiss) return prev;
-            const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            const newSwiss = cloneDeep(prev.swiss);
             const roundLimit = Math.max(1, Math.floor(settings.swissRounds || 1));
             if (groupIndex !== undefined && newSwiss.groups?.[groupIndex]) {
                 const g = newSwiss.groups[groupIndex];
@@ -556,7 +557,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const handleCancelLastRoundSwiss = (groupIndex?: number) => {
         setData(prev => {
             if (!prev.swiss) return prev;
-            const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            const newSwiss = cloneDeep(prev.swiss);
             const targetRounds =
                 groupIndex !== undefined && newSwiss.groups?.[groupIndex]
                     ? newSwiss.groups[groupIndex].rounds
@@ -584,7 +585,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const handleRematchSwiss = (groupIndex?: number) => {
         setData(prev => {
             if (!prev.swiss) return prev;
-            const newSwiss = JSON.parse(JSON.stringify(prev.swiss));
+            const newSwiss = cloneDeep(prev.swiss);
             const targetRounds =
                 groupIndex !== undefined && newSwiss.groups?.[groupIndex]
                     ? newSwiss.groups[groupIndex].rounds

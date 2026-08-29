@@ -27,6 +27,7 @@ import { TournamentBracketView } from './TournamentBracketView';
 import { HybridPrelimPrizeModal } from './HybridPrelimPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { StartRoundSelect } from './StartRoundSelect';
+import { cloneDeep } from '../../utils/tournament/clone';
 import {
     loadStartRoundPreference,
     saveStartRoundPreference,
@@ -246,7 +247,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
     const handleSetPreliminaryWinner = (matchId: string, winnerId: string) => {
         setData(prev => {
             if (!prev.hybrid) return prev;
-            const newData = JSON.parse(JSON.stringify(prev));
+            const newData = cloneDeep(prev);
             const groups = normalizeHybridPreliminaryGroups(newData.hybrid.preliminaryGroups) as SwissMatch[][];
             newData.hybrid.preliminaryGroups = groups;
             let matchFound = false;

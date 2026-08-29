@@ -31,6 +31,15 @@ export function elimRoundTitle(size: number): string {
     return `${size}강`;
 }
 
+/** 레거시 저장 데이터에 남은 준결승/4강 별칭 포함 */
+export function isSemiFinalRoundTitle(title: string): boolean {
+    return title === '4강전' || title === '준결승' || title === '4강';
+}
+
+export function isFinalRoundTitle(title: string): boolean {
+    return title.includes('결승');
+}
+
 export function pickElimSeedBuckets<T>(
     seedsStrongestFirst: T[],
     priority: TournamentByePriority,
@@ -88,7 +97,7 @@ export function getElimFeederTarget(
     playInMatchCount: number,
     mainDrawSize?: number
 ): { matchIndex: number; slot: 0 | 1 } | null {
-    if (nextTitle.includes('결승') && (currentTitle === '4강전' || currentTitle === '준결승' || currentTitle === '4강')) {
+    if (isFinalRoundTitle(nextTitle) && isSemiFinalRoundTitle(currentTitle)) {
         // 결승/3·4위는 호출측에서 별도 처리
         return null;
     }
@@ -224,10 +233,7 @@ export function propagateSingleElimWinners(bracket: TournamentBracket): void {
         const currentRound = bracket.rounds[rIdx];
         const nextRound = bracket.rounds[rIdx + 1];
 
-        if (
-            (currentRound.title === '4강전' || currentRound.title === '준결승' || currentRound.title === '4강') &&
-            nextRound.title.includes('결승')
-        ) {
+        if (isSemiFinalRoundTitle(currentRound.title) && isFinalRoundTitle(nextRound.title)) {
             const semi1 = currentRound.matches[0];
             const semi2 = currentRound.matches[1];
             const finalMatch = nextRound.matches[0];

@@ -15,6 +15,7 @@ import { DoubleElimResultPanel } from './DoubleElimResultPanel';
 import { TournamentPrizeModal } from './TournamentPrizeModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
 import { StartRoundSelect } from './StartRoundSelect';
+import { cloneDeep } from '../../utils/tournament/clone';
 import {
     loadStartRoundPreference,
     saveStartRoundPreference,
@@ -76,7 +77,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
     const setMatchWinner = (bracket: 'winners' | 'losers' | 'grand' | 'grandReset', roundIndex: number, matchIndex: number, winnerId: string | null) => {
         setData(prev => {
             if (!prev.doubleElim) return prev;
-            const next = JSON.parse(JSON.stringify(prev.doubleElim)) as DoubleElimData;
+            const next = cloneDeep(prev.doubleElim) as DoubleElimData;
             const W = next.winnersRounds;
             const L = next.losersRounds;
             if (!next.grandFinalReset) next.grandFinalReset = { id: generateId(), players: [null, null], winnerId: null };

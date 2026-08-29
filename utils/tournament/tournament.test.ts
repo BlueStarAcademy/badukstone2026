@@ -399,6 +399,41 @@ describe('double elimination', () => {
         });
     });
 
+    it('orders placements beyond top4 by losers-bracket elimination depth', () => {
+        // roster는 d가 e보다 앞이지만, e가 더 늦은 패자조에서 탈락하면 e가 앞선다.
+        const data = {
+            winnersRounds: [
+                {
+                    title: '승자 결승',
+                    matches: [{ id: 'wf', players: ['a', 'b'], winnerId: 'a' }],
+                },
+            ],
+            losersRounds: [
+                {
+                    title: '패자조 R1',
+                    matches: [{ id: 'l1', players: ['d', 'x'], winnerId: 'x' }],
+                },
+                {
+                    title: '패자조 R2',
+                    matches: [{ id: 'l2', players: ['e', 'y'], winnerId: 'y' }],
+                },
+                {
+                    title: '패자 결승',
+                    matches: [{ id: 'lf', players: ['b', 'c'], winnerId: 'b' }],
+                },
+            ],
+            grandFinal: { id: 'g', players: ['a', 'b'], winnerId: 'a' },
+            playerIds: ['a', 'b', 'c', 'd', 'e', 'x', 'y'],
+        } satisfies DoubleElimData;
+        const { placementIds } = getDoubleElimPlacements(data);
+        expect(placementIds.slice(0, 3)).toEqual(['a', 'b', 'c']);
+        const eIdx = placementIds.indexOf('e');
+        const dIdx = placementIds.indexOf('d');
+        expect(eIdx).toBeGreaterThan(-1);
+        expect(dIdx).toBeGreaterThan(-1);
+        expect(eIdx).toBeLessThan(dIdx);
+    });
+
     it('pads five players to an eight-bracket and builds a full losers bracket', () => {
         const data = buildDoubleElim(['a', 'b', 'c', 'd', 'e'], 'min_byes');
         expect(data.winnersRounds[0].matches).toHaveLength(4);
