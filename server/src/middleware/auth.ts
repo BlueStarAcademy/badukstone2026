@@ -34,7 +34,11 @@ export function setAuthCookie(res: Response, token: string) {
 }
 
 export function clearAuthCookie(res: Response) {
-    res.clearCookie(COOKIE_NAME);
+    res.clearCookie(COOKIE_NAME, {
+        httpOnly: true,
+        secure: config.cookieSecure,
+        sameSite: config.cookieSecure ? 'none' : 'lax',
+    });
 }
 
 export function hashPassword(password: string): Promise<string> {

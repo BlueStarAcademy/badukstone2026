@@ -56,13 +56,16 @@ API Dockerfile은 모노레포 루트를 빌드 컨텍스트로 씁니다. API �
 
 - `DATABASE_URL` — PostgreSQL (플러그인 자동 주입)
 - `JWT_SECRET` — JWT 서명 키
-- `CORS_ORIGIN` — `https://badukstone.up.railway.app`
+- `CORS_ORIGIN` — (선택) 추가 허용 origin. 기본값에 `https://badukstone.up.railway.app` 포함
 - `MASTER_EMAIL` / `MASTER_PASSWORD` — 마스터 계정 초기 시드
+
+**중요:** API 서비스 Settings → Config-as-code = `railway.api.json`, Dockerfile = `server/Dockerfile` 이어야 합니다.  
+배포 후 `https://<api-domain>/health` 가 `{"ok":true}` 를 반환하는지 확인하세요. HTML이 나오면 프론트 이미지가 잘못 배포된 것입니다.
 
 ### 프론트 서비스 환경 변수
 
-- `VITE_API_URL` — API 공개 URL (`https://badukstone-api-production.up.railway.app`)  
-  Docker 빌드 인자로 들어가므로 값을 바꾸면 **재배포**가 필요합니다.
+- `VITE_API_URL` — **설정하지 않거나** `same-origin` (빌드 기본값). 프론트가 `/api/*` 를 API 서비스로 프록시합니다.
+- `API_UPSTREAM` — (선택) Caddy 프록시 대상. 기본 `http://badukstone-api.railway.internal:3001`
 
 ### 자동배포가 안 될 때
 

@@ -49,6 +49,7 @@ export const LoginPage = ({ onLoginSuccess, isDemoMode, onDemoClick }: LoginPage
                             onChange={(e) => setUsername(e.target.value)}
                             required
                             autoFocus
+                            autoComplete="username"
                             placeholder="이메일 주소 또는 아이디"
                         />
                     </div>
@@ -60,6 +61,7 @@ export const LoginPage = ({ onLoginSuccess, isDemoMode, onDemoClick }: LoginPage
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
+                            autoComplete="current-password"
                             placeholder="비밀번호 입력"
                         />
                     </div>

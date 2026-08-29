@@ -1,6 +1,20 @@
-const API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
 
-export const isDemoMode = !API_URL;
+/** 데모: VITE_API_URL=demo 또는 개발 환경에서 미설정 */
+export const isDemoMode =
+    configuredApiUrl === 'demo' ||
+    (import.meta.env.MODE === 'development' && !configuredApiUrl);
+
+function getApiBaseUrl(): string {
+    if (isDemoMode) return '';
+    if (!configuredApiUrl || configuredApiUrl === 'same-origin') {
+        if (typeof window !== 'undefined') {
+            return window.location.origin.replace(/\/$/, '');
+        }
+        return '';
+    }
+    return configuredApiUrl.replace(/\/$/, '');
+}
 
 export interface ApiUser {
     uid: string;
@@ -9,7 +23,7 @@ export interface ApiUser {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const res = await fetch(`${API_URL}${path}`, {
+    const res = await fetch(`${getApiBaseUrl()}${path}`, {
         ...options,
         credentials: 'include',
         headers: {
@@ -74,8 +88,8 @@ export const api = {
         request<{ ok: boolean }>(`/api/master/users/${uid}`, { method: 'DELETE' }),
 
     subscribeAppData: (onUpdate: (lastUpdatedAt: number) => void) => {
-        if (!API_URL) return () => {};
-        const es = new EventSource(`${API_URL}/api/app-data/stream`, { withCredentials: true });
+        if (isDemoMode) return () => {};
+        const es = new EventSource(`${getApiBaseUrl()}/api/app-data/stream`, { withCredentials: true });
         es.addEventListener('update', (e) => {
             try {
                 const payload = JSON.parse((e as MessageEvent).data);

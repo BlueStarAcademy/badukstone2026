@@ -40,7 +40,7 @@ jobs:
       - name: Build frontend
         run: npm run build
         env:
-          VITE_API_URL: https://badukstone-api-production.up.railway.app
+          VITE_API_URL: same-origin
 
       - name: Typecheck API
         run: npx tsc --noEmit

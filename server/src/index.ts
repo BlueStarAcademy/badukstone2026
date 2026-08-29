@@ -11,7 +11,7 @@ import masterRoutes from './routes/master';
 const app = express();
 
 app.use(cors({
-    origin: config.corsOrigin.split(',').map((o) => o.trim()),
+    origin: config.corsOrigins,
     credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -31,7 +31,8 @@ async function start() {
     await runMigrations();
     await pool.query('SELECT 1');
     app.listen(config.port, () => {
-        console.log(`API listening on port ${config.port}`);
+        console.log(`BadukStone API listening on port ${config.port}`);
+        console.log(`CORS origins: ${config.corsOrigins.join(', ')}`);
     });
 }
 
