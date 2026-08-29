@@ -12,9 +12,12 @@ export {
     previousPow2BracketSize,
     planCompactElimBracket,
     planElimBracket,
+    planDoubleElimBracket,
     listValidStartRoundSizes,
+    listValidDoubleElimStartRoundSizes,
     formatStartRoundLabel,
     describeElimBracketPlan,
+    describeDoubleElimBracketPlan,
 } from './byePlacement';
 
 export function isPlayInRoundTitle(title: string): boolean {
@@ -84,7 +87,7 @@ export function getElimFeederTarget(
     playInMatchCount: number,
     mainDrawSize?: number
 ): { matchIndex: number; slot: 0 | 1 } | null {
-    if (nextTitle.includes('결승') && (currentTitle === '4강전' || currentTitle === '준결승')) {
+    if (nextTitle.includes('결승') && (currentTitle === '4강전' || currentTitle === '준결승' || currentTitle === '4강')) {
         // 결승/3·4위는 호출측에서 별도 처리
         return null;
     }
@@ -233,7 +236,7 @@ export function propagateSingleElimWinners(bracket: TournamentBracket): void {
         const nextRound = bracket.rounds[rIdx + 1];
 
         if (
-            (currentRound.title === '4강전' || currentRound.title === '준결승') &&
+            (currentRound.title === '4강전' || currentRound.title === '준결승' || currentRound.title === '4강') &&
             nextRound.title.includes('결승')
         ) {
             const semi1 = currentRound.matches[0];

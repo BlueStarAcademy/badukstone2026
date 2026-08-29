@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DoubleElimData, SwissMatch, SwissPlayer } from '../../types';
-import { buildElimRoundOneSlotOrder, listValidStartRoundSizes, planElimBracket } from '../byePlacement';
+import { buildElimRoundOneSlotOrder, listValidDoubleElimStartRoundSizes, listValidStartRoundSizes, planDoubleElimBracket, planElimBracket } from '../byePlacement';
 import { buildSingleElimRounds, playInFeederTarget, propagateSingleElimWinners } from '../elimBracket';
 import { buildDoubleElim, isDoubleElimComplete, propagateAllWinners } from '../doubleElimBracket';
 import { getDoubleElimPlacements } from '../tournamentPrizes';
@@ -345,6 +345,13 @@ describe('double elimination', () => {
         expect(data.winnersRounds[0].matches).toHaveLength(4);
         expect(data.losersRounds.length).toBeGreaterThanOrEqual(4);
         expect(data.grandFinalReset).toBeTruthy();
+        expect(planDoubleElimBracket(5)).toEqual({
+            mainDrawSize: 8,
+            playInMatchCount: 0,
+            byeCount: 3,
+        });
+        expect(listValidDoubleElimStartRoundSizes(5)).toEqual([8]);
+        expect(listValidStartRoundSizes(5)).toEqual([4, 8]);
     });
 
     it('preserves the delayed seeded match in the six-player format', () => {
@@ -353,5 +360,6 @@ describe('double elimination', () => {
         propagateAllWinners(data);
         expect(data.winnersRounds[1].matches[1].players).toEqual(delayedSeeds);
         expect(data.grandFinalReset).toBeTruthy();
+        expect(data.winnersRounds[0].title).toBe('4강전');
     });
 });

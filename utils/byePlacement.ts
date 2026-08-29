@@ -107,6 +107,59 @@ export function describeElimBracketPlan(
 }
 
 /**
+ * 더블엘리미 승자조 계획.
+ * 자동일 때 예선(play-in) 대신 다음 2^n 부전승 패딩을 쓴다.
+ * 강제 크기가 인원보다 작으면 단판과 같이 예선을 허용한다.
+ */
+export function planDoubleElimBracket(
+    n: number,
+    forcedMainDrawSize?: number | null
+): {
+    mainDrawSize: number;
+    playInMatchCount: number;
+    byeCount: number;
+} {
+    const count = Math.max(0, n);
+    let plan = planElimBracket(count, forcedMainDrawSize);
+    if (
+        plan.playInMatchCount > 0 &&
+        (forcedMainDrawSize == null || forcedMainDrawSize === undefined)
+    ) {
+        const size = minimalPow2BracketSize(count);
+        plan = { mainDrawSize: size, playInMatchCount: 0, byeCount: size - count };
+    }
+    return plan;
+}
+
+/** DE 몇강 선택: 부전승 패딩이 가능한 크기(≥n)만 노출 */
+export function listValidDoubleElimStartRoundSizes(playerCount: number): number[] {
+    const n = Math.max(0, playerCount);
+    if (n < 2) return [];
+    const maxSize = Math.max(minimalPow2BracketSize(n), 4);
+    const sizes: number[] = [];
+    for (let size = 4; size <= maxSize; size *= 2) {
+        if (size >= n) sizes.push(size);
+    }
+    if (n === 2 && !sizes.includes(2)) sizes.unshift(2);
+    return sizes;
+}
+
+export function describeDoubleElimBracketPlan(
+    playerCount: number,
+    forcedMainDrawSize?: number | null
+): string {
+    const n = Math.max(0, playerCount);
+    if (n < 2) return '';
+    const { mainDrawSize, playInMatchCount, byeCount } = planDoubleElimBracket(n, forcedMainDrawSize);
+    const label = formatStartRoundLabel(mainDrawSize);
+    if (playInMatchCount > 0) {
+        return `예선 ${playInMatchCount}경기 → ${label}` + (byeCount > 0 ? `, 부전승 ${byeCount}` : '');
+    }
+    if (byeCount > 0) return `${label} · 부전승 ${byeCount}`;
+    return `${label} 본선`;
+}
+
+/**
  * 단판/예선 본선 등: 시드 순서에서 부전승을 받을 B명의 인덱스(0 = 최강).
  * - min_byes: 부전승 대상을 순위 전체에 고르게 퍼뜨림.
  * - min_matches: 상위 시드가 부전승을 받아 강자의 실제 대국(판) 수를 줄임.

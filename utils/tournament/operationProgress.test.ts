@@ -83,4 +83,40 @@ describe('getTournamentOperationStatus', () => {
         expect(getTournamentOperationStatus(data, settings, 'bracket').stage).toBe('순위');
         expect(getTournamentOperationStatus(data, settings, 'bracket', 1).stage).toBe('시상');
     });
+
+    it('requires hybrid prelim group awards plus final when bracket exists', () => {
+        const match = (id: string, winnerId: string | null = 'a') => ({
+            id,
+            players: ['a', 'b'] as (string | 'BYE')[],
+            winnerId,
+        });
+        const data = {
+            ...emptyData,
+            hybridParticipantIds: ['a', 'b', 'c', 'd'],
+            hybrid: {
+                players: [],
+                preliminaryGroups: [
+                    [match('g0m0'), match('g0m1')],
+                    [match('g1m0'), match('g1m1')],
+                    [match('g2m0'), match('g2m1')],
+                ],
+                bracket: {
+                    players: [],
+                    rounds: [{ title: '결승', matches: [{ id: 'f', players: [null, null], winnerId: 'a' }] }],
+                },
+            },
+        } as unknown as TournamentData;
+
+        const pending = getTournamentOperationStatus(data, settings, 'hybrid', 0);
+        expect(pending.awardsRequired).toBe(4);
+        expect(pending.stage).toBe('순위');
+        expect(pending.nextAction).toContain('0/4');
+
+        const onePrelim = getTournamentOperationStatus(data, settings, 'hybrid', 1);
+        expect(onePrelim.stage).toBe('순위');
+        expect(onePrelim.nextAction).toContain('1/4');
+
+        const allDone = getTournamentOperationStatus(data, settings, 'hybrid', 4);
+        expect(allDone.stage).toBe('시상');
+    });
 });

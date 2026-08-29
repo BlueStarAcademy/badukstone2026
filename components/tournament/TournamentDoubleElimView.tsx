@@ -118,7 +118,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
     };
 
     const handleReset = () => {
-        setData(prev => ({ ...prev, doubleElim: undefined, doubleElimParticipantIds: [] }));
+        setData(prev => ({ ...prev, doubleElim: undefined }));
         setResetConfirmationOpen(false);
     };
 
@@ -173,6 +173,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
                                     value={startRoundSize}
                                     onChange={handleStartRoundChange}
                                     disabled={participantIds.length < 2}
+                                    variant="double"
                                 />
                             </div>
                             <button className="btn primary" onClick={handleStart} disabled={participantIds.length < 2}>
@@ -276,7 +277,7 @@ export const TournamentDoubleElimView = (props: TournamentDoubleElimViewProps) =
             )}
             {resetConfirmationOpen && (
                 <ConfirmationModal
-                    message="더블엘리미네이션을 초기화하시겠습니까? 모든 경기 결과가 사라집니다."
+                    message="더블엘리미네이션 대진·결과를 초기화할까요? 참가자 목록은 유지됩니다."
                     onClose={() => setResetConfirmationOpen(false)}
                     actions={[
                         { text: '취소', onClick: () => setResetConfirmationOpen(false) },

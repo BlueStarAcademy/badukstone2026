@@ -203,6 +203,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                                     value={startRoundSize}
                                     onChange={handleStartRoundChange}
                                     disabled={selectedIds.size < 2}
+                                    variant={currentView === 'doubleelim' ? 'double' : 'single'}
                                 />
                             )}
                             <button type="button" className="btn primary" onClick={handleFinalize}>

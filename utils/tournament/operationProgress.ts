@@ -43,13 +43,24 @@ const flattenBracketMatches = (data: TournamentData, mode: 'bracket' | 'hybrid')
         (round: any) => asArray(round?.matches)
     );
 
+export function getHybridAwardsRequired(data: TournamentData): number {
+    if (!data.hybrid) return 1;
+    const groups = normalizeHybridPreliminaryGroups(data.hybrid.preliminaryGroups);
+    const prelimCount = groups.length;
+    const finalCount = data.hybrid.bracket ? 1 : 0;
+    return Math.max(1, prelimCount + finalCount);
+}
+
 export function getTournamentOperationStatus(
     data: TournamentData,
     settings: TournamentSettings,
     mode: TournamentOperationMode,
     awardsCompleted = 0,
-    awardsRequired = mode === 'relay' ? 2 : 1
+    awardsRequired?: number
 ): TournamentOperationStatus {
+    const resolvedAwardsRequired =
+        awardsRequired ??
+        (mode === 'relay' ? 2 : mode === 'hybrid' ? getHybridAwardsRequired(data) : 1);
     const participantCount = participantIdsByMode(data, mode).length;
     let items: { winnerId?: string | null; complete?: boolean }[] = [];
     let drawCreated = false;
@@ -167,21 +178,28 @@ export function getTournamentOperationStatus(
                 ? '현재 경기 결과를 입력하고 다음 라운드를 생성하세요.'
                 : '남은 경기 결과를 입력하세요.';
         }
-    } else if (awardsCompleted < awardsRequired) {
+    } else if (awardsCompleted < resolvedAwardsRequired) {
         stage = '순위';
         nextAction = mode === 'relay' && relayIsDraw
             ? '현재 동점입니다. 보너스 또는 감점을 확인해 승리팀을 확정하세요.'
             : mode === 'relay'
-            ? `승리팀과 패배팀 시상을 확인하세요. (${awardsCompleted}/${awardsRequired})`
+            ? `승리팀과 패배팀 시상을 확인하세요. (${awardsCompleted}/${resolvedAwardsRequired})`
             : mode === 'hybrid'
-            ? '예선·본선 순위를 확인하고 시상을 진행하세요.'
+            ? `예선 조별·본선 시상을 진행하세요. (${awardsCompleted}/${resolvedAwardsRequired})`
             : '최종 순위를 확인하고 시상을 진행하세요.';
     } else {
         stage = '시상';
         nextAction = '시상이 완료되었습니다. 시상 내역을 확인할 수 있습니다.';
     }
 
-    return { ...progress, stage, nextAction, participantCount, awardsCompleted, awardsRequired };
+    return {
+        ...progress,
+        stage,
+        nextAction,
+        participantCount,
+        awardsCompleted,
+        awardsRequired: resolvedAwardsRequired,
+    };
 }
 
 export function getOperationProgress<T>(items: T[], isCompleted: (item: T) => boolean): OperationProgress {

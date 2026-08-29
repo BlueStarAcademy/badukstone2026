@@ -25,7 +25,7 @@ import { TournamentPlayerManagementModal } from './TournamentPlayerManagementMod
 import { TournamentSettingsModal } from '../modals/TournamentSettingsModal';
 import { TournamentSwissPrizeModal, type SwissPrizeAwardEntry } from './TournamentSwissPrizeModal';
 import { generateId, parseRank, sortSwissPlayers } from '../../utils';
-import { asArray, normalizeSwissRounds } from '../../utils/tournament/compatibility';
+import { asArray, normalizeHybridPreliminaryGroups, normalizeSwissRounds } from '../../utils/tournament/compatibility';
 import { DEFAULT_BYE_PRIORITY } from '../../utils/byePlacement';
 import { buildDoubleElim } from '../../utils/doubleElimBracket';
 import { buildSingleElimRounds } from '../../utils/elimBracket';
@@ -657,7 +657,7 @@ export const TournamentView = (props: TournamentViewProps) => {
         if (!canResetSwiss) return;
         if (
             !confirm(
-                '스위스 리그를 초기화할까요?\n대진표와 참가자 선택이 모두 지워지며, 이 작업은 되돌릴 수 없습니다.'
+                '스위스 리그 대진·결과를 초기화할까요?\n참가자 목록은 유지됩니다.'
             )
         ) {
             return;
@@ -665,7 +665,6 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsSwissPrizeModalOpen(false);
         setData(prev => ({
             ...prev,
-            swissParticipantIds: [],
             swiss: undefined,
         }));
     };
@@ -697,16 +696,26 @@ export const TournamentView = (props: TournamentViewProps) => {
     };
     const operationMode = activeTab === 'mission' ? null : activeTab;
     const activeAwardExists = (key: string) => hasActiveTournamentAward(awardLedger, key);
-    const operationAwardsCompleted = operationMode === 'relay'
-        ? Number(activeAwardExists(`${eventKey('relay', 'team')}:winner`)) +
-            Number(activeAwardExists(`${eventKey('relay', 'team')}:loser`))
-        : operationMode
-            ? Number(activeAwardExists(
-                operationMode === 'hybrid'
-                    ? `${eventKey('hybrid', 'session')}:final`
-                    : eventKey(operationMode, 'final')
-            ))
-            : 0;
+    const operationAwardsCompleted = (() => {
+        if (!operationMode) return 0;
+        if (operationMode === 'relay') {
+            return (
+                Number(activeAwardExists(`${eventKey('relay', 'team')}:winner`)) +
+                Number(activeAwardExists(`${eventKey('relay', 'team')}:loser`))
+            );
+        }
+        if (operationMode === 'hybrid') {
+            const base = eventKey('hybrid', 'session');
+            const groups = normalizeHybridPreliminaryGroups(data.hybrid?.preliminaryGroups);
+            let completed = 0;
+            groups.forEach((_, index) => {
+                if (activeAwardExists(`${base}:prelim:${index}`)) completed += 1;
+            });
+            if (data.hybrid?.bracket && activeAwardExists(`${base}:final`)) completed += 1;
+            return completed;
+        }
+        return Number(activeAwardExists(eventKey(operationMode, 'final')));
+    })();
     const operationStatus = operationMode
         ? getTournamentOperationStatus(data, settings, operationMode, operationAwardsCompleted)
         : null;

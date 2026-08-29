@@ -241,7 +241,9 @@ export function getBracketOrderedPlacementIds(bracketData: TournamentBracket): s
 
     let thirdId: string | null = null;
     let fourthId: string | null = null;
-    const semiFinalRound = bracketData.rounds.find(r => r.title === '4강전' || r.title === '준결승');
+    const semiFinalRound = bracketData.rounds.find(
+        r => r.title === '4강전' || r.title === '준결승' || r.title === '4강'
+    );
 
     if (finalRound.matches.length > 1 && finalRound.matches[1]) {
         const m = finalRound.matches[1];

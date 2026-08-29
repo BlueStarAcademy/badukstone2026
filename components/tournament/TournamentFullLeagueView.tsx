@@ -56,7 +56,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
     };
 
     const handleReset = () => {
-        setData(prev => ({ ...prev, fullLeague: undefined, fullLeagueParticipantIds: [] }));
+        setData(prev => ({ ...prev, fullLeague: undefined }));
         setResetConfirmationOpen(false);
     };
 
@@ -185,7 +185,7 @@ export const TournamentFullLeagueView = (props: TournamentFullLeagueViewProps) =
             />
             {resetConfirmationOpen && (
                 <ConfirmationModal
-                    message="풀리그를 초기화하면 모든 경기 결과가 사라집니다. 계속하시겠습니까?"
+                    message="풀리그 대진·결과를 초기화할까요? 참가자 목록은 유지됩니다."
                     onClose={() => setResetConfirmationOpen(false)}
                     actions={[
                         { text: '취소', onClick: () => setResetConfirmationOpen(false) },

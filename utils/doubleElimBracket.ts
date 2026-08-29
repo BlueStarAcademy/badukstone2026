@@ -2,11 +2,10 @@ import type { DoubleElimData, DoubleElimMatch, TournamentByePriority } from '../
 import { generateId } from './index';
 import {
     DEFAULT_BYE_PRIORITY,
-    minimalPow2BracketSize,
-    planElimBracket,
+    planDoubleElimBracket,
     pickByeRecipientSeedIndices,
 } from './byePlacement';
-import { isPlayInRoundTitle, playInFeederTarget, standardFeederTarget } from './elimBracket';
+import { elimRoundTitle, isPlayInRoundTitle, playInFeederTarget, standardFeederTarget } from './elimBracket';
 
 function createMatch(): DoubleElimMatch {
     return { id: generateId(), players: [null, null], winnerId: null };
@@ -299,7 +298,7 @@ export function buildDoubleElim(
         r1m0.players = [shuffled[0], shuffled[1]];
         const r1m1 = createMatch();
         r1m1.players = [shuffled[2], shuffled[3]];
-        winnersRounds.push({ title: '4강', matches: [r1m0, r1m1] });
+        winnersRounds.push({ title: elimRoundTitle(4), matches: [r1m0, r1m1] });
 
         const r2m0 = createMatch();
         r2m0.players = [null, null];
@@ -326,13 +325,7 @@ export function buildDoubleElim(
         return built;
     }
 
-    let { mainDrawSize, playInMatchCount, byeCount } = planElimBracket(n, forcedMainDrawSize);
-    // DE는 예선(play-in)보다 부전승 패딩이 패자조와 맞기 쉬움 → 자동 compact가 예선이면 다음 2^n으로 승격
-    if (playInMatchCount > 0 && (forcedMainDrawSize == null || forcedMainDrawSize === undefined)) {
-        mainDrawSize = minimalPow2BracketSize(n);
-        playInMatchCount = 0;
-        byeCount = mainDrawSize - n;
-    }
+    let { mainDrawSize, playInMatchCount, byeCount } = planDoubleElimBracket(n, forcedMainDrawSize);
 
     const winnersRounds: { title: string; matches: DoubleElimMatch[] }[] = [];
     let mainDrawByeSeeds: string[] | undefined;
@@ -370,14 +363,12 @@ export function buildDoubleElim(
             mainMatches.push(m);
         }
         winnersRounds.push({
-            title: mainDrawSize === 4 ? '준결승' : `${mainDrawSize}강`,
+            title: elimRoundTitle(mainDrawSize),
             matches: mainMatches,
         });
     } else {
         const firstMatches = pairWithByePads(participantIds, mainDrawSize, shuffle);
-        const firstTitle =
-            mainDrawSize === 2 ? '결승' : mainDrawSize === 4 ? '준결승' : `${mainDrawSize}강`;
-        winnersRounds.push({ title: firstTitle, matches: firstMatches });
+        winnersRounds.push({ title: elimRoundTitle(mainDrawSize), matches: firstMatches });
     }
 
     let roundSize = mainDrawSize / 2;
@@ -385,7 +376,7 @@ export function buildDoubleElim(
         const nextMatches: DoubleElimMatch[] = [];
         for (let i = 0; i < roundSize / 2; i++) nextMatches.push(createMatch());
         winnersRounds.push({
-            title: roundSize === 2 ? '승자 결승' : `${roundSize}강`,
+            title: roundSize === 2 ? '승자 결승' : elimRoundTitle(roundSize),
             matches: nextMatches,
         });
         roundSize = roundSize / 2;
