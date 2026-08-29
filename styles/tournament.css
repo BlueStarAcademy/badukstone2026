@@ -3553,6 +3553,12 @@
     color: var(--t-muted, #94a3b8);
     white-space: normal;
     max-width: 12rem;
+    flex-basis: 100%;
+}
+
+.tournament-view .tournament-player-mgmt-assign:has(.tournament-start-round-hint) {
+    flex-wrap: wrap;
+    max-width: 14rem;
 }
 
 .tournament-empty-setup {
