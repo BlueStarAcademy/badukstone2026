@@ -2,7 +2,7 @@
 
 바둑학원 스톤·미션·대회·이벤트 관리 웹 앱 (React + Vite + Railway PostgreSQL).
 
-**배포는 Railway만 사용합니다.** Vercel은 사용하지 않습니다. 프로덕션은 `main` 브랜치에 푸시(또는 머지)될 때 배포됩니다.
+**배포는 Railway만 사용합니다.** Vercel은 사용하지 않으며 연동하지 않습니다. 프로덕션은 `main` 브랜치에 푸시(또는 머지)될 때 배포됩니다.
 
 ## 로컬 실행
 
@@ -93,15 +93,6 @@ npm run migrate:firestore
 ```
 
 이관된 학원 계정은 `DEFAULT_ADMIN_PASSWORD`(기본 `changeme123`)로 로그인 후 비밀번호를 변경하세요.
-
-## Vercel 연결 해제 (한 번만)
-
-이 저장소는 예전에 Vercel과 연동되어 있었습니다. `vercel.json`으로 Git 자동 배포는 꺼 두었지만, 대시보드에서 프로젝트 연결을 끊는 것이 좋습니다.
-
-1. [Vercel Dashboard](https://vercel.com/dashboard) → `badukstone` 프로젝트
-2. **Settings → Git** → Disconnect
-3. 또는 프로젝트 삭제
-4. GitHub → 조직/저장소 **Settings → Integrations / GitHub Apps**에서 Vercel 앱 접근 권한도 정리
 
 ## 스크립트
 
