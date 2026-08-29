@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // FIX: Corrected import path for type definitions.
 import type { Mission, GroupSettings } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface MissionFormModalProps {
     isOpen: boolean;
@@ -55,10 +56,18 @@ export const MissionFormModal = ({ isOpen, onClose, onSave, missionToEdit, group
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h2>{missionToEdit ? '미션 수정' : '새 미션 추가'}</h2>
-                <form onSubmit={handleSubmit}>
+        <ModalShell
+            title={missionToEdit ? '미션 수정' : '새 미션 추가'}
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="mission-form" className="btn primary">저장</button>
+                </>
+            }
+        >
+            <form id="mission-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="description">미션 내용</label>
                         <textarea id="description" name="description" value={formData.description} onChange={handleChange} required placeholder="예: 사활 문제 10개 풀기" />
@@ -87,12 +96,7 @@ export const MissionFormModal = ({ isOpen, onClose, onSave, missionToEdit, group
                         />
                         <label htmlFor="isAttendance">출석 미션 (하루 한번 자동 시간 기록)</label>
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">저장</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

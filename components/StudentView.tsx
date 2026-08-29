@@ -180,9 +180,9 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
     }, [coupons]);
 
     return (
-        <div>
-            <div className="controls">
-                <div className="view-toggle">
+        <div className="student-view">
+            <div className="student-view-controls">
+                <div className="view-toggle student-group-toggle">
                     {studentGroups.map(groupKey => (
                         <button
                             key={groupKey}
@@ -193,16 +193,17 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                         </button>
                     ))}
                 </div>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div className="student-view-tools">
                     <input
-                        type="text"
+                        type="search"
                         placeholder="이름으로 검색..."
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="search-input"
+                        aria-label="이름으로 검색"
                     />
                     <div className="sort-dropdown">
-                        <label htmlFor="sort-order">정렬:</label>
+                        <label htmlFor="sort-order">정렬</label>
                         <select id="sort-order" value={sortKey} onChange={e => setSortKey(e.target.value as SortKey)}>
                             <option value="rank">급수순</option>
                             <option value="stones">스톤순</option>
@@ -211,34 +212,41 @@ export const StudentView = ({ students, coupons, onStudentClick, onNavigateToEve
                     </div>
                 </div>
             </div>
-            <div className="student-grid">
-                {sortedStudents.map(student => {
-                    const stats = eventParticipationStatus.get(student.id);
-                    if (!stats) return null;
-                    
-                    const minReq = eventSettings.minMissionsToSpin ?? 10;
-                    const maxPenalties = eventSettings.maxPenalties ?? 999;
+            {sortedStudents.length === 0 ? (
+                <div className="student-empty-state">
+                    <strong>표시할 학생이 없습니다</strong>
+                    <p>검색어나 반 필터를 바꿔 보세요.</p>
+                </div>
+            ) : (
+                <div className="student-grid">
+                    {sortedStudents.map(student => {
+                        const stats = eventParticipationStatus.get(student.id);
+                        if (!stats) return null;
+                        
+                        const minReq = eventSettings.minMissionsToSpin ?? 10;
+                        const maxPenalties = eventSettings.maxPenalties ?? 999;
 
-                    // 이번 달: 조건 충족 + 아직 미참여
-                    const showThisMonthEventButton =
-                        stats.missionsThisMonth >= minReq &&
-                        stats.penaltyCountThisMonth < maxPenalties &&
-                        !stats.hasParticipatedThisMonth;
+                        // 이번 달: 조건 충족 + 아직 미참여
+                        const showThisMonthEventButton =
+                            stats.missionsThisMonth >= minReq &&
+                            stats.penaltyCountThisMonth < maxPenalties &&
+                            !stats.hasParticipatedThisMonth;
 
-                    return (
-                        <StudentCard 
-                            key={student.id} 
-                            student={student} 
-                            groupName={groupSettings[student.group]?.name || student.group}
-                            activeCouponValue={activeCouponValueByStudent.get(student.id) || 0}
-                            onClick={() => onStudentClick(student)} 
-                            hasParticipatedThisMonth={stats.hasParticipatedThisMonth}
-                            showThisMonthEventButton={showThisMonthEventButton}
-                            onEventClick={() => onNavigateToEvent(student)}
-                        />
-                    );
-                })}
-            </div>
+                        return (
+                            <StudentCard 
+                                key={student.id} 
+                                student={student} 
+                                groupName={groupSettings[student.group]?.name || student.group}
+                                activeCouponValue={activeCouponValueByStudent.get(student.id) || 0}
+                                onClick={() => onStudentClick(student)} 
+                                hasParticipatedThisMonth={stats.hasParticipatedThisMonth}
+                                showThisMonthEventButton={showThisMonthEventButton}
+                                onEventClick={() => onNavigateToEvent(student)}
+                            />
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

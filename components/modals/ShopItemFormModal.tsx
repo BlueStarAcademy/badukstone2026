@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // FIX: Corrected import path for type definitions.
 import type { ShopItem, ShopCategory } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface ShopItemFormModalProps {
     isOpen: boolean;
@@ -47,10 +48,18 @@ export const ShopItemFormModal = ({ isOpen, onClose, onSave, itemToEdit, categor
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h2>{itemToEdit.item ? '상품 수정' : '새 상품 추가'}</h2>
-                <form onSubmit={handleSubmit}>
+        <ModalShell
+            title={itemToEdit.item ? '상품 수정' : '새 상품 추가'}
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="shop-item-form" className="btn primary">저장</button>
+                </>
+            }
+        >
+            <form id="shop-item-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="name">상품명</label>
                         <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="예: 컵라면" />
@@ -67,12 +76,7 @@ export const ShopItemFormModal = ({ isOpen, onClose, onSave, itemToEdit, categor
                            ))}
                         </select>
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">저장</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

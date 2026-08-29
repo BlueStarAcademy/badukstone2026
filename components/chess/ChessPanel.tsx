@@ -4,6 +4,7 @@ import type { Student, ChessMatch, Transaction, GeneralSettings, Mission } from 
 import { ConfirmationModal, ActionButton } from '../modals/ConfirmationModal';
 import { ChessSettingsModal } from './ChessSettingsModal';
 import { ChessMissionSidebar } from './ChessMissionSidebar';
+import { ModalShell } from '../ui/ModalShell';
 
 interface ChessPanelProps {
     students: Student[];
@@ -370,62 +371,49 @@ export const ChessPanel = (props: ChessPanelProps) => {
             </div>
 
             <div className="chess-history-panel">
-                <div className="match-history" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <h4 style={{ marginBottom: '1rem' }}>최근 대결 기록</h4>
-                    <div className="student-table" style={{ flex: 1, overflowY: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <div className="chess-match-history">
+                    <h4 className="chess-match-history-title">최근 대결 기록</h4>
+                    <div className="student-table chess-match-table-wrap">
+                        <table className="chess-match-table">
                             <thead>
                                 <tr>
-                                    <th style={{ padding: '0.8rem' }}>날짜</th>
-                                    <th style={{ padding: '0.8rem' }}>대결 (백 vs 흑)</th>
-                                    <th style={{ padding: '0.8rem' }}>결과</th>
-                                    <th style={{ padding: '0.8rem' }}>변동</th>
-                                    <th style={{ padding: '0.8rem' }}>작업</th>
+                                    <th>날짜</th>
+                                    <th>대결 (백 vs 흑)</th>
+                                    <th>결과</th>
+                                    <th>변동</th>
+                                    <th>작업</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {sortedMatches.slice(0, 20).map(match => {
                                     const isCancelled = match.status === 'cancelled';
                                     return (
-                                        <tr key={match.id} style={{ 
-                                            opacity: isCancelled ? 0.5 : 1, 
-                                            backgroundColor: isCancelled ? '#fafafa' : 'white',
-                                            textDecoration: isCancelled ? 'line-through' : 'none'
-                                        }}>
-                                            <td style={{ padding: '0.8rem', fontSize: '0.85rem' }}>
+                                        <tr key={match.id} className={`chess-match-row ${isCancelled ? 'is-cancelled' : ''}`}>
+                                            <td className="chess-match-date">
                                                 {new Date(match.timestamp).toLocaleDateString('ko-KR', { month: '2-digit', day: '2-digit' })}
                                             </td>
-                                            <td style={{ padding: '0.8rem' }}>
-                                                <span style={{ fontWeight: 600 }}>{getPlayerName(match.whitePlayerId)}</span> 
-                                                <small style={{ color: '#888', margin: '0 4px' }}>vs</small> 
-                                                <span style={{ fontWeight: 600 }}>{getPlayerName(match.blackPlayerId)}</span>
+                                            <td>
+                                                <span className="chess-match-player">{getPlayerName(match.whitePlayerId)}</span>
+                                                <small className="chess-match-vs">vs</small>
+                                                <span className="chess-match-player">{getPlayerName(match.blackPlayerId)}</span>
                                             </td>
-                                            <td style={{ padding: '0.8rem' }}>
-                                                <span className={match.result === 'draw' ? '' : 'winner-label'} style={{ 
-                                                    backgroundColor: match.result === 'draw' ? '#eee' : (match.result === 'white' ? 'var(--primary-color)' : 'var(--danger-color)'),
-                                                    color: match.result === 'draw' ? '#666' : 'white',
-                                                    padding: '2px 6px',
-                                                    borderRadius: '4px',
-                                                    fontSize: '0.75rem',
-                                                    fontWeight: 'bold',
-                                                    marginLeft: 0
-                                                }}>
+                                            <td>
+                                                <span className={`chess-result-chip chess-result-chip--${match.result}`}>
                                                     {match.result === 'draw' ? '무승부' : (match.result === 'white' ? '백 승' : '흑 승')}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '0.8rem', fontWeight: 'bold' }}>
+                                            <td className="chess-match-delta">
                                                 {!isCancelled ? (
-                                                    <span style={{ color: match.ratingDeltaForWhite >= 0 ? 'var(--primary-color)' : 'var(--danger-color)' }}>
+                                                    <span className={match.ratingDeltaForWhite >= 0 ? 'chess-delta-positive' : 'chess-delta-negative'}>
                                                         {match.ratingDeltaForWhite >= 0 ? '+' : ''}{match.ratingDeltaForWhite}
                                                     </span>
                                                 ) : '-'}
                                             </td>
-                                            <td style={{ padding: '0.8rem' }}>
-                                                <button 
-                                                    className="btn-sm danger" 
-                                                    onClick={() => handleCancelClick(match)} 
+                                            <td>
+                                                <button
+                                                    className="btn-sm danger chess-match-cancel-btn"
+                                                    onClick={() => handleCancelClick(match)}
                                                     disabled={isCancelled}
-                                                    style={{ padding: '2px 8px', fontSize: '0.7rem' }}
                                                 >
                                                     취소
                                                 </button>
@@ -436,7 +424,7 @@ export const ChessPanel = (props: ChessPanelProps) => {
                             </tbody>
                         </table>
                         {sortedMatches.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>대국 기록이 없습니다.</div>
+                            <div className="chess-empty-state">대국 기록이 없습니다.</div>
                         )}
                     </div>
                 </div>
@@ -465,10 +453,18 @@ export const ChessPanel = (props: ChessPanelProps) => {
             
              {/* Partial Mission Modal */}
              {partialMission && (
-                <div className="modal-overlay" onClick={() => setPartialMission(null)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>부분 점수 지급</h2>
-                        <form onSubmit={handlePartialMissionSubmit}>
+                <ModalShell
+                    title="부분 점수 지급"
+                    size="sm"
+                    onClose={() => setPartialMission(null)}
+                    footer={
+                        <>
+                            <button type="button" className="btn" onClick={() => setPartialMission(null)}>취소</button>
+                            <button type="submit" form="chess-partial-mission-form" className="btn primary">지급</button>
+                        </>
+                    }
+                >
+                    <form id="chess-partial-mission-form" onSubmit={handlePartialMissionSubmit}>
                             <div className="form-group">
                                 <label>미션</label>
                                 <p style={{ fontWeight: '500', padding: '0.5rem', background: 'var(--bg-color)', borderRadius: '4px' }}>{partialMission.description}</p>
@@ -487,21 +483,24 @@ export const ChessPanel = (props: ChessPanelProps) => {
                                     placeholder="점수 입력"
                                 />
                             </div>
-                            <div className="modal-actions">
-                                <button type="button" className="btn" onClick={() => setPartialMission(null)}>취소</button>
-                                <button type="submit" className="btn primary">지급</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                    </form>
+                </ModalShell>
             )}
             
             {/* Penalty Modal */}
              {isPenaltyModalOpen && (
-                <div className="modal-overlay" onClick={() => setIsPenaltyModalOpen(false)}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h2>감점 (패널티) 적용</h2>
-                        <form onSubmit={handlePenaltySubmit}>
+                <ModalShell
+                    title="감점 (패널티) 적용"
+                    size="sm"
+                    onClose={() => setIsPenaltyModalOpen(false)}
+                    footer={
+                        <>
+                            <button type="button" className="btn" onClick={() => setIsPenaltyModalOpen(false)}>취소</button>
+                            <button type="submit" form="chess-penalty-form" className="btn danger">차감 적용</button>
+                        </>
+                    }
+                >
+                    <form id="chess-penalty-form" onSubmit={handlePenaltySubmit}>
                             <div className="form-group">
                                 <label htmlFor="penalty-amount">차감할 스톤</label>
                                 <input
@@ -526,13 +525,8 @@ export const ChessPanel = (props: ChessPanelProps) => {
                                     placeholder="예: 수업 태도 불량"
                                 />
                             </div>
-                            <div className="modal-actions">
-                                <button type="button" className="btn" onClick={() => setIsPenaltyModalOpen(false)}>취소</button>
-                                <button type="submit" className="btn danger">차감 적용</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+                    </form>
+                </ModalShell>
             )}
         </div>
     );

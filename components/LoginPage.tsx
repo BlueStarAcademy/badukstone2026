@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { api } from '../api/client';
 import type { User } from '../types';
@@ -38,8 +37,8 @@ export const LoginPage = ({ onLoginSuccess, isDemoMode, onDemoClick }: LoginPage
         <div className="login-container">
             <h1 className="login-title">바둑학원 포인트 관리</h1>
             <div className="login-form">
-                <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
-                    <p>관리자 로그인이 필요합니다.</p>
+                <form className="login-form-stack" onSubmit={handleSubmit}>
+                    <p className="login-lead">관리자 로그인이 필요합니다.</p>
                     <div className="form-group">
                         <label htmlFor="username">이메일 또는 아이디</label>
                         <input
@@ -70,13 +69,12 @@ export const LoginPage = ({ onLoginSuccess, isDemoMode, onDemoClick }: LoginPage
                         {loading ? '로그인 중...' : '로그인'}
                     </button>
                     {isDemoMode && onDemoClick && (
-                        <button 
-                            type="button" 
-                            className="btn login-btn" 
+                        <button
+                            type="button"
+                            className="btn login-btn-demo"
                             onClick={onDemoClick}
-                            style={{marginTop: '0.5rem', backgroundColor: '#6c757d', color: 'white'}}
                         >
-                            체험 모드(Demo)로 시작
+                            체험 모드로 시작
                         </button>
                     )}
                 </form>

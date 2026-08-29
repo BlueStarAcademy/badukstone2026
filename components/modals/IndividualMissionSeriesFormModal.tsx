@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { IndividualMissionSeries, IndividualMissionStep } from '../../types';
 import { generateId } from '../../utils';
+import { ModalShell } from '../ui/ModalShell';
 
 interface IndividualMissionSeriesFormModalProps {
     isOpen: boolean;
@@ -110,11 +111,18 @@ export const IndividualMissionSeriesFormModal = ({ isOpen, onClose, onSave, seri
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h2>{seriesToEdit ? '개인 미션 시리즈 수정' : '새 개인 미션 시리즈 추가'}</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
+        <ModalShell
+            title={seriesToEdit ? '개인 미션 시리즈 수정' : '새 개인 미션 시리즈 추가'}
+            size="md"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="individual-mission-series-form" className="btn primary">저장</button>
+                </>
+            }
+        >
+            <form id="individual-mission-series-form" onSubmit={handleSubmit}>
                         <div className="form-group">
                             <label htmlFor="series-name">미션 시리즈 이름</label>
                             <input
@@ -171,13 +179,7 @@ export const IndividualMissionSeriesFormModal = ({ isOpen, onClose, onSave, seri
                          <div style={{ textAlign: 'right', marginTop: '1rem' }}>
                             <button type="button" className="btn-sm" onClick={handleAddStep}>단계 추가</button>
                         </div>
-                    </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">저장</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

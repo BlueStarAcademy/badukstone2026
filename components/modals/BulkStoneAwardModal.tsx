@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ModalShell } from '../ui/ModalShell';
 
 interface BulkStoneAwardModalProps {
     isOpen: boolean;
@@ -29,10 +30,18 @@ export const BulkStoneAwardModal = ({ isOpen, onClose, onAward }: BulkStoneAward
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>일괄 스톤 지급/차감</h2>
-                <form onSubmit={handleSubmit}>
+        <ModalShell
+            title="일괄 스톤 지급/차감"
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="bulk-stone-award-form" className="btn primary">적용</button>
+                </>
+            }
+        >
+            <form id="bulk-stone-award-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="bulk-amount">스톤 개수</label>
                         <input
@@ -58,12 +67,7 @@ export const BulkStoneAwardModal = ({ isOpen, onClose, onAward }: BulkStoneAward
                             required
                         />
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">적용</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

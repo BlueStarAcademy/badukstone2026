@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 // FIX: Corrected import path for type definitions.
 import type { Student } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface StudentFormModalProps {
     isOpen: boolean;
@@ -82,10 +83,18 @@ export const StudentFormModal = ({ isOpen, onClose, onSave, studentToEdit }: Stu
         .concat(Array.from({ length: 9 }, (_, i) => `${i + 1}단`));
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{studentToEdit ? '학생 정보 수정' : '신규 학생 등록'}</h2>
-                <form onSubmit={handleSubmit}>
+        <ModalShell
+            title={studentToEdit ? '학생 정보 수정' : '신규 학생 등록'}
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="student-form" className="btn primary">저장</button>
+                </>
+            }
+        >
+            <form id="student-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="name">이름</label>
                         <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required placeholder="학생 이름" />
@@ -134,12 +143,7 @@ export const StudentFormModal = ({ isOpen, onClose, onSave, studentToEdit }: Stu
                         />
                         <label htmlFor="takesChess">체스 수업 수강</label>
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">저장</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

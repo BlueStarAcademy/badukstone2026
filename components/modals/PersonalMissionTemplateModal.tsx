@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { GroupSettings, PersonalMissionTemplate, PersonalMissionType } from '../../types';
 import { generateId } from '../../utils';
 import { MISSION_ALL_GROUPS } from '../../utils/missionVisibility';
+import { ModalShell } from '../ui/ModalShell';
 
 interface PersonalMissionTemplateModalProps {
     isOpen: boolean;
@@ -118,18 +119,21 @@ export const PersonalMissionTemplateModal = ({
     const missionType = (form.missionType || 'continuous') as MissionType;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content personal-mission-admin-modal pm-template-modal" onClick={e => e.stopPropagation()}>
-                <header className="pm-modal-header">
-                    <div className="pm-modal-icon" aria-hidden="true">◇</div>
-                    <div>
-                        <h2>공통 개인미션 관리</h2>
-                        <p>공통 설정은 모든 대상 학생에게 반영되고, 학생별 현재 진행 번호는 그대로 유지됩니다.</p>
-                    </div>
-                    <button type="button" className="pm-modal-close" onClick={onClose} aria-label="닫기">×</button>
-                </header>
-
-                <div className="pm-modal-scroll pm-template-body">
+        <ModalShell
+            title="공통 개인미션 관리"
+            description="공통 설정은 모든 대상 학생에게 반영되고, 학생별 현재 진행 번호는 그대로 유지됩니다."
+            icon="◇"
+            size="lg"
+            onClose={onClose}
+            className="personal-mission-admin-modal pm-template-modal"
+            footer={
+                <>
+                    <span className="pm-action-summary">학생이 삭제한 공통 미션은 자동으로 다시 추가되지 않습니다.</span>
+                    <button type="button" className="btn" onClick={onClose}>완료</button>
+                </>
+            }
+        >
+                <div className="pm-template-body">
                     <div className="pm-template-toolbar">
                         <div>
                             <strong>등록된 공통 미션</strong>
@@ -261,12 +265,6 @@ export const PersonalMissionTemplateModal = ({
                         })}
                     </div>
                 </div>
-
-                <div className="modal-actions pm-modal-actions">
-                    <span className="pm-action-summary">학생이 삭제한 공통 미션은 자동으로 다시 추가되지 않습니다.</span>
-                    <button type="button" className="btn" onClick={onClose}>완료</button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

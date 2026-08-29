@@ -2,6 +2,7 @@
 import React from 'react';
 // FIX: Corrected import path for type definitions.
 import type { EventSettings } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface EventSettingsModalProps {
     isOpen: boolean;
@@ -57,10 +58,12 @@ export const EventSettingsModal = ({ isOpen, onClose, settings, onUpdateSettings
     const totalGachaCount = (Object.values(settings.gachaPrizeCounts) as number[]).reduce((a, b) => a + b, 0);
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
-                <h2>이벤트 설정</h2>
-                <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '0 1rem' }}>
+        <ModalShell
+            title="이벤트 설정"
+            size="lg"
+            onClose={onClose}
+            footer={<button type="button" className="btn primary" onClick={onClose}>닫기</button>}
+        >
                     <div className="settings-form-section">
                         <h3>공통 설정</h3>
                         <div className="settings-form-row">
@@ -141,11 +144,6 @@ export const EventSettingsModal = ({ isOpen, onClose, settings, onUpdateSettings
                         </div>
                         {totalGachaCount !== 100 && <p className="login-error" style={{textAlign: 'center', marginTop: '1rem'}}>경고: 상품 총 개수가 100개가 아닙니다. 설정을 확인해주세요.</p>}
                     </div>
-                </div>
-                <div className="modal-actions">
-                    <button type="button" className="btn primary" onClick={onClose}>닫기</button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

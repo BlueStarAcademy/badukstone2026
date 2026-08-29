@@ -152,12 +152,12 @@ const getInitialData = (): AppData => ({
 });
 
 const AppLoader = ({ message, showLogout, onLogout }: { message: string, showLogout?: boolean, onLogout?: () => void }) => (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', fontSize: '1.2rem', background: 'var(--bg-color)', color: 'var(--secondary-color)' }}>
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-            <div style={{ marginBottom: '1rem', fontSize: '2.5rem' }}>💎</div>
-            <div style={{ marginBottom: '1.5rem' }}>{message}</div>
+    <div className="app-loader">
+        <div className="app-loader-card">
+            <div className="app-loader-mark" aria-hidden />
+            <p className="app-loader-message">{message}</p>
             {showLogout && onLogout && (
-                <button className="btn primary" onClick={onLogout}>다시 로그인하기</button>
+                <button type="button" className="btn primary" onClick={onLogout}>다시 로그인하기</button>
             )}
         </div>
     </div>
@@ -1238,31 +1238,37 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         <div className="app-container">
             {/* 저장 실패 시 경고 배너 */}
             {saveError && (
-                <div className="save-error-banner" style={{ background: '#d32f2f', color: 'white', textAlign: 'center', padding: '0.8rem', fontWeight: 'bold', zIndex: 10000, position: 'fixed', top: 0, left: 0, right: 0 }}>
-                    ⚠️ 데이터 저장에 실패했습니다! 네트워크 연결을 확인하세요. 이 상태에서 새로고침하면 작업 내용이 유실될 수 있습니다.
+                <div className="save-error-banner" role="alert">
+                    데이터 저장에 실패했습니다. 네트워크 연결을 확인하세요. 이 상태에서 새로고침하면 작업 내용이 유실될 수 있습니다.
                 </div>
             )}
             
-            <header className="header" style={saveError ? { marginTop: '40px' } : {}}>
+            <header className={`header${saveError ? ' header--with-banner' : ''}`}>
                 <div className="header-title-group">
-                    <h1 onClick={() => setView('student')} style={{cursor: 'pointer'}}>
+                    <h1 className="header-brand" onClick={() => setView('student')}>
                         {generalSettings.academyName}
                         {isDemo && <span className="demo-badge">DEMO</span>}
                     </h1>
-                    {isSaving && <div className="saving-indicator">💾 저장 중...</div>}
+                    {isSaving && <div className="saving-indicator">저장 중</div>}
                 </div>
                 
-                <nav className="view-toggle">
-                    <button className={`toggle-btn ${view === 'student' ? 'active' : ''}`} onClick={() => setView('student')}>👨‍🎓 바둑반</button>
-                    <button className={`toggle-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => view !== 'chess' && setView('chess')}>♟️ 체스반</button>
-                    <button className={`toggle-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>🏆 대회</button>
-                    <button className={`toggle-btn ${view === 'event' ? 'active' : ''}`} onClick={() => setView('event')}>🎁 이벤트</button>
-                    <button className={`toggle-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>⚙️ 관리자</button>
+                <nav className="view-toggle" aria-label="화면 전환">
+                    <button className={`toggle-btn ${view === 'student' ? 'active' : ''}`} onClick={() => setView('student')}>바둑반</button>
+                    <button className={`toggle-btn ${view === 'chess' ? 'active' : ''}`} onClick={() => view !== 'chess' && setView('chess')}>체스반</button>
+                    <button className={`toggle-btn ${view === 'tournament' ? 'active' : ''}`} onClick={() => setView('tournament')}>대회</button>
+                    <button className={`toggle-btn ${view === 'event' ? 'active' : ''}`} onClick={() => setView('event')}>이벤트</button>
+                    <button className={`toggle-btn ${view === 'admin' ? 'active' : ''}`} onClick={() => setView('admin')}>관리자</button>
                 </nav>
 
                 <div className="header-controls">
-                    {user.role === 'master' && <button className="btn-sm" onClick={() => setView('master')} style={{marginRight: '10px'}}>MASTER</button>}
-                    <button className="btn-icon" onClick={() => setIsAccountModalOpen(true)} title="계정 설정">👤</button>
+                    {user.role === 'master' && (
+                        <button type="button" className="btn-sm header-master-btn" onClick={() => setView('master')}>
+                            MASTER
+                        </button>
+                    )}
+                    <button type="button" className="btn-icon header-account-btn" onClick={() => setIsAccountModalOpen(true)} title="계정 설정" aria-label="계정 설정">
+                        계정
+                    </button>
                 </div>
             </header>
 

@@ -61,7 +61,7 @@ const GachaRevealModal = ({ result, onClose }: GachaRevealModalProps) => {
             <div className="gacha-ticket-wrapper">
                 <div className={`gacha-ticket ${stage}`}>
                     <div className="gacha-content">
-                        <div style={{ fontSize: '1.2rem', color: '#8b4513', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                        <div className="gacha-ticket-board-label">
                             스톤 뽑기판 #{result.pickedNumber}
                         </div>
                         <div className={`gacha-rank-stamp ${showStamp ? 'stamped' : ''}`}>
@@ -69,9 +69,9 @@ const GachaRevealModal = ({ result, onClose }: GachaRevealModalProps) => {
                         </div>
                         <div className="gacha-prize-text">
                             축하합니다!<br/>
-                            <span style={{ color: '#d32f2f', fontSize: '1.8rem' }}>{result.prizeAmount}</span> 스톤
+                            <span className="gacha-prize-amount">{result.prizeAmount}</span> 스톤
                         </div>
-                        <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                        <div className="gacha-ticket-student">
                             {result.student.name} 학생
                         </div>
                         {showStamp && (
@@ -117,7 +117,7 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
     return (
         <div className="gacha-layout-row">
             <div className="gacha-board-wrapper">
-                <h3 style={{marginBottom: '1rem', color: 'var(--primary-color)', textAlign: 'center'}}>스톤 뽑기판</h3>
+                <h3 className="gacha-board-title">스톤 뽑기판</h3>
                 <div className={`gacha-board ${gachaResult ? 'reveal' : ''}`}>
                     {Array.from({ length: 100 }, (_, i) => i + 1).map(num => {
                         const isPicked = pickedSet.has(num);
@@ -156,7 +156,7 @@ const GachaBoard = ({ gachaData, gachaResult, eventSettings, onCellClick, pickin
             </div>
             
             <div className="gacha-prize-info">
-                <h3>🎉 상품 안내</h3>
+                <h3>상품 안내</h3>
                 <ul className="prize-list">
                     <li className="prize-item rank-1">
                         <span className="prize-rank">1등</span>
@@ -401,18 +401,18 @@ export const EventView = (props: EventViewProps) => {
             </div>
             
             <div className="event-student-list">
-                <div style={{padding: '1rem', borderBottom: '1px solid #eee', background: '#f8f9fa'}}>
-                     <div style={{display: 'flex', justifyContent: 'center', marginBottom: '0.5rem'}}>
+                <div className="event-list-header">
+                     <div className="event-list-header-toggle-row">
                         <div className="view-toggle">
                             <button className={`toggle-btn ${selectedMonth === 'current' ? 'active' : ''}`} onClick={() => setSelectedMonth('current')}>이번 달</button>
                             <button className={`toggle-btn ${selectedMonth === 'previous' ? 'active' : ''}`} onClick={() => setSelectedMonth('previous')}>지난 달</button>
                         </div>
                     </div>
-                    <div className="view-header-actions" style={{justifyContent: 'center', flexDirection: 'column', gap: '0.5rem'}}>
-                        <h3 style={{margin: 0}}>{monthLabel} 참여 현황</h3>
-                        <button className="btn" style={{width: '100%'}} onClick={() => setIsSettingsModalOpen(true)}>이벤트 설정</button>
+                    <div className="view-header-actions event-list-header-actions">
+                        <h3 className="event-list-header-title">{monthLabel} 참여 현황</h3>
+                        <button className="btn event-list-settings-btn" onClick={() => setIsSettingsModalOpen(true)}>이벤트 설정</button>
                     </div>
-                     <p style={{textAlign: 'center', fontSize: '0.8rem', color: '#666', marginTop: '0.5rem'}}>
+                     <p className="event-list-conditions">
                         조건: 미션 {eventSettings.minMissionsToSpin ?? 10}회 / 감점 {eventSettings.maxPenalties ?? 3}회 미만
                     </p>
                 </div>
@@ -421,14 +421,14 @@ export const EventView = (props: EventViewProps) => {
                     {studentStats.map(student => (
                         <li key={student.id} className="eligible-student-item">
                             <div className="student-info">
-                                <span className="student-name" style={{fontWeight: 'bold', fontSize: '1.05rem'}}>{student.name}</span>
-                                <small className="student-stats" style={{color: '#666'}}>미션 {student.missionsThisMonth}회 / 감점 {student.penaltyCount}회</small>
+                                <span className="student-name">{student.name}</span>
+                                <small className="student-stats">미션 {student.missionsThisMonth}회 / 감점 {student.penaltyCount}회</small>
                             </div>
                             <div className="student-actions">
                                 {student.eventParticipation ? (
                                     <>
                                         <span className="spin-result">
-                                            🎉 {student.eventParticipation.amount}
+                                            {student.eventParticipation.amount}
                                         </span>
                                         <button className="btn-sm danger" onClick={() => handleConfirmCancel(student)}>취소</button>
                                     </>
@@ -447,7 +447,7 @@ export const EventView = (props: EventViewProps) => {
                                         </button>
                                     )
                                 ) : (
-                                    <span style={{fontSize: '0.9rem', color: 'var(--danger-color)'}}>
+                                    <span className="event-ineligible-badge">
                                         불가
                                     </span>
                                 )}

@@ -6,6 +6,7 @@ import {
     getSwissPaidRankCount,
 } from '../../utils/tournamentPrizes';
 import { SwissRankPrizeFields } from '../modals/TournamentGroupPrizeEditors';
+import { ModalShell } from '../ui/ModalShell';
 
 interface HybridPrelimPrizeModalProps {
     isOpen: boolean;
@@ -47,11 +48,23 @@ export const HybridPrelimPrizeModal = ({
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '720px' }}>
-                <h2>예선 시상 — {groupLabel}</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+        <ModalShell
+            title={`예선 시상 — ${groupLabel}`}
+            size="lg"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>
+                        취소
+                    </button>
+                    <button type="submit" form="hybrid-prelim-prize-form" className="btn primary">
+                        스톤 지급
+                    </button>
+                </>
+            }
+        >
+                <form id="hybrid-prelim-prize-form" onSubmit={handleSubmit}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
                         <div>
                             <h4>순위 (이 조 경기만 반영)</h4>
                             <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
@@ -83,16 +96,7 @@ export const HybridPrelimPrizeModal = ({
                             <SwissRankPrizeFields paidCount={paidCount} prizes={prizes} onChange={setPrizes} />
                         </div>
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>
-                            취소
-                        </button>
-                        <button type="submit" className="btn primary">
-                            스톤 지급
-                        </button>
-                    </div>
                 </form>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

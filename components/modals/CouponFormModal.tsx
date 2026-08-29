@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ModalShell } from '../ui/ModalShell';
 
 interface CouponFormModalProps {
     isOpen: boolean;
@@ -40,10 +41,18 @@ export const CouponFormModal = ({ isOpen, onClose, onSave, studentName }: Coupon
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <h2>{studentName} 학생에게 쿠폰 발급</h2>
-                <form onSubmit={handleSubmit}>
+        <ModalShell
+            title={`${studentName} 학생에게 쿠폰 발급`}
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>취소</button>
+                    <button type="submit" form="coupon-form" className="btn primary">발급하기</button>
+                </>
+            }
+        >
+            <form id="coupon-form" onSubmit={handleSubmit}>
                     <div className="form-group">
                         <label htmlFor="description">쿠폰 내용</label>
                         <input
@@ -78,12 +87,7 @@ export const CouponFormModal = ({ isOpen, onClose, onSave, studentName }: Coupon
                             required
                         />
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>취소</button>
-                        <button type="submit" className="btn primary">발급하기</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+            </form>
+        </ModalShell>
     );
 };

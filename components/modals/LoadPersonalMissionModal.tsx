@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { GroupSettings, PersonalMissionsByStudent } from '../../types';
 import type { PersonalMission } from '../../types';
 import { MISSION_ALL_GROUPS, personalMissionAppliesToGroup, targetGroupsKey } from '../../utils/missionVisibility';
+import { ModalShell } from '../ui/ModalShell';
 
 interface LoadPersonalMissionModalProps {
     isOpen: boolean;
@@ -17,6 +18,13 @@ interface LoadPersonalMissionModalProps {
 }
 
 type MissionType = 'continuous' | 'weekly' | 'monthly' | 'achievement';
+
+const MISSION_TYPE_LABELS: Record<MissionType, string> = {
+    continuous: '연속 미션',
+    weekly: '주간 미션',
+    monthly: '월간 미션',
+    achievement: '업적 미션',
+};
 
 function contentKey(m: PersonalMission): string {
     const tid = m.templateId || '';
@@ -210,10 +218,73 @@ export const LoadPersonalMissionModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content load-personal-mission-modal" onClick={e => e.stopPropagation()}>
-                <h2>개인 미션 불러오기</h2>
-                <div className="modal-body">
+        <ModalShell
+            title="개인 미션 불러오기"
+            size="lg"
+            onClose={onClose}
+            className="load-personal-mission-modal"
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>닫기</button>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto', cursor: 'pointer' }}>
+                        <input
+                            type="checkbox"
+                            checked={applyToAllStudents}
+                            onChange={(e) => setApplyToAllStudents(e.target.checked)}
+                        />
+                        모든 학생에게 추가
+                    </label>
+                    <button
+                        type="button"
+                        className="btn primary"
+                        disabled={selectedKeys.size === 0}
+                        onClick={() => {
+                            const missionsToLoad = uniqueMissions
+                                .filter(({ key }) => selectedKeys.has(key))
+                                .map(({ mission }) => ({
+                                    title: mission.title,
+                                    stones: mission.stones,
+                                    no: mission.no,
+                                    missionType: mission.missionType || 'continuous',
+                                    targetGroups: mission.targetGroups && mission.targetGroups.length > 0
+                                        ? mission.targetGroups
+                                        : [MISSION_ALL_GROUPS],
+                                }));
+
+                            const targetStudentIds = applyToAllStudents ? students.map(s => s.id) : [currentStudentId];
+
+                            const hasSameMission = (existing: PersonalMission, incoming: { title: string; stones: number; no: number; missionType: MissionType; targetGroups: string[] }) => {
+                                const existingType = (existing.missionType || 'continuous') as MissionType;
+                                return (
+                                    (existing.templateId || '') === '' &&
+                                    existing.title === incoming.title &&
+                                    existing.stones === incoming.stones &&
+                                    existing.no === incoming.no &&
+                                    existingType === incoming.missionType &&
+                                    targetGroupsKey(existing.targetGroups) === targetGroupsKey(incoming.targetGroups)
+                                );
+                            };
+
+                            targetStudentIds.forEach(targetId => {
+                                const stu = students.find(s => s.id === targetId);
+                                const g = stu?.group ?? '';
+                                const existing = personalMissions[targetId] || [];
+                                missionsToLoad.forEach(m => {
+                                    if (!personalMissionAppliesToGroup(m.targetGroups, g)) return;
+                                    const incoming = { ...m, missionType: (m.missionType || 'continuous') as MissionType };
+                                    if (existing.some(ex => hasSameMission(ex, incoming))) return;
+                                    onAddPersonalMission(targetId, incoming);
+                                });
+                            });
+
+                            onClose();
+                        }}
+                    >
+                        선택한 미션 {applyToAllStudents ? '모든 학생에게 추가' : '불러오기'} ({selectedKeys.size})
+                    </button>
+                </>
+            }
+        >
                     <p className="load-mission-modal-description">
                         저장된 개인 미션(연속/주간/월간/업적)을 선택하여 불러올 수 있습니다. 같은 내용의 미션은 하나만 표시됩니다.
                         그룹 기본으로 붙은 카드는 관리자 탭의 「그룹 기본 개인 미션」에서 수정하고, 여기서는 점수만 바꿀 수 있습니다.
@@ -272,25 +343,20 @@ export const LoadPersonalMissionModal = ({
                     ) : (
                         <div className="load-mission-edit-panel load-mission-add-panel">
                             <h4>새 미션 추가</h4>
-                            <div className="load-mission-edit-row">
+                            <div className="load-mission-edit-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                                 <label>방식</label>
-                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'nowrap' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        <input type="radio" checked={addType === 'continuous'} onChange={() => setAddType('continuous')} />
-                                        연속 미션
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        <input type="radio" checked={addType === 'weekly'} onChange={() => setAddType('weekly')} />
-                                        주간 미션
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        <input type="radio" checked={addType === 'monthly'} onChange={() => setAddType('monthly')} />
-                                        월간 미션
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                        <input type="radio" checked={addType === 'achievement'} onChange={() => setAddType('achievement')} />
-                                        업적 미션
-                                    </label>
+                                <div className="ui-choice-grid" role="radiogroup" aria-label="미션 방식">
+                                    {(Object.keys(MISSION_TYPE_LABELS) as MissionType[]).map(type => (
+                                        <label key={type} className={addType === type ? 'selected' : ''}>
+                                            <input
+                                                type="radio"
+                                                name="load-mission-add-type"
+                                                checked={addType === type}
+                                                onChange={() => setAddType(type)}
+                                            />
+                                            <span>{MISSION_TYPE_LABELS[type]}</span>
+                                        </label>
+                                    ))}
                                 </div>
                             </div>
                             <div className="load-mission-edit-row">
@@ -322,31 +388,26 @@ export const LoadPersonalMissionModal = ({
                             <div className="load-mission-edit-panel">
                                 <h4>미션 수정</h4>
                                 {fromTemplate && (
-                                    <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.75rem' }}>
+                                    <p className="form-note" style={{ marginBottom: '0.75rem' }}>
                                         그룹 기본 미션입니다. 제목·유형·No·노출 반은 관리자 탭 「그룹 기본 개인 미션」에서 바꿀 수 있습니다.
                                     </p>
                                 )}
                                 {!fromTemplate && (
                                     <>
-                                        <div className="load-mission-edit-row">
+                                        <div className="load-mission-edit-row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                                             <label>방식</label>
-                                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'nowrap' }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                    <input type="radio" checked={editType === 'continuous'} onChange={() => setEditType('continuous')} />
-                                                    연속 미션
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                    <input type="radio" checked={editType === 'weekly'} onChange={() => setEditType('weekly')} />
-                                                    주간 미션
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                    <input type="radio" checked={editType === 'monthly'} onChange={() => setEditType('monthly')} />
-                                                    월간 미션
-                                                </label>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                                    <input type="radio" checked={editType === 'achievement'} onChange={() => setEditType('achievement')} />
-                                                    업적 미션
-                                                </label>
+                                            <div className="ui-choice-grid" role="radiogroup" aria-label="미션 방식">
+                                                {(Object.keys(MISSION_TYPE_LABELS) as MissionType[]).map(type => (
+                                                    <label key={type} className={editType === type ? 'selected' : ''}>
+                                                        <input
+                                                            type="radio"
+                                                            name="load-mission-edit-type"
+                                                            checked={editType === type}
+                                                            onChange={() => setEditType(type)}
+                                                        />
+                                                        <span>{MISSION_TYPE_LABELS[type]}</span>
+                                                    </label>
+                                                ))}
                                             </div>
                                         </div>
                                         <div className="load-mission-edit-row">
@@ -398,7 +459,7 @@ export const LoadPersonalMissionModal = ({
                                                             ? '월간'
                                                             : `No.${mission.no}`} · {mission.title} · +{mission.stones}
                                                 {' '}
-                                                <span style={{ fontSize: '0.78rem', color: '#888' }}>
+                                                <span style={{ fontSize: '0.78rem', color: 'var(--color-muted)' }}>
                                                     {mission.templateId
                                                         ? '[그룹 기본]'
                                                         : (!mission.targetGroups || mission.targetGroups.includes(MISSION_ALL_GROUPS))
@@ -424,67 +485,6 @@ export const LoadPersonalMissionModal = ({
                             </ul>
                         )}
                     </div>
-                </div>
-                <div className="modal-actions">
-                    <button type="button" className="btn" onClick={onClose}>닫기</button>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto', cursor: 'pointer' }}>
-                        <input
-                            type="checkbox"
-                            checked={applyToAllStudents}
-                            onChange={(e) => setApplyToAllStudents(e.target.checked)}
-                        />
-                        모든 학생에게 추가
-                    </label>
-                    <button
-                        type="button"
-                        className="btn primary"
-                        disabled={selectedKeys.size === 0}
-                        onClick={() => {
-                            const missionsToLoad = uniqueMissions
-                                .filter(({ key }) => selectedKeys.has(key))
-                                .map(({ mission }) => ({
-                                    title: mission.title,
-                                    stones: mission.stones,
-                                    no: mission.no,
-                                    missionType: mission.missionType || 'continuous',
-                                    targetGroups: mission.targetGroups && mission.targetGroups.length > 0
-                                        ? mission.targetGroups
-                                        : [MISSION_ALL_GROUPS],
-                                }));
-
-                            const targetStudentIds = applyToAllStudents ? students.map(s => s.id) : [currentStudentId];
-
-                            const hasSameMission = (existing: PersonalMission, incoming: { title: string; stones: number; no: number; missionType: MissionType; targetGroups: string[] }) => {
-                                const existingType = (existing.missionType || 'continuous') as MissionType;
-                                return (
-                                    (existing.templateId || '') === '' &&
-                                    existing.title === incoming.title &&
-                                    existing.stones === incoming.stones &&
-                                    existing.no === incoming.no &&
-                                    existingType === incoming.missionType &&
-                                    targetGroupsKey(existing.targetGroups) === targetGroupsKey(incoming.targetGroups)
-                                );
-                            };
-
-                            targetStudentIds.forEach(targetId => {
-                                const stu = students.find(s => s.id === targetId);
-                                const g = stu?.group ?? '';
-                                const existing = personalMissions[targetId] || [];
-                                missionsToLoad.forEach(m => {
-                                    if (!personalMissionAppliesToGroup(m.targetGroups, g)) return;
-                                    const incoming = { ...m, missionType: (m.missionType || 'continuous') as MissionType };
-                                    if (existing.some(ex => hasSameMission(ex, incoming))) return;
-                                    onAddPersonalMission(targetId, incoming);
-                                });
-                            });
-
-                            onClose();
-                        }}
-                    >
-                        선택한 미션 {applyToAllStudents ? '모든 학생에게 추가' : '불러오기'} ({selectedKeys.size})
-                    </button>
-                </div>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

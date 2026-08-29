@@ -65,7 +65,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
                 <span className="student-card-coupons">
                     {activeCouponValue > 0 ? (
                         <>
-                            <span className="coupon-emoji">🎟️</span>
+                            <span className="coupon-chip">쿠폰</span>
                             <span className="coupon-num">{activeCouponValue} 스톤</span>
                         </>
                     ) : '\u00A0'}

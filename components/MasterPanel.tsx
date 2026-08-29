@@ -91,7 +91,7 @@ export const MasterPanel: React.FC<{ user: User }> = ({ user }) => {
             <div className="master-panel-content">
                 <div className="create-user-form">
                     <h3>신규 학원 계정 발급</h3>
-                    <p style={{ color: 'var(--text-color-secondary)', marginBottom: '1rem' }}>
+                    <p className="master-panel-desc">
                         새로운 학원(사용자)을 위한 로그인 계정을 생성합니다. 생성된 계정은 독립된 데이터 공간을 가집니다.
                     </p>
                     <form onSubmit={handleCreateUser}>
@@ -148,19 +148,20 @@ export const MasterPanel: React.FC<{ user: User }> = ({ user }) => {
                                             </span>
                                         </td>
                                         <td>
-                                            <button
-                                                className="btn-sm"
-                                                onClick={() => handleToggleStatus(u)}
-                                            >
-                                                {u.status === 'active' ? '비활성화' : '활성화'}
-                                            </button>
-                                            <button
-                                                className="btn-sm danger"
-                                                onClick={() => handleDeleteUser(u)}
-                                                style={{ marginLeft: '0.5rem' }}
-                                            >
-                                                삭제
-                                            </button>
+                                            <div className="master-actions">
+                                                <button
+                                                    className="btn-sm"
+                                                    onClick={() => handleToggleStatus(u)}
+                                                >
+                                                    {u.status === 'active' ? '비활성화' : '활성화'}
+                                                </button>
+                                                <button
+                                                    className="btn-sm danger"
+                                                    onClick={() => handleDeleteUser(u)}
+                                                >
+                                                    삭제
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

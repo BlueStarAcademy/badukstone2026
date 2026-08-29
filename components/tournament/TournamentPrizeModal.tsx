@@ -10,7 +10,7 @@ import {
     payoutToRankAmounts,
 } from '../../utils/tournamentPrizes';
 import { BracketRankPrizeFields } from '../modals/TournamentGroupPrizeEditors';
-import { useModalOverlayDismiss } from '../modals/useModalOverlayDismiss';
+import { ModalShell } from '../ui/ModalShell';
 
 interface TournamentPrizeModalProps {
     isOpen: boolean;
@@ -38,7 +38,6 @@ export const TournamentPrizeModal = ({
     mode,
     onAwardPrizes,
 }: TournamentPrizeModalProps) => {
-    const overlayDismiss = useModalOverlayDismiss(onClose);
     const nGroups = bracketPrizeGroupCount(settings, prizeKey);
     const paidCount = getBracketPaidRankCount(settings);
     const [prizeGroupIndex, setPrizeGroupIndex] = useState(0);
@@ -67,11 +66,23 @@ export const TournamentPrizeModal = ({
     const asRow = bracketRowFromRankAmounts(payoutToRankAmounts(prizes, paidCount), prizes.participant);
 
     return (
-        <div className="modal-overlay" {...overlayDismiss}>
-            <div className="modal-content tournament-prize-award-modal" onClick={e => e.stopPropagation()}>
-                <h2>{modalTitle[mode]}</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
+        <ModalShell
+            title={modalTitle[mode]}
+            size="md"
+            onClose={onClose}
+            className="tournament-prize-award-modal"
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>
+                        취소
+                    </button>
+                    <button type="submit" form="tournament-prize-form" className="btn primary">
+                        스톤 지급
+                    </button>
+                </>
+            }
+        >
+                <form id="tournament-prize-form" onSubmit={handleSubmit}>
                         {nGroups > 1 && (
                             <div className="tsm-field-row" style={{ marginBottom: '1rem' }}>
                                 <label htmlFor="prize-group-idx">적용 조</label>
@@ -94,17 +105,7 @@ export const TournamentPrizeModal = ({
                             prizes={asRow}
                             onChange={next => setPrizes(bracketPayoutFromRow(next, paidCount))}
                         />
-                    </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>
-                            취소
-                        </button>
-                        <button type="submit" className="btn primary">
-                            스톤 지급
-                        </button>
-                    </div>
                 </form>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

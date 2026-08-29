@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { SwissGroupData } from '../../types';
+import { ModalShell } from '../ui/ModalShell';
 
 interface SwissGroupPlayerSwapModalProps {
     isOpen: boolean;
@@ -59,11 +60,22 @@ export const SwissGroupPlayerSwapModal = ({ isOpen, onClose, groups, onSwap }: S
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-                <h2>조 간 선수 교체</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
+        <ModalShell
+            title="조 간 선수 교체"
+            size="sm"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>
+                        취소
+                    </button>
+                    <button type="submit" form="swiss-group-player-swap-form" className="btn primary">
+                        교체
+                    </button>
+                </>
+            }
+        >
+                <form id="swiss-group-player-swap-form" onSubmit={handleSubmit}>
                         <p style={{ fontSize: '0.9rem', color: 'var(--text-color-secondary)', marginBottom: '1rem' }}>
                             한 조의 선수와 다른 조의 선수를 맞바꿉니다. 두 조의 기존 대진·승점은 각 조 안에서 그대로 이어지며, 선수 소속만 바뀝니다.
                         </p>
@@ -121,17 +133,7 @@ export const SwissGroupPlayerSwapModal = ({ isOpen, onClose, groups, onSwap }: S
                                 </select>
                             </div>
                         </div>
-                    </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>
-                            취소
-                        </button>
-                        <button type="submit" className="btn primary">
-                            교체
-                        </button>
-                    </div>
                 </form>
-            </div>
-        </div>
+        </ModalShell>
     );
 };

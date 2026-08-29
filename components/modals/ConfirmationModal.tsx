@@ -1,4 +1,5 @@
 import React from 'react';
+import { ModalShell } from '../ui/ModalShell';
 
 export interface ActionButton {
     text: string;
@@ -14,17 +15,17 @@ interface ConfirmationModalProps {
 
 export const ConfirmationModal = ({ message, actions, onClose }: ConfirmationModalProps) => {
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content confirmation-modal-content" onClick={(e) => e.stopPropagation()}>
-                <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>
-                <div className="modal-actions">
-                    {actions.map((action, index) => (
-                        <button key={index} type="button" className={`btn ${action.className || ''}`} onClick={action.onClick}>
-                            {action.text}
-                        </button>
-                    ))}
-                </div>
-            </div>
-        </div>
+        <ModalShell
+            title="확인"
+            size="sm"
+            onClose={onClose}
+            footer={actions.map((action, index) => (
+                <button key={index} type="button" className={`btn ${action.className || ''}`} onClick={action.onClick}>
+                    {action.text}
+                </button>
+            ))}
+        >
+            <p style={{ whiteSpace: 'pre-wrap' }}>{message}</p>
+        </ModalShell>
     );
 };

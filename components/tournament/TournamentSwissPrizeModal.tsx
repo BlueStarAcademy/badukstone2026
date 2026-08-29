@@ -3,6 +3,7 @@ import type { TournamentSettings, SwissData, TournamentSwissGroupPrizes } from '
 import { sortSwissPlayers } from '../../utils';
 import { getSwissPrizeRow, getSwissPaidRankCount } from '../../utils/tournamentPrizes';
 import { SwissRankPrizeFields } from '../modals/TournamentGroupPrizeEditors';
+import { ModalShell } from '../ui/ModalShell';
 
 export type SwissPrizeAwardEntry = { groupIndex: number; prizes: TournamentSwissGroupPrizes };
 
@@ -79,11 +80,23 @@ export const TournamentSwissPrizeModal = ({ isOpen, onClose, settings, swissData
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '960px' }}>
-                <h2>스위스 리그 결과 시상</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+        <ModalShell
+            title="스위스 리그 결과 시상"
+            size="xl"
+            onClose={onClose}
+            footer={
+                <>
+                    <button type="button" className="btn" onClick={onClose}>
+                        취소
+                    </button>
+                    <button type="submit" form="tournament-swiss-prize-form" className="btn primary">
+                        스톤 지급
+                    </button>
+                </>
+            }
+        >
+                <form id="tournament-swiss-prize-form" onSubmit={handleSubmit}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
                         <div>
                             <h4>최종 순위</h4>
                             <div style={{ maxHeight: '360px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '4px', padding: '0.5rem' }}>
@@ -147,16 +160,7 @@ export const TournamentSwissPrizeModal = ({ isOpen, onClose, settings, swissData
                             })}
                         </div>
                     </div>
-                    <div className="modal-actions">
-                        <button type="button" className="btn" onClick={onClose}>
-                            취소
-                        </button>
-                        <button type="submit" className="btn primary">
-                            스톤 지급
-                        </button>
-                    </div>
                 </form>
-            </div>
-        </div>
+        </ModalShell>
     );
 };
