@@ -84,7 +84,7 @@
 .current-stone-val {
     font-size: 3rem;
     font-weight: 800;
-    color: #ff6f00; /* Vibrant Orange */
+    color: var(--stone-color);
     line-height: 1;
     letter-spacing: -1px;
 }
@@ -114,9 +114,14 @@
     line-height: 1.2;
 }
 
-.student-card-coupons .coupon-emoji {
-    font-size: 1rem;
-    line-height: 1.2;
+.student-card-coupons .coupon-chip {
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--primary-color);
+    background: var(--primary-soft);
+    border-radius: 999px;
+    padding: 2px 7px;
 }
 
 .student-card-coupons .coupon-num {
@@ -149,12 +154,20 @@
     opacity: 0.9;
 }
 
-/* Border colors for groups */
-.student-card--yudanja { border-top: 5px solid #9b59b6; }
-.student-card--gogeup { border-top: 5px solid #e74c3c; }
-.student-card--junggeup { border-top: 5px solid #f1c40f; }
-.student-card--chogeup2 { border-top: 5px solid #2ecc71; }
-.student-card--chogeup1 { border-top: 5px solid #3498db; }
+/* Border colors for groups (tokenized palette) */
+:root {
+    --group-yudanja: #9b59b6;
+    --group-gogeup: #e74c3c;
+    --group-junggeup: #f1c40f;
+    --group-chogeup2: #2ecc71;
+    --group-chogeup1: #3498db;
+}
+
+.student-card--yudanja { border-top: 5px solid var(--group-yudanja); }
+.student-card--gogeup { border-top: 5px solid var(--group-gogeup); }
+.student-card--junggeup { border-top: 5px solid var(--group-junggeup); }
+.student-card--chogeup2 { border-top: 5px solid var(--group-chogeup2); }
+.student-card--chogeup1 { border-top: 5px solid var(--group-chogeup1); }
 
 /* Player Management (Modal) */
 .player-mgmt-container {

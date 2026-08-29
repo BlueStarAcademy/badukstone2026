@@ -5,6 +5,7 @@
     --primary-soft: #edf4ff;
     --secondary-color: #172033;
     --accent-color: #f39c12;
+    --stone-color: var(--accent-color);
 
     /* Semantic */
     --danger-color: #e74c3c;
