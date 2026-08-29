@@ -392,7 +392,7 @@ export const TournamentView = (props: TournamentViewProps) => {
         setIsPlayerManagementModalOpen(false);
     };
 
-    const handleInitBracket = (mode: 'random' | 'ranked', ids: string[]) => {
+    const handleInitBracket = (mode: 'random' | 'ranked', ids: string[], startRoundSize?: number | null) => {
         const participants = ids
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
@@ -420,7 +420,12 @@ export const TournamentView = (props: TournamentViewProps) => {
         }));
 
         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
-        const { rounds } = buildSingleElimRounds(tournamentPlayers, byePriority, true);
+        const { rounds } = buildSingleElimRounds(
+            tournamentPlayers,
+            byePriority,
+            true,
+            startRoundSize ?? null
+        );
 
         setData(prev => ({
             ...prev,

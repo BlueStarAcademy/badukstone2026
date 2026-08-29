@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DoubleElimData, SwissMatch, SwissPlayer } from '../../types';
-import { buildElimRoundOneSlotOrder } from '../byePlacement';
+import { buildElimRoundOneSlotOrder, listValidStartRoundSizes, planElimBracket } from '../byePlacement';
+import { buildSingleElimRounds } from '../elimBracket';
 import { buildDoubleElim, propagateAllWinners } from '../doubleElimBracket';
 import { getDoubleElimPlacements } from '../tournamentPrizes';
 import { sortSwissPlayers } from '../index';
@@ -72,6 +73,46 @@ describe('elimination bye placement', () => {
         expect(slots).toHaveLength(8);
         expect(slots).not.toContain('BYE');
         expect(new Set([...slots, ...byeRecipients])).toEqual(new Set(seeds));
+    });
+});
+
+describe('forced start round size', () => {
+    it('pads byes when forcing a larger main draw than the field', () => {
+        expect(planElimBracket(5, 8)).toEqual({
+            mainDrawSize: 8,
+            playInMatchCount: 0,
+            byeCount: 3,
+        });
+        expect(listValidStartRoundSizes(5)).toEqual([4, 8, 16, 32]);
+    });
+
+    it('keeps play-in when forcing a compact smaller draw', () => {
+        expect(planElimBracket(10, 8)).toEqual({
+            mainDrawSize: 8,
+            playInMatchCount: 2,
+            byeCount: 6,
+        });
+    });
+
+    it('builds forced 8강 rounds for five players with bye auto-wins', () => {
+        const players = Array.from({ length: 5 }, (_, index) => ({
+            studentId: `p${index + 1}`,
+            name: `p${index + 1}`,
+            rank: `${index + 1}급`,
+            game1Handicap: 0,
+            game1Color: 'black' as const,
+            game1Result: null,
+            game2Score: null,
+            game2LastStone: false,
+            game3Score: null,
+        }));
+        const { rounds, mainDrawSize, playInMatchCount } = buildSingleElimRounds(players, 'min_byes', false, 8);
+        expect(mainDrawSize).toBe(8);
+        expect(playInMatchCount).toBe(0);
+        expect(rounds[0].title).toBe('8강');
+        expect(rounds[0].matches).toHaveLength(4);
+        const byeWins = rounds[0].matches.filter(match => match.winnerId).length;
+        expect(byeWins).toBe(3);
     });
 });
 

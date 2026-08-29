@@ -2,7 +2,7 @@ import type { TournamentByePriority, TournamentMatch, TournamentPlayer, Tourname
 import { generateId } from './index';
 import {
     DEFAULT_BYE_PRIORITY,
-    planCompactElimBracket,
+    planElimBracket,
     pickByeRecipientSeedIndices,
 } from './byePlacement';
 
@@ -11,6 +11,9 @@ export {
     minimalPow2BracketSize,
     previousPow2BracketSize,
     planCompactElimBracket,
+    planElimBracket,
+    listValidStartRoundSizes,
+    formatStartRoundLabel,
 } from './byePlacement';
 
 export function isPlayInRoundTitle(title: string): boolean {
@@ -25,10 +28,19 @@ export function elimRoundTitle(size: number): string {
 
 export function pickElimSeedBuckets<T>(
     seedsStrongestFirst: T[],
-    priority: TournamentByePriority
+    priority: TournamentByePriority,
+    forcedMainDrawSize?: number | null
 ): { byeRecipients: T[]; playInPlayers: T[]; mainDrawSize: number; playInMatchCount: number } {
     const n = seedsStrongestFirst.length;
-    const { mainDrawSize, playInMatchCount, byeCount } = planCompactElimBracket(n);
+    const { mainDrawSize, playInMatchCount, byeCount } = planElimBracket(n, forcedMainDrawSize);
+    if (playInMatchCount <= 0) {
+        return {
+            byeRecipients: [],
+            playInPlayers: [...seedsStrongestFirst],
+            mainDrawSize,
+            playInMatchCount: 0,
+        };
+    }
     const byeIdx = new Set(pickByeRecipientSeedIndices(n, byeCount, priority));
     const byeRecipients: T[] = [];
     const playInPlayers: T[] = [];
@@ -101,14 +113,20 @@ export function placeMainDrawSeeds(
 
 /**
  * 단판 토너먼트 라운드 생성 (예선→본선 최적 구조).
+ * @param forcedMainDrawSize 몇강전부터 시작할지 (2의 거듭제곱). 미지정 시 자동.
  */
 export function buildSingleElimRounds(
     tournamentPlayers: TournamentPlayer[],
     priority: TournamentByePriority = DEFAULT_BYE_PRIORITY,
-    shufflePairings = true
+    shufflePairings = true,
+    forcedMainDrawSize?: number | null
 ): { rounds: TournamentBracket['rounds']; mainDrawSize: number; playInMatchCount: number } {
     const seeds = [...tournamentPlayers];
-    const { byeRecipients, playInPlayers, mainDrawSize, playInMatchCount } = pickElimSeedBuckets(seeds, priority);
+    const { byeRecipients, playInPlayers, mainDrawSize, playInMatchCount } = pickElimSeedBuckets(
+        seeds,
+        priority,
+        forcedMainDrawSize
+    );
     const rounds: TournamentBracket['rounds'] = [];
 
     if (playInMatchCount > 0) {
@@ -137,8 +155,31 @@ export function buildSingleElimRounds(
         placeMainDrawSeeds(mainMatches, byeRecipients as TournamentPlayer[], playInMatchCount);
     } else {
         const pvp = shuffleInPlace(playInPlayers, shufflePairings);
+        const queue = [...pvp];
+        const byePads = Math.max(0, mainDrawSize - queue.length);
+        const paired: (TournamentPlayer | 'BYE')[][] = [];
+
+        // 부전승은 선수와 붙이고, BYE끼리 붙지 않도록 배치
+        for (let i = 0; i < byePads; i++) {
+            const player = queue.shift();
+            if (player) paired.push([player, 'BYE']);
+            else paired.push(['BYE', 'BYE']);
+        }
+        while (queue.length > 0) {
+            paired.push([queue.shift()!, queue.shift() ?? 'BYE']);
+        }
+        while (paired.length < mainMatches.length) {
+            paired.push(['BYE', 'BYE']);
+        }
+
         for (let i = 0; i < mainMatches.length; i++) {
-            mainMatches[i].players = [pvp[i * 2] ?? null, pvp[i * 2 + 1] ?? null];
+            const [a, b] = paired[i] ?? ['BYE', 'BYE'];
+            mainMatches[i].players = [a, b];
+            if (a && a !== 'BYE' && b === 'BYE') {
+                mainMatches[i].winnerId = a.studentId;
+            } else if (b && b !== 'BYE' && a === 'BYE') {
+                mainMatches[i].winnerId = b.studentId;
+            }
         }
     }
     rounds.push({ title: elimRoundTitle(roundSize), matches: mainMatches });
@@ -159,7 +200,10 @@ export function buildSingleElimRounds(
         rounds[rounds.length - 1].title = '결승';
     }
 
-    return { rounds, mainDrawSize, playInMatchCount };
+    const built: TournamentBracket = { rounds, players: tournamentPlayers };
+    propagateSingleElimWinners(built);
+
+    return { rounds: built.rounds, mainDrawSize, playInMatchCount };
 }
 
 /** 예선→본선 진출 및 이후 라운드 승자 반영 */

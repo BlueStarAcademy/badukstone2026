@@ -37,6 +37,59 @@ export function planCompactElimBracket(n: number): {
     return { mainDrawSize, playInMatchCount, byeCount };
 }
 
+export function isPowerOfTwo(n: number): boolean {
+    return Number.isInteger(n) && n >= 2 && (n & (n - 1)) === 0;
+}
+
+/**
+ * 강제 본선 크기(몇강) 반영.
+ * - S >= n: 예선 없이 본선 S강, 빈 자리는 부전승
+ * - S < n && 2S >= n: 예선 (n-S)경기 → S강
+ * - 그 외/무효: 자동(compact) 계획
+ */
+export function planElimBracket(
+    n: number,
+    forcedMainDrawSize?: number | null
+): {
+    mainDrawSize: number;
+    playInMatchCount: number;
+    byeCount: number;
+} {
+    const count = Math.max(0, n);
+    if (!forcedMainDrawSize || !isPowerOfTwo(forcedMainDrawSize)) {
+        return planCompactElimBracket(count);
+    }
+    const size = forcedMainDrawSize;
+    if (size >= count) {
+        return { mainDrawSize: size, playInMatchCount: 0, byeCount: size - count };
+    }
+    if (2 * size >= count) {
+        const playInMatchCount = count - size;
+        const byeCount = size - playInMatchCount;
+        return { mainDrawSize: size, playInMatchCount, byeCount };
+    }
+    return planCompactElimBracket(count);
+}
+
+/** 선수 수에 대해 선택 가능한 몇강 목록 (자동 제외) */
+export function listValidStartRoundSizes(playerCount: number): number[] {
+    const n = Math.max(0, playerCount);
+    if (n < 2) return [];
+    const maxSize = Math.max(minimalPow2BracketSize(n), 32);
+    const sizes: number[] = [];
+    for (let size = 4; size <= maxSize; size *= 2) {
+        if (size >= n || 2 * size >= n) sizes.push(size);
+    }
+    if (n === 2 && !sizes.includes(2)) sizes.unshift(2);
+    return sizes;
+}
+
+export function formatStartRoundLabel(size: number): string {
+    if (size <= 2) return '결승';
+    if (size === 4) return '4강전';
+    return `${size}강`;
+}
+
 /**
  * 단판/예선 본선 등: 시드 순서에서 부전승을 받을 B명의 인덱스(0 = 최강).
  * - min_byes: 부전승 대상을 순위 전체에 고르게 퍼뜨림.

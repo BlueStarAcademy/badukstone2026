@@ -3,6 +3,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { Student, TournamentSettings } from '../../types';
 import { parseRank } from '../../utils';
 import { parseSwissGroupSizes } from '../../utils/tournamentPrizes';
+import {
+    formatStartRoundLabel,
+    listValidStartRoundSizes,
+    planCompactElimBracket,
+} from '../../utils/elimBracket';
 
 interface TournamentPlayerManagementModalProps {
     isOpen: boolean;
@@ -18,7 +23,7 @@ interface TournamentPlayerManagementModalProps {
     onInitHybrid?: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitFullLeague?: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitDoubleElim?: (mode: 'random' | 'ranked', ids: string[]) => void;
-    onInitBracket?: (mode: 'random' | 'ranked', ids: string[]) => void;
+    onInitBracket?: (mode: 'random' | 'ranked', ids: string[], startRoundSize?: number | null) => void;
 }
 
 export const TournamentPlayerManagementModal = (props: TournamentPlayerManagementModalProps) => {
@@ -42,12 +47,15 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [searchTerm, setSearchTerm] = useState('');
     const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
+    /** null = 자동(최적), number = 강제 몇강 */
+    const [startRoundSize, setStartRoundSize] = useState<number | null>(null);
 
     useEffect(() => {
         if (isOpen) {
             setSelectedIds(new Set(participantIds));
             setSearchTerm('');
             setAssignmentMode('ranked');
+            setStartRoundSize(null);
         }
     }, [isOpen, participantIds]);
 
@@ -63,6 +71,23 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
             .filter(s => selectedIds.has(s.id))
             .sort((a, b) => parseRank(b.rank) - parseRank(a.rank));
     }, [allStudents, selectedIds]);
+
+    const startRoundOptions = useMemo(
+        () => listValidStartRoundSizes(selectedIds.size),
+        [selectedIds.size]
+    );
+
+    const autoStartRound = useMemo(() => {
+        if (selectedIds.size < 2) return null;
+        return planCompactElimBracket(selectedIds.size).mainDrawSize;
+    }, [selectedIds.size]);
+
+    useEffect(() => {
+        if (startRoundSize == null) return;
+        if (!startRoundOptions.includes(startRoundSize)) {
+            setStartRoundSize(null);
+        }
+    }, [startRoundSize, startRoundOptions]);
 
     if (!isOpen) return null;
 
@@ -105,7 +130,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         } else if (currentView === 'hybrid' && onInitHybrid) {
             onInitHybrid(assignmentMode, ids);
         } else if (currentView === 'bracket' && onInitBracket) {
-            onInitBracket(assignmentMode, ids);
+            onInitBracket(assignmentMode, ids, startRoundSize);
         } else if (currentView === 'fullleague' && onInitFullLeague) {
             onInitFullLeague(assignmentMode, ids);
         } else if (currentView === 'doubleelim' && onInitDoubleElim) {
@@ -127,6 +152,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         currentView === 'doubleelim' ||
         currentView === 'bracket';
     const showAssignmentOptions = showFinalizeButton;
+    const showStartRoundOptions = currentView === 'bracket';
 
     const swissGroupHint = useMemo(() => {
         if (currentView !== 'swiss' || !tournamentSettings?.swissUseGroups) return null;
@@ -238,6 +264,29 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                                     >
                                         <option value="ranked">급수 순</option>
                                         <option value="random">무작위</option>
+                                    </select>
+                                </div>
+                            )}
+                            {showStartRoundOptions && (
+                                <div className="tournament-player-mgmt-assign">
+                                    <label htmlFor="start-round-size">몇강전부터</label>
+                                    <select
+                                        id="start-round-size"
+                                        value={startRoundSize ?? 'auto'}
+                                        onChange={e => {
+                                            const value = e.target.value;
+                                            setStartRoundSize(value === 'auto' ? null : Number(value));
+                                        }}
+                                        disabled={selectedIds.size < 2}
+                                    >
+                                        <option value="auto">
+                                            자동{autoStartRound ? ` (${formatStartRoundLabel(autoStartRound)})` : ''}
+                                        </option>
+                                        {startRoundOptions.map(size => (
+                                            <option key={size} value={size}>
+                                                {formatStartRoundLabel(size)}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             )}
