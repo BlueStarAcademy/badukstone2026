@@ -1,13 +1,10 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type {
     Student,
     TournamentData,
     TournamentSettings,
     SwissPlayer,
     SwissMatch,
-    TournamentBracket,
-    TournamentMatch,
     TournamentAwardGrant,
     TournamentAwardRequest,
     TournamentSwissGroupPrizes,
@@ -44,11 +41,19 @@ interface PreliminaryGroupViewProps {
     group: SwissMatch[];
     groupIndex: number;
     players: SwissPlayer[];
+    advanceCount: number;
     onSetWinner: (matchId: string, winnerId: string) => void;
     onOpenPrize?: (groupIndex: number) => void;
 }
 
-const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, groupIndex, players, onSetWinner, onOpenPrize }) => {
+const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({
+    group,
+    groupIndex,
+    players,
+    advanceCount,
+    onSetWinner,
+    onOpenPrize,
+}) => {
     const matches = asArray<SwissMatch>(group);
     const safePlayers = asArray<SwissPlayer>(players);
     const getPlayer = (id: string) => safePlayers.find(p => p.studentId === id);
@@ -58,13 +63,20 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
         const playerIds = new Set(
             matches.flatMap(m => asArray<string | 'BYE'>(m?.players)).filter(id => id && id !== 'BYE')
         );
-        return safePlayers.filter(p => playerIds.has(p.studentId)).sort((a, b) => b.score - a.score);
+        return safePlayers
+            .filter(p => playerIds.has(p.studentId))
+            .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'));
     }, [matches, safePlayers]);
 
     return (
-        <div className="swiss-round hybrid-preliminary-group">
+        <div className="hybrid-group-panel">
             <div className="hybrid-preliminary-header">
-                <h3>{groupIndex + 1}조</h3>
+                <div className="hybrid-group-heading">
+                    <h3>{groupIndex + 1}조</h3>
+                    <span className="hybrid-group-meta">
+                        {groupPlayers.length}명 · 상위 {advanceCount}명 진출
+                    </span>
+                </div>
                 {onOpenPrize && (
                     <button
                         type="button"
@@ -77,37 +89,67 @@ const PreliminaryGroupView: React.FC<PreliminaryGroupViewProps> = ({ group, grou
                     </button>
                 )}
             </div>
-            <table className="swiss-standings-table hybrid-preliminary-table">
-                <thead><tr><th>선수</th><th>승점</th></tr></thead>
-                <tbody>
-                    {groupPlayers.map(p => (
-                        <tr key={p.studentId}>
-                            <td>{p.name}</td>
-                            <td>{p.score}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            <ul className="swiss-match-list">
-                {matches.map(match => {
-                    const matchPlayers = asArray<string | 'BYE'>(match.players);
-                    const player1 = getPlayer(matchPlayers[0] as string);
-                    const player2 = getPlayer(matchPlayers[1] as string);
-                    return (
-                        <li key={match.id} className="swiss-match">
-                            <div className={`swiss-player clickable ${match.winnerId === player1?.studentId ? 'winner' : ''} ${match.winnerId && match.winnerId !== player1?.studentId ? 'loser' : ''}`} onClick={() => player1 && onSetWinner(match.id, player1.studentId)}>
-                                <span>{player1?.name}</span>
-                                {match.winnerId === player1?.studentId && <span className="winner-label">승</span>}
-                            </div>
-                            <div className="swiss-vs">VS</div>
-                            <div className={`swiss-player clickable ${match.winnerId === player2?.studentId ? 'winner' : ''} ${match.winnerId && match.winnerId !== player2?.studentId ? 'loser' : ''}`} onClick={() => player2 && onSetWinner(match.id, player2.studentId)}>
-                                <span>{player2?.name}</span>
-                                {match.winnerId === player2?.studentId && <span className="winner-label">승</span>}
-                            </div>
-                        </li>
-                    )
-                })}
-            </ul>
+
+            <section className="hybrid-player-roster" aria-label={`${groupIndex + 1}조 선수`}>
+                <div className="hybrid-section-label">조별 선수</div>
+                {groupPlayers.length === 0 ? (
+                    <p className="hybrid-empty-hint">이 조에 등록된 선수가 없습니다.</p>
+                ) : (
+                    <ul className="hybrid-player-row">
+                        {groupPlayers.map((player, index) => {
+                            const qualifies = index < advanceCount;
+                            return (
+                                <li
+                                    key={player.studentId}
+                                    className={`hybrid-player-chip${qualifies ? ' is-qualifying' : ''}`}
+                                >
+                                    <span className="hybrid-player-rank">{index + 1}</span>
+                                    <span className="hybrid-player-name">{player.name}</span>
+                                    <span className="hybrid-player-score">{player.score}승</span>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </section>
+
+            <section className="hybrid-match-board" aria-label={`${groupIndex + 1}조 대진`}>
+                <div className="hybrid-section-label">조별 대진</div>
+                {matches.length === 0 ? (
+                    <p className="hybrid-empty-hint">대진이 없습니다.</p>
+                ) : (
+                    <ul className="hybrid-match-row">
+                        {matches.map(match => {
+                            const matchPlayers = asArray<string | 'BYE'>(match.players);
+                            const player1 = getPlayer(matchPlayers[0] as string);
+                            const player2 = getPlayer(matchPlayers[1] as string);
+                            return (
+                                <li key={match.id} className="hybrid-match-card">
+                                    <button
+                                        type="button"
+                                        className={`hybrid-match-side${match.winnerId === player1?.studentId ? ' is-winner' : ''}${match.winnerId && match.winnerId !== player1?.studentId ? ' is-loser' : ''}`}
+                                        onClick={() => player1 && onSetWinner(match.id, player1.studentId)}
+                                        disabled={!player1}
+                                    >
+                                        <span className="hybrid-match-name">{player1?.name || 'BYE'}</span>
+                                        {match.winnerId === player1?.studentId && <span className="winner-label">승</span>}
+                                    </button>
+                                    <span className="hybrid-match-vs" aria-hidden>VS</span>
+                                    <button
+                                        type="button"
+                                        className={`hybrid-match-side${match.winnerId === player2?.studentId ? ' is-winner' : ''}${match.winnerId && match.winnerId !== player2?.studentId ? ' is-loser' : ''}`}
+                                        onClick={() => player2 && onSetWinner(match.id, player2.studentId)}
+                                        disabled={!player2}
+                                    >
+                                        <span className="hybrid-match-name">{player2?.name || 'BYE'}</span>
+                                        {match.winnerId === player2?.studentId && <span className="winner-label">승</span>}
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
+            </section>
         </div>
     );
 };
@@ -119,7 +161,32 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
 
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
     const [groupTab, setGroupTab] = useState(0);
+    const [phaseTab, setPhaseTab] = useState<'prelim' | 'final'>('prelim');
     const [prelimPrizeGroupIndex, setPrelimPrizeGroupIndex] = useState<number | null>(null);
+
+    const preliminaryGroups = useMemo(
+        () => (data.hybrid ? normalizeHybridPreliminaryGroups(data.hybrid.preliminaryGroups) as SwissMatch[][] : []),
+        [data.hybrid]
+    );
+    const hybridPlayers = useMemo(
+        () => (data.hybrid ? asArray<SwissPlayer>(data.hybrid.players) : []),
+        [data.hybrid]
+    );
+    const advanceCount = getHybridAdvanceCountPerGroup(hybridAdvanceCount);
+    const hasBracket = !!data.hybrid?.bracket;
+
+    useEffect(() => {
+        if (!preliminaryGroups.length) {
+            setGroupTab(0);
+            return;
+        }
+        setGroupTab(current => Math.min(current, preliminaryGroups.length - 1));
+    }, [preliminaryGroups.length]);
+
+    useEffect(() => {
+        if (hasBracket) setPhaseTab('final');
+        else setPhaseTab('prelim');
+    }, [hasBracket]);
 
     const handleGeneratePreliminaries = () => {
         const participants = resolveParticipants(hybridParticipantIds || [], students);
@@ -142,13 +209,15 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
 
         const groups = distributeHybridGroups(sortedParticipants, numGroups);
         const swissPlayers = participants.map(toSwissPlayer);
-        const preliminaryGroups = groups.map(group => createRoundRobinMatches(group, generateId));
-        
+        const nextPreliminaryGroups = groups.map(group => createRoundRobinMatches(group, generateId));
+
+        setGroupTab(0);
+        setPhaseTab('prelim');
         setData(prev => ({
             ...prev,
             hybrid: {
                 players: swissPlayers,
-                preliminaryGroups,
+                preliminaryGroups: nextPreliminaryGroups,
                 bracket: null,
             },
             awardSessionIds: { ...prev.awardSessionIds, hybrid: generateId() },
@@ -228,6 +297,7 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
         const byePriority = settings.byePriority ?? DEFAULT_BYE_PRIORITY;
         const { rounds } = buildSingleElimRounds(tournamentPlayers, byePriority, true);
 
+        setPhaseTab('final');
         setData(prev => ({
             ...prev,
             hybrid: {
@@ -248,20 +318,13 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                 }}
             ]
         });
-    }
+    };
 
-    // Intercept setData from child TournamentBracketView to update hybrid.bracket instead of root bracket
     const handleBracketDataUpdate = (updateAction: React.SetStateAction<TournamentData>) => {
         setData(globalPrev => {
-            // Create a fake previous state where root.bracket is populated from hybrid.bracket
-            // This satisfies TournamentBracketView logic which expects root.bracket
             const fakePrev = { ...globalPrev, bracket: globalPrev.hybrid?.bracket || null };
-            
-            // Apply the update
             const updateFn = typeof updateAction === 'function' ? updateAction : () => updateAction;
             const nextState = updateFn(fakePrev);
-            
-            // Put the updated bracket back into hybrid.bracket
             return {
                 ...globalPrev,
                 hybrid: {
@@ -287,94 +350,115 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
             </div>
         );
     }
-    
-    if (data.hybrid && !data.hybrid.bracket) {
-        const preliminaryGroups = normalizeHybridPreliminaryGroups(
-            data.hybrid.preliminaryGroups
-        ) as SwissMatch[][];
-        const hybridPlayers = asArray<SwissPlayer>(data.hybrid.players);
-        const allMatchesPlayed =
-            preliminaryGroups.length > 0 && preliminaryGroups.flat().every(m => m.winnerId);
-        const totalParticipants = hybridPlayers.length;
-        const useGroupTabs = totalParticipants >= 16 && preliminaryGroups.length >= 2;
 
-        const activeGroupTab = Math.min(groupTab, Math.max(0, preliminaryGroups.length - 1));
-        const content = useGroupTabs ? (
-            <div className="tournament-group-tabs">
-                <div className="group-tab-buttons">
-                    {preliminaryGroups.map((_, i) => (
+    const allMatchesPlayed =
+        preliminaryGroups.length > 0 && preliminaryGroups.flat().every(m => m.winnerId);
+    const activeGroupTab = Math.min(groupTab, Math.max(0, preliminaryGroups.length - 1));
+    const showPrelim = !hasBracket || phaseTab === 'prelim';
+
+    const prelimContent = (
+        <div className="tournament-group-tabs hybrid-group-tabs">
+            <div className="group-tab-buttons" role="tablist" aria-label="예선 조 선택">
+                {preliminaryGroups.map((group, i) => {
+                    const done = group.length > 0 && group.every(match => !!match.winnerId);
+                    return (
                         <button
                             key={i}
-                            className={`tab-btn ${activeGroupTab === i ? 'active' : ''}`}
+                            type="button"
+                            role="tab"
+                            aria-selected={activeGroupTab === i}
+                            className={`tab-btn${activeGroupTab === i ? ' active' : ''}${done ? ' is-complete' : ''}`}
                             onClick={() => setGroupTab(i)}
-                        >{i + 1}조</button>
-                    ))}
-                </div>
-                <div className="group-tab-content">
-                    <PreliminaryGroupView
-                        group={preliminaryGroups[activeGroupTab] || []}
-                        groupIndex={activeGroupTab}
-                        players={hybridPlayers}
-                        onSetWinner={handleSetPreliminaryWinner}
-                        onOpenPrize={setPrelimPrizeGroupIndex}
-                    />
-                </div>
+                        >
+                            {i + 1}조
+                            {done ? <span className="hybrid-tab-done">완료</span> : null}
+                        </button>
+                    );
+                })}
             </div>
-        ) : (
-            <div className="hybrid-preliminary-grid">
-                {preliminaryGroups.map((group, i) => (
-                    <PreliminaryGroupView
-                        key={i}
-                        group={group}
-                        groupIndex={i}
-                        players={hybridPlayers}
-                        onSetWinner={handleSetPreliminaryWinner}
-                        onOpenPrize={setPrelimPrizeGroupIndex}
-                    />
-                ))}
+            <div className="group-tab-content hybrid-group-tab-content" role="tabpanel">
+                <PreliminaryGroupView
+                    group={preliminaryGroups[activeGroupTab] || []}
+                    groupIndex={activeGroupTab}
+                    players={hybridPlayers}
+                    advanceCount={advanceCount}
+                    onSetWinner={handleSetPreliminaryWinner}
+                    onOpenPrize={setPrelimPrizeGroupIndex}
+                />
             </div>
-        );
+        </div>
+    );
 
-        return (
-            <div className="tournament-swiss-view">
-                 <div className="swiss-controls">
-                    <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                    <button className="btn primary" onClick={handleAdvanceToBracket} disabled={!allMatchesPlayed}>본선 대진표 생성</button>
-                    <button className="btn danger" onClick={handleReset}>대진표 초기화</button>
-                </div>
-                <p>각 조의 모든 경기를 진행한 후, '본선 대진표 생성' 버튼을 누르세요. 각 조 상위 {getHybridAdvanceCountPerGroup(hybridAdvanceCount)}명이 진출합니다.</p>
-                {content}
-                {prelimPrizeGroupIndex !== null && data.hybrid && (
-                    <HybridPrelimPrizeModal
-                        isOpen
-                        onClose={() => setPrelimPrizeGroupIndex(null)}
-                        settings={settings}
-                        groupIndex={prelimPrizeGroupIndex}
-                        groupLabel={`${prelimPrizeGroupIndex + 1}조`}
-                        groupMatches={preliminaryGroups[prelimPrizeGroupIndex] || []}
-                        allPlayers={hybridPlayers}
-                        onAward={handlePrelimPrizeAward}
-                    />
+    return (
+        <div className="tournament-swiss-view tournament-hybrid-view">
+            <div className="swiss-controls hybrid-controls">
+                <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
+                {!hasBracket && (
+                    <button className="btn primary" onClick={handleAdvanceToBracket} disabled={!allMatchesPlayed}>
+                        본선 대진표 생성
+                    </button>
                 )}
+                <button className="btn danger" onClick={handleReset}>대진표 초기화</button>
             </div>
-        );
-    }
 
-    if (data.hybrid && data.hybrid.bracket) {
-         return (
-            <TournamentBracketView
-                data={{ ...data, bracket: data.hybrid.bracket }}
-                students={students}
-                setData={handleBracketDataUpdate}
-                settings={settings}
-                onAwardBatch={onAwardBatch}
-                awardEventKey={`${awardEventKey}:final`}
-                onOpenPlayerManagement={onOpenPlayerManagement}
-                bracketPrizeKey="hybridBracket"
-                prizeModalMode="hybridBracket"
-            />
-        );
-    }
+            {hasBracket && (
+                <div className="group-tab-buttons hybrid-phase-tabs" role="tablist" aria-label="예선·본선 전환">
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={phaseTab === 'prelim'}
+                        className={`tab-btn${phaseTab === 'prelim' ? ' active' : ''}`}
+                        onClick={() => setPhaseTab('prelim')}
+                    >
+                        예선
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        aria-selected={phaseTab === 'final'}
+                        className={`tab-btn${phaseTab === 'final' ? ' active' : ''}`}
+                        onClick={() => setPhaseTab('final')}
+                    >
+                        본선
+                    </button>
+                </div>
+            )}
 
-    return null;
+            {showPrelim ? (
+                <>
+                    <p className="hybrid-help-text">
+                        조 탭에서 선수와 대진을 확인하세요. 각 조 상위 {advanceCount}명이 본선에 진출합니다.
+                    </p>
+                    {prelimContent}
+                </>
+            ) : (
+                <TournamentBracketView
+                    data={{ ...data, bracket: data.hybrid.bracket }}
+                    students={students}
+                    setData={handleBracketDataUpdate}
+                    settings={settings}
+                    onAwardBatch={onAwardBatch}
+                    awardEventKey={`${awardEventKey}:final`}
+                    onOpenPlayerManagement={onOpenPlayerManagement}
+                    bracketPrizeKey="hybridBracket"
+                    prizeModalMode="hybridBracket"
+                />
+            )}
+
+            {prelimPrizeGroupIndex !== null && data.hybrid && (
+                <HybridPrelimPrizeModal
+                    isOpen
+                    onClose={() => setPrelimPrizeGroupIndex(null)}
+                    settings={settings}
+                    groupIndex={prelimPrizeGroupIndex}
+                    groupLabel={`${prelimPrizeGroupIndex + 1}조`}
+                    groupMatches={preliminaryGroups[prelimPrizeGroupIndex] || []}
+                    allPlayers={hybridPlayers}
+                    onAward={handlePrelimPrizeAward}
+                />
+            )}
+
+            {confirmation && <ConfirmationModal {...confirmation} onClose={() => setConfirmation(null)} />}
+        </div>
+    );
 };
