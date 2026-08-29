@@ -1,4 +1,4 @@
-# global options
+# global options (Railway production)
 {
 	admin off
 	persist_config off
