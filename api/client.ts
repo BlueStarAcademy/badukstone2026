@@ -7,6 +7,10 @@ export const isDemoMode =
 
 function getApiBaseUrl(): string {
     if (isDemoMode) return '';
+    // 프로덕션은 항상 same-origin (Railway 빌드 env에 외부 API URL이 남아 있어도 무시)
+    if (import.meta.env.PROD && typeof window !== 'undefined') {
+        return window.location.origin.replace(/\/$/, '');
+    }
     if (!configuredApiUrl || configuredApiUrl === 'same-origin') {
         if (typeof window !== 'undefined') {
             return window.location.origin.replace(/\/$/, '');

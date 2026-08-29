@@ -16,7 +16,7 @@ function parseCorsOrigins(): string[] {
 }
 
 export const config = {
-    port: parseInt(process.env.PORT || '3001', 10),
+    port: parseInt(process.env.API_PORT || process.env.PORT || '3001', 10),
     databaseUrl: process.env.DATABASE_URL || '',
     jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-in-production',
     corsOrigins: parseCorsOrigins(),

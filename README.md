@@ -28,22 +28,27 @@ npm run dev                  # http://localhost:5173
 
 `VITE_API_URL`이 없으면 데모 모드(localStorage)로 동작합니다.
 
-## Railway 배포 (2서비스)
+## Railway 배포 (프론트 1서비스 + PostgreSQL)
 
 프로덕션 URL:
 
 | 서비스 | URL |
 |--------|-----|
-| 프론트 | https://badukstone.up.railway.app |
-| API | https://badukstone-api-production.up.railway.app |
+| 앱 (프론트+API) | https://badukstone.up.railway.app |
 
 | 서비스 | Root Directory | Config as Code | Dockerfile |
 |--------|----------------|----------------|------------|
-| `badukstone2026` | `/` | `railway.json` | `Dockerfile` (Caddy) |
-| `badukstone-api` | `/` | **`railway.api.json`** | `server/Dockerfile` |
-| PostgreSQL | 플러그인 | — | API에 `DATABASE_URL` 주입 |
+| `badukstone2026` | `/` | `railway.json` | `Dockerfile` (Caddy + API) |
+| PostgreSQL | 플러그인 | — | 프론트 서비스에 `DATABASE_URL` 주입 |
 
-API Dockerfile은 모노레포 루트를 빌드 컨텍스트로 씁니다. API 서비스의 Root Directory는 `/` 이고, Settings → Config-as-code 경로를 `railway.api.json`으로 두세요. (`/server`로 두면 빌드가 깨집니다.)
+프론트 Docker 이미지가 **정적 파일(Caddy)** 과 **Express API(내부 3001)** 를 함께 실행합니다.  
+브라우저는 `https://badukstone.up.railway.app/api/...` 로만 호출하므로 CORS 문제가 없습니다.
+
+| 서비스 (선택) | Root Directory | Config as Code | Dockerfile |
+|--------|----------------|----------------|------------|
+| `badukstone-api` | `/` | **`railway.api.json`** | `server/Dockerfile` |
+
+별도 API 서비스는 선택 사항입니다. 프론트 서비스만으로 로그인·저장이 동작합니다.
 
 ### 자동 배포가 동작하려면
 
@@ -52,20 +57,18 @@ API Dockerfile은 모노레포 루트를 빌드 컨텍스트로 씁니다. API �
 3. GitHub → Settings → Integrations → **Railway** 앱이 이 저장소에 접근 가능한지 확인합니다.
 4. Railway **Wait for CI**를 켠 경우, `CI` 워크플로만 성공하면 됩니다. (토큰이 필요한 별도 Deploy Actions는 사용하지 않습니다.)
 
-### API 서비스 환경 변수
+### 프론트 서비스 환경 변수 (필수)
 
-- `DATABASE_URL` — PostgreSQL (플러그인 자동 주입)
+- `DATABASE_URL` — PostgreSQL (플러그인에서 프론트 서비스로 연결/주입)
 - `JWT_SECRET` — JWT 서명 키
-- `CORS_ORIGIN` — (선택) 추가 허용 origin. 기본값에 `https://badukstone.up.railway.app` 포함
 - `MASTER_EMAIL` / `MASTER_PASSWORD` — 마스터 계정 초기 시드
+- `VITE_API_URL` — **설정하지 마세요** (빌드 기본값 `same-origin`). 예전 값 `https://badukstone-api-production...` 이 있으면 **삭제 후 재배포**
+- `API_UPSTREAM` — (선택) 기본 `http://127.0.0.1:3001` (같은 컨테이너 API)
 
-**중요:** API 서비스 Settings → Config-as-code = `railway.api.json`, Dockerfile = `server/Dockerfile` 이어야 합니다.  
-배포 후 `https://<api-domain>/health` 가 `{"ok":true}` 를 반환하는지 확인하세요. HTML이 나오면 프론트 이미지가 잘못 배포된 것입니다.
+### 별도 API 서비스를 쓸 때 (선택)
 
-### 프론트 서비스 환경 변수
-
-- `VITE_API_URL` — **설정하지 않거나** `same-origin` (빌드 기본값). 프론트가 `/api/*` 를 API 서비스로 프록시합니다.
-- `API_UPSTREAM` — (선택) Caddy 프록시 대상. 기본 `http://badukstone-api.railway.internal:3001`
+- `CORS_ORIGIN` — 추가 허용 origin
+- Config-as-code = `railway.api.json`, `/health` → `{"ok":true}` 확인
 
 ### 자동배포가 안 될 때
 
