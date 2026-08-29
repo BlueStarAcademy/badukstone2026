@@ -1414,11 +1414,13 @@
 
 .sidebar-rank-edit.btn-sm {
     min-height: 28px;
-    padding: 0 0.45rem;
+    padding: 0 0.55rem;
     line-height: 1.6;
     border-color: rgba(255, 255, 255, 0.32);
     background: rgba(255, 255, 255, 0.14);
     color: white;
+    font-size: 0.72rem;
+    font-weight: 700;
 }
 
 .header-stats-row {
