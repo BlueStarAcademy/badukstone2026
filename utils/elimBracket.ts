@@ -4,6 +4,7 @@ import {
     DEFAULT_BYE_PRIORITY,
     planElimBracket,
     pickByeRecipientSeedIndices,
+    pairSeedsWithByePads,
 } from './byePlacement';
 
 export {
@@ -174,24 +175,12 @@ export function buildSingleElimRounds(
     if (playInMatchCount > 0) {
         placeMainDrawSeeds(mainMatches, byeRecipients as TournamentPlayer[], playInMatchCount);
     } else {
-        const pvp = shuffleInPlace(playInPlayers, shufflePairings);
-        const queue = [...pvp];
-        const byePads = Math.max(0, mainDrawSize - queue.length);
-        const paired: (TournamentPlayer | 'BYE')[][] = [];
-
-        // 부전승은 선수와 붙이고, BYE끼리 붙지 않도록 배치
-        for (let i = 0; i < byePads; i++) {
-            const player = queue.shift();
-            if (player) paired.push([player, 'BYE']);
-            else paired.push(['BYE', 'BYE']);
-        }
-        while (queue.length > 0) {
-            paired.push([queue.shift()!, queue.shift() ?? 'BYE']);
-        }
-        while (paired.length < mainMatches.length) {
-            paired.push(['BYE', 'BYE']);
-        }
-
+        const paired = pairSeedsWithByePads(
+            seeds,
+            mainDrawSize,
+            priority,
+            shufflePairings
+        );
         for (let i = 0; i < mainMatches.length; i++) {
             const [a, b] = paired[i] ?? ['BYE', 'BYE'];
             mainMatches[i].players = [a, b];

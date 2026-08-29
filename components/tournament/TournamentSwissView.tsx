@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import type { SwissData, SwissMatch, TournamentData, SwissPlayer } from '../../types';
+import type { SwissData, SwissMatch, TournamentData, SwissPlayer, TournamentSettings } from '../../types';
 import { sortSwissPlayers } from '../../utils';
 import { asArray, normalizeSwissRounds } from '../../utils/tournament/compatibility';
+import { getSwissGroupReadiness } from '../../utils/tournament/rosterGuards';
 import { SwissGroupPlayerSwapModal } from './SwissGroupPlayerSwapModal';
 
 interface TournamentSwissViewProps {
@@ -21,6 +22,7 @@ interface TournamentSwissViewProps {
     /** 조별 스위스: 서로 다른 조 선수 맞교환 */
     onSwapGroupPlayers?: (groupIndexA: number, studentIdA: string, groupIndexB: number, studentIdB: string) => void;
     maxRounds: number;
+    tournamentSettings?: TournamentSettings;
 }
 
 export const TournamentSwissView = (props: TournamentSwissViewProps) => {
@@ -39,6 +41,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
         onOpenPlayerManagement,
         onSwapGroupPlayers,
         maxRounds,
+        tournamentSettings,
     } = props;
 
     const [swapModalOpen, setSwapModalOpen] = useState(false);
@@ -51,6 +54,8 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
 
     const useGroups = asArray(swissData?.groups).length > 0;
     const groupIndexForCallbacks: number | undefined = useGroups ? swissGroupTab : undefined;
+    const emptyStartReadiness = getSwissGroupReadiness(tournamentSettings, participantIds.length);
+    const canStartFromEmpty = emptyStartReadiness.ok;
 
     useEffect(() => {
         if (useGroups && swissData?.groups && swissGroupTab >= swissData.groups.length) {
@@ -103,6 +108,12 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                             ? ' 저장된 참가자로 바로 시작할 수 있습니다.'
                             : " '선수 관리'에서 참가자를 선택하고 리그를 시작하세요."}
                     </p>
+                    {emptyStartReadiness.useGroups && (
+                        <p className="tournament-empty-hint">
+                            조 인원 합 {emptyStartReadiness.sum}명 / 참가자 {participantIds.length}명
+                            {!emptyStartReadiness.ok ? ' — 합이 같아야 시작할 수 있습니다.' : ''}
+                        </p>
+                    )}
                     {onStartSwiss && (
                         <div className="tournament-empty-setup">
                             <div className="tournament-player-mgmt-assign">
@@ -124,7 +135,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                                 type="button"
                                 className="btn primary"
                                 onClick={() => onStartSwiss(assignmentMode, participantIds)}
-                                disabled={participantIds.length < 2}
+                                disabled={!canStartFromEmpty}
                             >
                                 스위스 리그 시작 ({participantIds.length}명)
                             </button>

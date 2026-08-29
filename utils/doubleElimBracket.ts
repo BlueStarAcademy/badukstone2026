@@ -3,6 +3,7 @@ import { generateId } from './index';
 import {
     DEFAULT_BYE_PRIORITY,
     planDoubleElimBracket,
+    pairSeedsWithByePads,
 } from './byePlacement';
 import { elimRoundTitle, isPlayInRoundTitle, playInFeederTarget, standardFeederTarget } from './elimBracket';
 
@@ -219,21 +220,13 @@ function propagateAllWinnersOnce(data: DoubleElimData) {
     }
 }
 
-function pairWithByePads(playerIds: string[], mainDrawSize: number, shuffle: <T>(arr: T[]) => T[]): DoubleElimMatch[] {
-    const queue = shuffle([...playerIds]);
-    const byePads = Math.max(0, mainDrawSize - queue.length);
-    const paired: (string | 'BYE')[][] = [];
-    for (let i = 0; i < byePads; i++) {
-        const player = queue.shift();
-        if (player) paired.push([player, 'BYE']);
-        else paired.push(['BYE', 'BYE']);
-    }
-    while (queue.length > 0) {
-        paired.push([queue.shift()!, queue.shift() ?? 'BYE']);
-    }
-    while (paired.length < mainDrawSize / 2) {
-        paired.push(['BYE', 'BYE']);
-    }
+function pairWithByePads(
+    playerIds: string[],
+    mainDrawSize: number,
+    priority: TournamentByePriority,
+    shuffleRemaining: boolean
+): DoubleElimMatch[] {
+    const paired = pairSeedsWithByePads(playerIds, mainDrawSize, priority, shuffleRemaining);
     return paired.map(([a, b]) => {
         const m = createMatch();
         m.players = [a, b];
@@ -250,12 +243,10 @@ export function buildDoubleElim(
     priority: TournamentByePriority = DEFAULT_BYE_PRIORITY,
     forcedMainDrawSize?: number | null
 ): DoubleElimData {
-    const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
     const { mainDrawSize } = planDoubleElimBracket(participantIds.length, forcedMainDrawSize);
-    void priority; // 부전승 패딩 배치는 pairWithByePads에서 셔플로 처리
 
     const winnersRounds: { title: string; matches: DoubleElimMatch[] }[] = [];
-    const firstMatches = pairWithByePads(participantIds, mainDrawSize, shuffle);
+    const firstMatches = pairWithByePads(participantIds, mainDrawSize, priority, true);
     winnersRounds.push({ title: elimRoundTitle(mainDrawSize), matches: firstMatches });
 
     let roundSize = mainDrawSize / 2;

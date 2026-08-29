@@ -138,6 +138,65 @@ describe('forced start round size', () => {
         expect(byeWins).toBe(3);
     });
 
+    it('gives pad byes to top seeds when priority is min_matches', () => {
+        const seeds = ['s1', 's2', 's3', 's4', 's5'];
+        const { slots, playInMatchCount } = buildElimRoundOneSlotOrder(seeds, 'min_matches', false, 8);
+        expect(playInMatchCount).toBe(0);
+        const byePairs = [];
+        for (let i = 0; i < slots.length; i += 2) {
+            const a = slots[i];
+            const b = slots[i + 1];
+            if ((a !== 'BYE' && b === 'BYE') || (b !== 'BYE' && a === 'BYE')) {
+                byePairs.push(a === 'BYE' ? b : a);
+            }
+        }
+        expect(byePairs).toEqual(['s1', 's2', 's3']);
+    });
+
+    it('gives pad byes to bottom seeds when priority is max_matches', () => {
+        const seeds = ['s1', 's2', 's3', 's4', 's5'];
+        const { slots, playInMatchCount } = buildElimRoundOneSlotOrder(seeds, 'max_matches', false, 8);
+        expect(playInMatchCount).toBe(0);
+        const byePairs = [];
+        for (let i = 0; i < slots.length; i += 2) {
+            const a = slots[i];
+            const b = slots[i + 1];
+            if ((a !== 'BYE' && b === 'BYE') || (b !== 'BYE' && a === 'BYE')) {
+                byePairs.push(a === 'BYE' ? b : a);
+            }
+        }
+        expect(byePairs).toEqual(['s3', 's4', 's5']);
+    });
+
+    it('honors min_matches pad priority in single-elim forced draw', () => {
+        const players = Array.from({ length: 5 }, (_, index) => ({
+            studentId: `p${index + 1}`,
+            name: `p${index + 1}`,
+            rank: `${index + 1}급`,
+            game1Handicap: 0,
+            game1Color: 'black' as const,
+            game1Result: null,
+            game2Score: null,
+            game2LastStone: false,
+            game3Score: null,
+        }));
+        const { rounds } = buildSingleElimRounds(players, 'min_matches', false, 8);
+        const byeWinners = rounds[0].matches
+            .filter(match => match.winnerId)
+            .map(match => match.winnerId)
+            .sort();
+        expect(byeWinners).toEqual(['p1', 'p2', 'p3']);
+    });
+
+    it('honors max_matches pad priority in double-elim forced draw', () => {
+        const data = buildDoubleElim(['a', 'b', 'c', 'd', 'e'], 'max_matches', 8);
+        const byeWinners = data.winnersRounds[0].matches
+            .filter(match => match.winnerId)
+            .map(match => match.winnerId)
+            .sort();
+        expect(byeWinners).toEqual(['c', 'd', 'e']);
+    });
+
     it('maps seven-player play-in winners into a four-player main draw without orphan slots', () => {
         const players = Array.from({ length: 7 }, (_, index) => ({
             studentId: `p${index + 1}`,

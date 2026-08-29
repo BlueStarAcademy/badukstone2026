@@ -192,6 +192,43 @@ export function pickByeRecipientSeedIndices(n: number, numByes: number, priority
 }
 
 /**
+ * 본선만(패딩) 배치: 우선순위에 따라 부전승 대상을 고르고, 나머지는 서로 대진.
+ * seedsStrongestFirst[0] = 최강.
+ */
+export function pairSeedsWithByePads<T>(
+    seedsStrongestFirst: T[],
+    mainDrawSize: number,
+    priority: TournamentByePriority,
+    shuffleRemainingPairings: boolean
+): (T | 'BYE')[][] {
+    const n = seedsStrongestFirst.length;
+    const byePads = Math.max(0, mainDrawSize - n);
+    const byeIdx = new Set(pickByeRecipientSeedIndices(n, byePads, priority));
+    const byeRecipients: T[] = [];
+    const others: T[] = [];
+    seedsStrongestFirst.forEach((player, index) => {
+        (byeIdx.has(index) ? byeRecipients : others).push(player);
+    });
+    const queue = shuffleRemainingPairings
+        ? [...others].sort(() => Math.random() - 0.5)
+        : [...others];
+    const paired: (T | 'BYE')[][] = [];
+    for (const player of byeRecipients) {
+        paired.push([player, 'BYE' as const]);
+    }
+    while (paired.length < byePads) {
+        paired.push(['BYE' as const, 'BYE' as const]);
+    }
+    while (queue.length > 0) {
+        paired.push([queue.shift()!, queue.shift() ?? ('BYE' as const)]);
+    }
+    while (paired.length < mainDrawSize / 2) {
+        paired.push(['BYE' as const, 'BYE' as const]);
+    }
+    return paired;
+}
+
+/**
  * 토너먼트 1라운드(예선) 슬롯.
  * - 2^n명: 전원 대진, bracketSize = n
  * - 그 외: 직전 2^n 본선으로 가는 예선만 반환 (부전승 시드는 byeRecipients)
@@ -206,24 +243,14 @@ export function buildElimRoundOneSlotOrder<T>(
     const n = seedsStrongestFirst.length;
     const { mainDrawSize, playInMatchCount, byeCount } = planElimBracket(n, forcedMainDrawSize);
 
-    // 본선만 (예선 없음): 전원 배치 후 빈 자리는 부전승 패딩
+    // 본선만 (예선 없음): 우선순위 부전승 패딩
     if (playInMatchCount === 0) {
-        const queue = shuffleRemainingPairings
-            ? [...seedsStrongestFirst].sort(() => Math.random() - 0.5)
-            : [...seedsStrongestFirst];
-        const byePads = Math.max(0, mainDrawSize - queue.length);
-        const paired: (T | 'BYE')[][] = [];
-        for (let i = 0; i < byePads; i++) {
-            const player = queue.shift();
-            if (player) paired.push([player, 'BYE']);
-            else paired.push(['BYE', 'BYE']);
-        }
-        while (queue.length > 0) {
-            paired.push([queue.shift()!, queue.shift() ?? ('BYE' as const)]);
-        }
-        while (paired.length < mainDrawSize / 2) {
-            paired.push(['BYE', 'BYE']);
-        }
+        const paired = pairSeedsWithByePads(
+            seedsStrongestFirst,
+            mainDrawSize,
+            priority,
+            shuffleRemainingPairings
+        );
         return {
             bracketSize: mainDrawSize,
             slots: paired.flat(),

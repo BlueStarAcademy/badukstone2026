@@ -11,6 +11,7 @@ interface TournamentMissionViewProps {
     settings: TournamentSettings;
     onBulkAddTransaction: (studentIds: string[], description: string, amount: number) => void;
     onOpenPlayerManagement: () => void;
+    onInitMission?: (mode: 'random' | 'ranked', ids: string[]) => void;
 }
 
 // Helper to calculate remaining time
@@ -451,10 +452,40 @@ const MissionFinishModal = ({ player, settings, onClose, onConfirm }: MissionFin
 };
 
 export const TournamentMissionView = (props: TournamentMissionViewProps) => {
-    const { students, data, setData, settings, onBulkAddTransaction, onOpenPlayerManagement } = props;
-    
+    const {
+        students,
+        data,
+        setData,
+        settings,
+        onBulkAddTransaction,
+        onOpenPlayerManagement,
+        onInitMission,
+    } = props;
+
     const [history, setHistory] = useState<MissionBadukData[]>([]);
     const [finishingPlayerId, setFinishingPlayerId] = useState<string | null>(null);
+    const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
+
+    const participantIds = data.missionParticipantIds || [];
+    const canResetMission =
+        participantIds.length > 0 || !!(data.missionBaduk && data.missionBaduk.players.length > 0);
+
+    const handleResetMissionKeepRoster = () => {
+        if (!canResetMission) return;
+        if (
+            !confirm(
+                '미션바둑 진행 상태를 초기화할까요?\n참가자 목록은 유지됩니다.'
+            )
+        ) {
+            return;
+        }
+        setHistory([]);
+        setFinishingPlayerId(null);
+        setData(prev => ({
+            ...prev,
+            missionBaduk: undefined,
+        }));
+    };
 
     const saveHistory = () => {
         if (data.missionBaduk) {
@@ -568,9 +599,55 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
 
     if (!data.missionBaduk || data.missionBaduk.players.length === 0) {
         return (
-            <div style={{ textAlign: 'center', padding: '3rem' }}>
-                <p>참가자가 없습니다. 선수 관리에서 참가자를 추가해주세요.</p>
-                <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
+            <div className="tournament-mission-view tournament-empty-state">
+                <span className="tournament-empty-kicker">MISSION SETUP</span>
+                <h3>미션바둑 준비</h3>
+                <div className="tournament-empty-actions">
+                    <button type="button" className="btn" onClick={onOpenPlayerManagement}>
+                        선수 관리
+                    </button>
+                    <button
+                        type="button"
+                        className="btn danger"
+                        onClick={handleResetMissionKeepRoster}
+                        disabled={!canResetMission}
+                    >
+                        미션바둑 초기화
+                    </button>
+                </div>
+                <p>
+                    미션바둑이 시작되지 않았습니다.
+                    {participantIds.length >= 1
+                        ? ' 저장된 참가자로 바로 시작할 수 있습니다.'
+                        : " '선수 관리'에서 참가자를 선택하고 시작하세요."}
+                </p>
+                {onInitMission && (
+                    <>
+                        <div className="tournament-empty-setup">
+                            <div className="tournament-player-mgmt-assign">
+                                <label htmlFor="mission-empty-assign">배정/시드</label>
+                                <select
+                                    id="mission-empty-assign"
+                                    value={assignmentMode}
+                                    onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                                >
+                                    <option value="ranked">급수 순</option>
+                                    <option value="random">무작위</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="tournament-empty-actions">
+                            <button
+                                type="button"
+                                className="btn primary"
+                                onClick={() => onInitMission(assignmentMode, participantIds)}
+                                disabled={participantIds.length < 1}
+                            >
+                                미션바둑 시작 ({participantIds.length}명)
+                            </button>
+                        </div>
+                    </>
+                )}
             </div>
         );
     }
@@ -588,6 +665,9 @@ export const TournamentMissionView = (props: TournamentMissionViewProps) => {
                 </button>
                 <button className="btn danger" onClick={handleClearFinished}>
                     완료 학생 제거
+                </button>
+                <button type="button" className="btn danger" onClick={handleResetMissionKeepRoster}>
+                    미션바둑 초기화
                 </button>
                 {settings.missionPrizesByGroup &&
                     settings.missionPrizesByGroup.length > 0 &&

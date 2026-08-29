@@ -32,6 +32,10 @@ import { buildSingleElimRounds } from '../../utils/elimBracket';
 import { defaultSwissGroupPrize, parseSwissGroupSizes, forEachSwissStylePayout } from '../../utils/tournamentPrizes';
 import { swapSwissPlayersBetweenGroups } from '../../utils/swissGroupSwap';
 import { hasActiveTournamentAward, previewTournamentAward } from '../../utils/tournament/awards';
+import {
+    clearTournamentDraw,
+    hasActiveTournamentDraw,
+} from '../../utils/tournament/rosterGuards';
 import { TournamentAwardHistory } from './TournamentAwardHistory';
 import { TournamentOperationsHeader } from './TournamentOperationsHeader';
 import { getTournamentOperationStatus, type TournamentOperationMode } from '../../utils/tournament/operationProgress';
@@ -132,17 +136,20 @@ export const TournamentView = (props: TournamentViewProps) => {
         }
     };
 
-    const handleUpdateParticipants = (ids: string[]) => {
+    const handleUpdateParticipants = (ids: string[], clearDraw?: boolean) => {
         setData(prev => {
-            const updates: Partial<TournamentData> = {};
-            if (activeTab === 'relay') updates.relayParticipantIds = ids;
-            else if (activeTab === 'bracket') updates.bracketParticipantIds = ids;
-            else if (activeTab === 'swiss') updates.swissParticipantIds = ids;
-            else if (activeTab === 'hybrid') updates.hybridParticipantIds = ids;
-            else if (activeTab === 'fullleague') updates.fullLeagueParticipantIds = ids;
-            else if (activeTab === 'doubleelim') updates.doubleElimParticipantIds = ids;
-            else if (activeTab === 'mission') updates.missionParticipantIds = ids;
-            return { ...prev, ...updates };
+            let next: TournamentData = { ...prev };
+            if (activeTab === 'relay') next = { ...next, relayParticipantIds: ids };
+            else if (activeTab === 'bracket') next = { ...next, bracketParticipantIds: ids };
+            else if (activeTab === 'swiss') next = { ...next, swissParticipantIds: ids };
+            else if (activeTab === 'hybrid') next = { ...next, hybridParticipantIds: ids };
+            else if (activeTab === 'fullleague') next = { ...next, fullLeagueParticipantIds: ids };
+            else if (activeTab === 'doubleelim') next = { ...next, doubleElimParticipantIds: ids };
+            else if (activeTab === 'mission') next = { ...next, missionParticipantIds: ids };
+            if (clearDraw) {
+                next = clearTournamentDraw(next, activeTab);
+            }
+            return next;
         });
     };
 
@@ -439,47 +446,40 @@ export const TournamentView = (props: TournamentViewProps) => {
     const handleInitMissionBaduk = (mode: 'random' | 'ranked', ids: string[]) => {
         const participantIdsToUse = ids;
 
-        if (participantIdsToUse.length === 0) {
-             alert('참가 선수가 없습니다.');
-             return;
+        if (participantIdsToUse.length < 1) {
+            alert('참가 선수가 없습니다.');
+            return;
         }
-        
+
         const participants = participantIdsToUse
             .map(id => students.find(s => s.id === id))
             .filter((s): s is Student => !!s);
+
+        if (participants.length < 1) {
+            alert('참가 선수가 없습니다.');
+            return;
+        }
 
         const ordered =
             mode === 'ranked'
                 ? [...participants].sort((a, b) => parseRank(b.rank) - parseRank(a.rank))
                 : [...participants].sort(() => 0.5 - Math.random());
 
-        setData(prev => {
-            const existingPlayers = prev.missionBaduk?.players || [];
-            const existingPlayerMap = new Map<string, MissionBadukPlayer>();
-            existingPlayers.forEach(p => existingPlayerMap.set(p.studentId, p));
+        // 재시작 시에도 이전 점수/상태를 병합하지 않고 새로 시작한다.
+        const newPlayers: MissionBadukPlayer[] = ordered.map(p => ({
+            studentId: p.id,
+            name: p.name,
+            status: 'waiting' as const,
+            score: 0,
+            matches: [],
+            prizeGroupIndex: 0,
+        }));
 
-            const newPlayers = ordered.map(p => {
-                if (existingPlayerMap.has(p.id)) {
-                    return { ...existingPlayerMap.get(p.id)!, name: p.name };
-                }
-                return {
-                    studentId: p.id,
-                    name: p.name,
-                    status: 'waiting' as const,
-                    score: 0,
-                    matches: [],
-                    prizeGroupIndex: 0,
-                };
-            });
-
-            return {
-                ...prev,
-                missionParticipantIds: ordered.map(p => p.id),
-                missionBaduk: {
-                    players: newPlayers
-                }
-            };
-        });
+        setData(prev => ({
+            ...prev,
+            missionParticipantIds: ordered.map(p => p.id),
+            missionBaduk: { players: newPlayers },
+        }));
         setIsPlayerManagementModalOpen(false);
     };
 
@@ -831,6 +831,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                         onSwapGroupPlayers={handleSwissGroupPlayerSwap}
                         maxRounds={settings.swissRounds}
+                        tournamentSettings={settings}
                     />
                 )}
                 {activeTab === 'hybrid' && (
@@ -874,6 +875,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         settings={settings}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                         onBulkAddTransaction={onBulkAddTransaction}
+                        onInitMission={handleInitMissionBaduk}
                     />
                 )}
             </div>
@@ -894,6 +896,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                     onAssignTeams={handleAssignTeams}
                     currentView={activeTab}
                     tournamentSettings={settings}
+                    hasActiveDraw={hasActiveTournamentDraw(data, activeTab)}
                     onStartSwiss={handleStartSwiss}
                     onInitMission={handleInitMissionBaduk}
                     onInitHybrid={handleInitHybrid}

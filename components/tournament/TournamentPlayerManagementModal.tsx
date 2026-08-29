@@ -1,23 +1,24 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import type { Student, TournamentSettings } from '../../types';
 import { parseRank } from '../../utils';
-import { parseSwissGroupSizes } from '../../utils/tournamentPrizes';
 import { ModalShell } from '../ui/ModalShell';
 import { StartRoundSelect } from './StartRoundSelect';
 import {
     loadStartRoundPreference,
     saveStartRoundPreference,
 } from '../../utils/tournament/startRoundPreference';
+import { getSwissGroupReadiness } from '../../utils/tournament/rosterGuards';
 
 interface TournamentPlayerManagementModalProps {
     isOpen: boolean;
     onClose: () => void;
     allStudents: Student[];
     participantIds: string[];
-    onUpdateParticipants: (ids: string[]) => void;
+    onUpdateParticipants: (ids: string[], clearDraw?: boolean) => void;
     onAssignTeams: (mode: 'random' | 'ranked', ids: string[]) => void;
     currentView: 'relay' | 'bracket' | 'swiss' | 'hybrid' | 'fullleague' | 'doubleelim' | 'mission';
     tournamentSettings?: TournamentSettings;
+    hasActiveDraw?: boolean;
     onStartSwiss: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitMission?: (mode: 'random' | 'ranked', ids: string[]) => void;
     onInitHybrid?: (mode: 'random' | 'ranked', ids: string[]) => void;
@@ -36,6 +37,7 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
         onAssignTeams,
         currentView,
         tournamentSettings,
+        hasActiveDraw = false,
         onStartSwiss,
         onInitMission,
         onInitHybrid,
@@ -90,10 +92,14 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
 
     const swissGroupHint = useMemo(() => {
         if (currentView !== 'swiss' || !tournamentSettings?.swissUseGroups) return null;
-        const sizes = parseSwissGroupSizes(tournamentSettings.swissGroupSizes);
-        const sum = sizes.reduce((a, b) => a + b, 0);
-        return { sizes, sum };
-    }, [currentView, tournamentSettings?.swissUseGroups, tournamentSettings?.swissGroupSizes]);
+        const readiness = getSwissGroupReadiness(tournamentSettings, selectedIds.size);
+        return { sizes: readiness.sizes, sum: readiness.sum, ok: readiness.ok };
+    }, [currentView, tournamentSettings, selectedIds.size]);
+
+    const swissFinalizeDisabled =
+        currentView === 'swiss' &&
+        !!tournamentSettings?.swissUseGroups &&
+        !getSwissGroupReadiness(tournamentSettings, selectedIds.size).ok;
 
     if (!isOpen) return null;
 
@@ -118,7 +124,18 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
     };
 
     const handleSaveAndClose = () => {
-        onUpdateParticipants(Array.from(selectedIds) as string[]);
+        const ids = Array.from(selectedIds) as string[];
+        if (hasActiveDraw) {
+            const ok = window.confirm(
+                '이미 대진(또는 진행 데이터)이 있습니다.\n' +
+                    '참가자 목록만 바꾸면 명단과 대진이 어긋납니다.\n\n' +
+                    '대진을 지우고 참가자 목록만 저장할까요?'
+            );
+            if (!ok) return;
+            onUpdateParticipants(ids, true);
+        } else {
+            onUpdateParticipants(ids, false);
+        }
         onClose();
     };
 
@@ -206,7 +223,12 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                                     variant={currentView === 'doubleelim' ? 'double' : 'single'}
                                 />
                             )}
-                            <button type="button" className="btn primary" onClick={handleFinalize}>
+                            <button
+                                type="button"
+                                className="btn primary"
+                                onClick={handleFinalize}
+                                disabled={swissFinalizeDisabled || (showFinalizeButton && selectedIds.size < 1 && currentView === 'mission') || (showFinalizeButton && selectedIds.size < 2 && currentView !== 'mission' && currentView !== 'relay')}
+                            >
                                 {finalizeButtonText} ({selectedIds.size}명)
                             </button>
                         </div>
@@ -272,15 +294,20 @@ export const TournamentPlayerManagementModal = (props: TournamentPlayerManagemen
                 </div>
             </div>
 
-            {showFinalizeButton && swissGroupHint && (
-                <div className="tournament-player-mgmt-hint">
-                    조별 스위스: 대회 설정 조 인원 합 <strong>{swissGroupHint.sum}</strong>명 — 참가 예정{' '}
-                    <strong>{selectedIds.size}</strong>명
-                    {swissGroupHint.sum !== selectedIds.size ? (
-                        <span className="tournament-player-mgmt-hint-warn"> (합이 같아야 시작할 수 있습니다)</span>
-                    ) : null}
-                </div>
-            )}
+                    {showFinalizeButton && swissGroupHint && (
+                        <div className="tournament-player-mgmt-hint">
+                            조별 스위스: 대회 설정 조 인원 합 <strong>{swissGroupHint.sum}</strong>명 — 참가 예정{' '}
+                            <strong>{selectedIds.size}</strong>명
+                            {!swissGroupHint.ok ? (
+                                <span className="tournament-player-mgmt-hint-warn"> (합이 같아야 시작할 수 있습니다)</span>
+                            ) : null}
+                        </div>
+                    )}
+                    {hasActiveDraw && (
+                        <div className="tournament-player-mgmt-hint">
+                            현재 대진이 있습니다. 참가자 목록만 저장하면 대진을 함께 초기화합니다.
+                        </div>
+                    )}
         </ModalShell>
     );
 };
