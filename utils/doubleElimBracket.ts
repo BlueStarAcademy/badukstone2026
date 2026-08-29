@@ -3,7 +3,6 @@ import { generateId } from './index';
 import {
     DEFAULT_BYE_PRIORITY,
     planDoubleElimBracket,
-    pickByeRecipientSeedIndices,
 } from './byePlacement';
 import { elimRoundTitle, isPlayInRoundTitle, playInFeederTarget, standardFeederTarget } from './elimBracket';
 
@@ -113,14 +112,10 @@ function propagateAllWinnersOnce(data: DoubleElimData) {
     const mainDrawSize = playInFirst
         ? (W[1]?.matches.length ?? 0) * 2
         : (W[0]?.matches.length ?? 0) * 2;
-    const isLegacySix =
-        data.playerIds.length === 6 && !playInFirst && L.length === 2 && W.length === 3;
 
     W.forEach((round, roundIndex) =>
-        round.matches.forEach((match, matchIndex) => {
-            const isSixPlayerDelayedSeedMatch =
-                isLegacySix && roundIndex === 1 && matchIndex === 1;
-            if (roundIndex > 0 && !isSixPlayerDelayedSeedMatch) {
+        round.matches.forEach(match => {
+            if (roundIndex > 0) {
                 match.players = [null, null];
             }
         })
@@ -172,15 +167,6 @@ function propagateAllWinnersOnce(data: DoubleElimData) {
             if (playInFirst && r === 0) continue;
             if (L.length === 0) continue;
 
-            if (isLegacySix) {
-                const lrMatchIdx = r === 0 ? Math.floor(m / 2) : Math.min(m, L[Math.min(r, L.length - 1)].matches.length - 1);
-                const lrSlot = r === 0 ? ((m % 2) as 0 | 1) : 0;
-                const lr = Math.min(r, L.length - 1);
-                if (r > 0 && L[lr].matches.length === 1 && m > 0) continue;
-                placeLoserOrBye(L[lr]?.matches[lrMatchIdx], lrSlot, loserId, noLoser);
-                continue;
-            }
-
             const mainRound = r - mainStart;
             if (mainRound < 0) continue;
 
@@ -207,13 +193,6 @@ function propagateAllWinnersOnce(data: DoubleElimData) {
             const nextR = r + 1;
             if (nextR >= L.length) {
                 if (GF) GF.players[1] = winnerId;
-                continue;
-            }
-            if (isLegacySix) {
-                const nextRound = L[nextR].matches;
-                const nextIdx = nextRound.length === 1 ? 0 : m;
-                const slot = nextRound.length === 1 && m > 0 ? -1 : 1;
-                if (nextRound[nextIdx] && slot >= 0) nextRound[nextIdx].players[slot] = winnerId;
                 continue;
             }
             const nextRound = L[nextR].matches;
@@ -264,112 +243,20 @@ function pairWithByePads(playerIds: string[], mainDrawSize: number, shuffle: <T>
 
 /**
  * participantIds: 급수 순 등 **최강이 앞**인 배열.
- * @param forcedMainDrawSize 승자조 몇강부터 (2의 거듭제곱). 미지정 시 자동.
- *   6명은 자동일 때만 지연 시드 특수 포맷을 쓴다.
+ * @param forcedMainDrawSize 승자조 몇강부터 (2의 거듭제곱, ≥인원). 미지정 시 다음 2^n.
  */
 export function buildDoubleElim(
     participantIds: string[],
     priority: TournamentByePriority = DEFAULT_BYE_PRIORITY,
     forcedMainDrawSize?: number | null
 ): DoubleElimData {
-    const n = participantIds.length;
     const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
-
-    // 6명 특수 포맷 (자동일 때만)
-    if (n === 6 && (forcedMainDrawSize == null || forcedMainDrawSize === undefined)) {
-        const ids = [...participantIds];
-        let r1four: string[];
-        let delayed: [string, string];
-        if (priority === 'min_matches') {
-            delayed = [ids[0], ids[1]];
-            r1four = ids.slice(2);
-        } else if (priority === 'max_matches') {
-            delayed = [ids[4], ids[5]];
-            r1four = ids.slice(0, 4);
-        } else {
-            delayed = [ids[2], ids[3]];
-            r1four = [ids[0], ids[1], ids[4], ids[5]];
-        }
-        const shuffled = shuffle(r1four);
-        const winnersRounds: { title: string; matches: DoubleElimMatch[] }[] = [];
-        const losersRounds: { title: string; matches: DoubleElimMatch[] }[] = [];
-
-        const r1m0 = createMatch();
-        r1m0.players = [shuffled[0], shuffled[1]];
-        const r1m1 = createMatch();
-        r1m1.players = [shuffled[2], shuffled[3]];
-        winnersRounds.push({ title: elimRoundTitle(4), matches: [r1m0, r1m1] });
-
-        const r2m0 = createMatch();
-        r2m0.players = [null, null];
-        const r2m1 = createMatch();
-        r2m1.players = [delayed[0], delayed[1]];
-        winnersRounds.push({ title: '승자 결승', matches: [r2m0, r2m1] });
-
-        const r3m0 = createMatch();
-        r3m0.players = [null, null];
-        winnersRounds.push({ title: '승자 결승', matches: [r3m0] });
-
-        losersRounds.push({ title: '패자조 R1', matches: [createMatch()] });
-        losersRounds.push({ title: '패자조 R2', matches: [createMatch()] });
-
-        const built: DoubleElimData = {
-            winnersRounds,
-            losersRounds,
-            grandFinal: createMatch(),
-            grandFinalReset: createMatch(),
-            playerIds: participantIds,
-        };
-        applyByeWinners(built);
-        propagateAllWinners(built);
-        return built;
-    }
-
-    let { mainDrawSize, playInMatchCount, byeCount } = planDoubleElimBracket(n, forcedMainDrawSize);
+    const { mainDrawSize } = planDoubleElimBracket(participantIds.length, forcedMainDrawSize);
+    void priority; // 부전승 패딩 배치는 pairWithByePads에서 셔플로 처리
 
     const winnersRounds: { title: string; matches: DoubleElimMatch[] }[] = [];
-    let mainDrawByeSeeds: string[] | undefined;
-
-    if (playInMatchCount > 0) {
-        const byeIdx = new Set(pickByeRecipientSeedIndices(n, byeCount, priority));
-        const byeRecipients: string[] = [];
-        const playInPlayers: string[] = [];
-        participantIds.forEach((id, i) => {
-            (byeIdx.has(i) ? byeRecipients : playInPlayers).push(id);
-        });
-
-        const shuffled = shuffle(playInPlayers);
-        const playInMatches: DoubleElimMatch[] = [];
-        for (let i = 0; i < playInMatchCount; i++) {
-            const m = createMatch();
-            m.players = [shuffled[i * 2], shuffled[i * 2 + 1]];
-            playInMatches.push(m);
-        }
-        winnersRounds.push({
-            title: `예선 (${playInMatchCount}경기 → ${mainDrawSize}강)`,
-            matches: playInMatches,
-        });
-
-        const mainMatches: DoubleElimMatch[] = [];
-        const byeQueue = [...byeRecipients];
-        mainDrawByeSeeds = [...byeRecipients];
-        for (let i = 0; i < mainDrawSize / 2; i++) {
-            const m = createMatch();
-            if (i < byeRecipients.length) {
-                m.players = [byeQueue.shift() ?? null, null];
-            } else {
-                m.players = [null, null];
-            }
-            mainMatches.push(m);
-        }
-        winnersRounds.push({
-            title: elimRoundTitle(mainDrawSize),
-            matches: mainMatches,
-        });
-    } else {
-        const firstMatches = pairWithByePads(participantIds, mainDrawSize, shuffle);
-        winnersRounds.push({ title: elimRoundTitle(mainDrawSize), matches: firstMatches });
-    }
+    const firstMatches = pairWithByePads(participantIds, mainDrawSize, shuffle);
+    winnersRounds.push({ title: elimRoundTitle(mainDrawSize), matches: firstMatches });
 
     let roundSize = mainDrawSize / 2;
     while (roundSize > 1) {
@@ -382,15 +269,12 @@ export function buildDoubleElim(
         roundSize = roundSize / 2;
     }
 
-    const losersRounds = buildLosersRoundsForMainDraw(mainDrawSize);
-
     const built: DoubleElimData = {
         winnersRounds,
-        losersRounds,
+        losersRounds: buildLosersRoundsForMainDraw(mainDrawSize),
         grandFinal: createMatch(),
         grandFinalReset: createMatch(),
         playerIds: participantIds,
-        mainDrawByeSeeds,
     };
     applyByeWinners(built);
     propagateAllWinners(built);

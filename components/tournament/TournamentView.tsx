@@ -711,7 +711,15 @@ export const TournamentView = (props: TournamentViewProps) => {
             groups.forEach((_, index) => {
                 if (activeAwardExists(`${base}:prelim:${index}`)) completed += 1;
             });
-            if (data.hybrid?.bracket && activeAwardExists(`${base}:final`)) completed += 1;
+            if (data.hybrid?.bracket) {
+                const finalMatchId = data.hybrid.bracket.rounds[0]?.matches[0]?.id || 'final';
+                if (
+                    activeAwardExists(`${base}:final:${finalMatchId}`) ||
+                    activeAwardExists(`${base}:final`)
+                ) {
+                    completed += 1;
+                }
+            }
             return completed;
         }
         return Number(activeAwardExists(eventKey(operationMode, 'final')));
@@ -810,8 +818,10 @@ export const TournamentView = (props: TournamentViewProps) => {
                 {activeTab === 'swiss' && (
                     <TournamentSwissView
                         swissData={data.swiss}
+                        participantIds={data.swissParticipantIds || []}
                         canResetSwiss={canResetSwiss}
                         onResetSwiss={handleResetSwiss}
+                        onStartSwiss={handleStartSwiss}
                         onSetWinner={handleSetSwissWinner}
                         onGenerateNextRound={handleGenerateNextRoundSwiss}
                         onCancelLastRound={handleCancelLastRoundSwiss}

@@ -354,12 +354,13 @@ describe('double elimination', () => {
         expect(listValidStartRoundSizes(5)).toEqual([4, 8]);
     });
 
-    it('preserves the delayed seeded match in the six-player format', () => {
+    it('pads six players to an eight-bracket like other odd fields', () => {
         const data = buildDoubleElim(['a', 'b', 'c', 'd', 'e', 'f'], 'min_matches');
-        const delayedSeeds = [...data.winnersRounds[1].matches[1].players];
-        propagateAllWinners(data);
-        expect(data.winnersRounds[1].matches[1].players).toEqual(delayedSeeds);
+        expect(data.winnersRounds[0].title).toBe('8강');
+        expect(data.winnersRounds[0].matches).toHaveLength(4);
+        expect(data.losersRounds.length).toBe(4);
         expect(data.grandFinalReset).toBeTruthy();
-        expect(data.winnersRounds[0].title).toBe('4강전');
+        const byeWins = data.winnersRounds[0].matches.filter(match => match.winnerId).length;
+        expect(byeWins).toBe(2);
     });
 });

@@ -34,6 +34,10 @@ interface TournamentBracketViewProps {
     /** 시상 시 조별 상금 출처 (예선+본선 본선은 hybridBracket) */
     bracketPrizeKey?: BracketPrizeSettingsKey;
     prizeModalMode?: TournamentBracketPrizeModalMode;
+    /** 상위(하이브리드)에 임베드 시 선수관리·초기화 숨김 */
+    embedMode?: boolean;
+    /** embedMode에서 본선만 초기화 */
+    onResetEmbeddedBracket?: () => void;
 }
 
 /** 상대가 없을 때(부전승): 한 명만 있으면 그 선수를 승자로 설정 */
@@ -188,6 +192,8 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
         onOpenPlayerManagement,
         bracketPrizeKey = 'bracket',
         prizeModalMode = 'bracket',
+        embedMode = false,
+        onResetEmbeddedBracket,
     } = props;
     const { bracket: bracketData, bracketParticipantIds } = data;
 
@@ -374,8 +380,15 @@ export const TournamentBracketView = (props: TournamentBracketViewProps) => {
     return (
         <div className="tournament-bracket-view">
             <div className="bracket-controls">
-                <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
-                <button className="btn danger" onClick={handleResetBracket}>대진표 초기화</button>
+                {!embedMode && (
+                    <>
+                        <button className="btn" onClick={onOpenPlayerManagement}>선수 관리</button>
+                        <button className="btn danger" onClick={handleResetBracket}>대진표 초기화</button>
+                    </>
+                )}
+                {embedMode && onResetEmbeddedBracket && (
+                    <button className="btn danger" onClick={onResetEmbeddedBracket}>본선만 초기화</button>
+                )}
             </div>
             <div className="bracket-view-body">
                 <div className="bracket-main">

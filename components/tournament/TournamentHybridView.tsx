@@ -327,13 +327,35 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
             hybrid: {
                 ...prev.hybrid!,
                 bracket: { rounds, players: tournamentPlayers },
-            }
+            },
         }));
+    };
+
+    const handleResetFinalsOnly = () => {
+        setConfirmation({
+            message: '본선 대진만 초기화할까요? 예선 결과와 참가자는 유지됩니다.',
+            actions: [
+                { text: '취소', onClick: () => setConfirmation(null) },
+                {
+                    text: '본선 초기화',
+                    className: 'danger',
+                    onClick: () => {
+                        setPhaseTab('prelim');
+                        setData(prev =>
+                            prev.hybrid
+                                ? { ...prev, hybrid: { ...prev.hybrid, bracket: null } }
+                                : prev
+                        );
+                        setConfirmation(null);
+                    },
+                },
+            ],
+        });
     };
 
     const handleReset = () => {
         setConfirmation({
-            message: "정말 예선 및 본선 대진표를 모두 초기화하시겠습니까?",
+            message: '예선·본선 대진을 초기화할까요? 참가자 목록은 유지됩니다.',
             actions: [
                 { text: '취소', onClick: () => setConfirmation(null) },
                 { text: '초기화', className: 'danger', onClick: () => {
@@ -353,9 +375,9 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
             };
             const nextState =
                 typeof updateAction === 'function' ? updateAction(fakePrev) : updateAction;
+            // nested bracket의 awardSessionIds.bracket는 하이브리드 세션에 섞지 않음
             return {
                 ...globalPrev,
-                awardSessionIds: nextState.awardSessionIds ?? globalPrev.awardSessionIds,
                 hybrid: {
                     ...globalPrev.hybrid,
                     bracket: nextState.bracket,
@@ -490,10 +512,12 @@ export const TournamentHybridView = (props: TournamentHybridViewProps) => {
                     setData={handleBracketDataUpdate}
                     settings={settings}
                     onAwardBatch={onAwardBatch}
-                    awardEventKey={`${awardEventKey}:final`}
+                    awardEventKey={`${awardEventKey}:final:${data.hybrid.bracket.rounds[0]?.matches[0]?.id || 'final'}`}
                     onOpenPlayerManagement={onOpenPlayerManagement}
                     bracketPrizeKey="hybridBracket"
                     prizeModalMode="hybridBracket"
+                    embedMode
+                    onResetEmbeddedBracket={handleResetFinalsOnly}
                 />
             )}
 

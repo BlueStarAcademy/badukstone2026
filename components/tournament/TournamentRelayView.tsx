@@ -261,20 +261,29 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                 <div className="tournament-header-controls">
                      <button className="btn" onClick={onOpenPlayerManagement}>선수 관리 및 팀 배정</button>
                      <button className="btn danger" onClick={() => setConfirmation({
-                        message: "현재까지의 모든 점수와 선수 배치를 초기화하시겠습니까?",
+                        message: "점수·결과만 초기화할까요? 팀 배정(참가자)은 유지됩니다.",
                         actions: [
                             { text: '취소', onClick: () => setConfirmation(null) },
                             { text: '초기화', className: 'danger', onClick: () => {
                                  setData(prev => ({
                                     ...prev,
-                                    teams: [{name: 'A', players: [], mannerPenalties: 0, bonusScore: 0}, {name: 'B', players: [], mannerPenalties: 0, bonusScore: 0}],
-                                    participantIds: [],
-                                    relayParticipantIds: [],
+                                    teams: prev.teams.map(team => ({
+                                        ...team,
+                                        mannerPenalties: 0,
+                                        bonusScore: 0,
+                                        players: team.players.map(player => ({
+                                            ...player,
+                                            game1Result: null,
+                                            game2Score: null,
+                                            game2LastStone: false,
+                                            game3Score: null,
+                                        })),
+                                    })),
                                  }));
                                  setConfirmation(null);
                             }}
                         ]
-                     })}>전체 초기화</button>
+                     })}>결과 초기화</button>
                 </div>
             </div>
             <div className="relay-view-body">

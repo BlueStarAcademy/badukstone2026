@@ -7,8 +7,10 @@ import { SwissGroupPlayerSwapModal } from './SwissGroupPlayerSwapModal';
 
 interface TournamentSwissViewProps {
     swissData?: SwissData;
+    participantIds?: string[];
     canResetSwiss: boolean;
     onResetSwiss: () => void;
+    onStartSwiss?: (mode: 'random' | 'ranked', ids: string[]) => void;
     onSetWinner: (groupIndex: number | undefined, roundIndex: number, matchId: string, winnerId: string | null) => void;
     onGenerateNextRound: (groupIndex?: number) => void;
     onCancelLastRound: (groupIndex?: number) => void;
@@ -24,8 +26,10 @@ interface TournamentSwissViewProps {
 export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     const {
         swissData,
+        participantIds = [],
         canResetSwiss,
         onResetSwiss,
+        onStartSwiss,
         onSetWinner,
         onGenerateNextRound,
         onCancelLastRound,
@@ -43,6 +47,7 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
     const [selectedSwapPlayer, setSelectedSwapPlayer] = useState<{ matchId: string; playerId: string; playerIndex: 0 | 1 } | null>(null);
     const [roundTab, setRoundTab] = useState(0);
     const [swissGroupTab, setSwissGroupTab] = useState(0);
+    const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
 
     const useGroups = asArray(swissData?.groups).length > 0;
     const groupIndexForCallbacks: number | undefined = useGroups ? swissGroupTab : undefined;
@@ -93,8 +98,38 @@ export const TournamentSwissView = (props: TournamentSwissViewProps) => {
                         </button>
                     </div>
                     <p>
-                        스위스 리그 대진표가 없습니다. 대회 설정에서 조별 진행을 켠 경우 조 인원 합이 참가자 수와 같아야 합니다. '선수 관리'에서 참가자를 선택하고 리그를 시작하세요.
+                        스위스 리그 대진표가 없습니다. 대회 설정에서 조별 진행을 켠 경우 조 인원 합이 참가자 수와 같아야 합니다.
+                        {participantIds.length >= 2
+                            ? ' 저장된 참가자로 바로 시작할 수 있습니다.'
+                            : " '선수 관리'에서 참가자를 선택하고 리그를 시작하세요."}
                     </p>
+                    {onStartSwiss && (
+                        <div className="tournament-empty-setup">
+                            <div className="tournament-player-mgmt-assign">
+                                <label htmlFor="swiss-empty-assign">배정/시드</label>
+                                <select
+                                    id="swiss-empty-assign"
+                                    value={assignmentMode}
+                                    onChange={e => setAssignmentMode(e.target.value as 'random' | 'ranked')}
+                                >
+                                    <option value="ranked">급수 순</option>
+                                    <option value="random">무작위</option>
+                                </select>
+                            </div>
+                        </div>
+                    )}
+                    {onStartSwiss && (
+                        <div className="tournament-empty-actions">
+                            <button
+                                type="button"
+                                className="btn primary"
+                                onClick={() => onStartSwiss(assignmentMode, participantIds)}
+                                disabled={participantIds.length < 2}
+                            >
+                                스위스 리그 시작 ({participantIds.length}명)
+                            </button>
+                        </div>
+                    )}
                 </div>
             </>
         );

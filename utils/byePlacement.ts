@@ -108,8 +108,7 @@ export function describeElimBracketPlan(
 
 /**
  * 더블엘리미 승자조 계획.
- * 자동일 때 예선(play-in) 대신 다음 2^n 부전승 패딩을 쓴다.
- * 강제 크기가 인원보다 작으면 단판과 같이 예선을 허용한다.
+ * 예선(play-in) 없이 항상 부전승 패딩(≥n인 2^n)만 사용한다.
  */
 export function planDoubleElimBracket(
     n: number,
@@ -120,15 +119,20 @@ export function planDoubleElimBracket(
     byeCount: number;
 } {
     const count = Math.max(0, n);
-    let plan = planElimBracket(count, forcedMainDrawSize);
-    if (
-        plan.playInMatchCount > 0 &&
-        (forcedMainDrawSize == null || forcedMainDrawSize === undefined)
-    ) {
-        const size = minimalPow2BracketSize(count);
-        plan = { mainDrawSize: size, playInMatchCount: 0, byeCount: size - count };
+    if (count <= 1) {
+        return { mainDrawSize: 2, playInMatchCount: 0, byeCount: 0 };
     }
-    return plan;
+    const preferred =
+        forcedMainDrawSize &&
+        isPowerOfTwo(forcedMainDrawSize) &&
+        forcedMainDrawSize >= count
+            ? forcedMainDrawSize
+            : minimalPow2BracketSize(count);
+    return {
+        mainDrawSize: preferred,
+        playInMatchCount: 0,
+        byeCount: preferred - count,
+    };
 }
 
 /** DE 몇강 선택: 부전승 패딩이 가능한 크기(≥n)만 노출 */
