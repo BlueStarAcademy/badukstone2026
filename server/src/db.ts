@@ -3,7 +3,7 @@ import { config } from './config';
 
 export const pool = new Pool({
     connectionString: config.databaseUrl,
-    ssl: config.databaseUrl.includes('railway') || process.env.PGSSLMODE === 'require'
+    ssl: config.databaseUrl && (config.databaseUrl.includes('railway') || process.env.PGSSLMODE === 'require')
         ? { rejectUnauthorized: false }
         : undefined,
 });

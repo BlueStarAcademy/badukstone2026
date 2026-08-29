@@ -59,11 +59,20 @@ npm run dev                  # http://localhost:5173
 
 ### 프론트 서비스 환경 변수 (필수)
 
-- `DATABASE_URL` — PostgreSQL (플러그인에서 프론트 서비스로 연결/주입)
-- `JWT_SECRET` — JWT 서명 키
-- `MASTER_EMAIL` / `MASTER_PASSWORD` — 마스터 계정 초기 시드
-- `VITE_API_URL` — **설정하지 마세요** (빌드 기본값 `same-origin`). 예전 값 `https://badukstone-api-production...` 이 있으면 **삭제 후 재배포**
-- `API_UPSTREAM` — (선택) 기본 `http://127.0.0.1:3001` (같은 컨테이너 API)
+502 Bad Gateway가 나오면 **아래 변수가 프론트 서비스에 없는 경우**가 대부분입니다.
+
+| 변수 | 설정 방법 |
+|------|-----------|
+| `DATABASE_URL` | PostgreSQL 플러그인 → **Connect** → `badukstone2026`(프론트) 서비스 선택 → Reference 추가 |
+| `JWT_SECRET` | 임의의 긴 문자열 (직접 입력) |
+| `MASTER_EMAIL` | 마스터 로그인 아이디 |
+| `MASTER_PASSWORD` | 마스터 로그인 비밀번호 |
+
+**삭제할 변수:** `VITE_API_URL`에 `https://badukstone-api-production...` 이 있으면 제거 후 재배포
+
+**선택:** `API_UPSTREAM` — 기본 `http://127.0.0.1:3001` (같은 컨테이너 API)
+
+배포 로그에 `API is healthy` 가 보이면 정상입니다. `DATABASE_URL is not set` 이면 위 표대로 연결하세요.
 
 ### 별도 API 서비스를 쓸 때 (선택)
 

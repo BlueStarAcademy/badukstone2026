@@ -30,7 +30,7 @@ async function start() {
     }
     await runMigrations();
     await pool.query('SELECT 1');
-    app.listen(config.port, () => {
+    app.listen(config.port, '0.0.0.0', () => {
         console.log(`BadukStone API listening on port ${config.port}`);
         console.log(`CORS origins: ${config.corsOrigins.join(', ')}`);
     });

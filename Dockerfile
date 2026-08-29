@@ -53,6 +53,8 @@ COPY --from=build-frontend /app/dist ./dist
 
 COPY Caddyfile ./
 COPY scripts/start-production.sh ./start-production.sh
-RUN chmod +x start-production.sh && caddy fmt Caddyfile --overwrite
+RUN chmod +x start-production.sh \
+    && sed -i 's/\r$//' start-production.sh \
+    && caddy fmt Caddyfile --overwrite
 
 CMD ["./start-production.sh"]
