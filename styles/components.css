@@ -1161,27 +1161,134 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    background-color: #f0f2f5;
-    gap: 1.5rem;
+    min-height: 100vh;
+    padding: 1.5rem;
+    background:
+        radial-gradient(circle at 12% 18%, rgba(39, 103, 216, 0.12), transparent 36%),
+        radial-gradient(circle at 88% 12%, rgba(243, 156, 18, 0.1), transparent 32%),
+        var(--bg-color);
+    gap: 1.25rem;
 }
 
 .login-title {
-    font-size: 2rem;
-    font-weight: 700;
+    font-size: clamp(1.6rem, 3vw, 2rem);
+    font-weight: 800;
     color: var(--secondary-color);
     margin: 0;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    letter-spacing: -0.03em;
 }
 
 .login-form {
-    background: white;
-    padding: 2.5rem;
-    border-radius: 16px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    background: var(--surface-color);
+    padding: 2.25rem;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-md);
     width: 100%;
-    max-width: 400px;
-    text-align: center;
+    max-width: 420px;
+    text-align: left;
+}
+
+.login-form-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+}
+
+.login-lead {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.login-error {
+    margin: 0;
+    color: var(--danger-color);
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+.login-btn {
+    width: 100%;
+    min-height: var(--control-height);
+}
+
+.login-btn-demo {
+    width: 100%;
+    min-height: var(--control-height);
+    background: var(--secondary-color);
+    color: #fff;
+}
+
+.login-btn-demo:hover {
+    background: #0f172a;
+    color: #fff;
+}
+
+/* Master panel */
+.master-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.master-panel > h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--color-ink);
+    letter-spacing: -0.02em;
+}
+
+.master-panel-content {
+    display: grid;
+    grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.create-user-form,
+.managed-users-list {
+    padding: 1.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--surface-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.create-user-form h3,
+.managed-users-list h3 {
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: var(--color-ink);
+}
+
+.master-panel-desc {
+    margin: 0 0 1rem;
+    color: var(--color-muted);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.master-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+}
+
+.success-message {
+    margin: 0 0 0.75rem;
+    color: var(--success-color);
+    font-size: 0.88rem;
+    font-weight: 650;
+}
+
+@media (max-width: 900px) {
+    .master-panel-content {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Quick Menu Sidebar */

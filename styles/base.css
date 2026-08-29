@@ -35,18 +35,69 @@ body {
     flex-shrink: 0;
 }
 
+.header--with-banner {
+    margin-top: 48px;
+}
+
 .header-title-group {
     display: flex;
     align-items: center;
     gap: 1rem;
 }
 
-.header h1 {
+.header h1,
+.header-brand {
     font-size: 1.25rem;
     margin: 0;
     color: var(--secondary-color);
     font-weight: 800;
     white-space: nowrap;
+    cursor: pointer;
+}
+
+.save-error-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10000;
+    padding: 0.75rem 1rem;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: #fff;
+    background: var(--danger-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.header-controls {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-master-btn {
+    font-weight: 750;
+}
+
+.header-account-btn.btn-icon {
+    min-width: 44px;
+    min-height: 36px;
+    padding: 0 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--surface-muted);
+    color: var(--color-ink);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.header-account-btn.btn-icon:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-soft);
+    color: var(--primary-color);
 }
 
 .saving-indicator {
@@ -73,12 +124,6 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 999px;
     background: var(--surface-muted);
-}
-
-.header-controls {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
 }
 
 .main-content {
