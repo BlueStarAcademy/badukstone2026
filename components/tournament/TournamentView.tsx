@@ -81,6 +81,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const [isPlayerManagementModalOpen, setIsPlayerManagementModalOpen] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [isSwissPrizeModalOpen, setIsSwissPrizeModalOpen] = useState(false);
+    const [operationsOpen, setOperationsOpen] = useState(false);
 
     const getAwardSessionId = (mode: TournamentAwardMode): string => {
         const stored = data.awardSessionIds?.[mode];
@@ -655,7 +656,7 @@ export const TournamentView = (props: TournamentViewProps) => {
     const activeMode = tournamentModes.find(mode => mode.id === activeTab)!;
 
     return (
-        <div className="tournament-view">
+        <div className={`tournament-view ${operationsOpen ? 'ops-open' : 'ops-collapsed'}`}>
             <header className="tournament-console-header">
                 <div className="tournament-console-title">
                     <span className="tournament-console-eyebrow">COMPETITION OPERATIONS</span>
@@ -668,24 +669,50 @@ export const TournamentView = (props: TournamentViewProps) => {
                     <span aria-hidden>⚙</span>
                     <span>대회 설정</span>
                 </button>
-                <nav className="view-toggle tournament-mode-nav" aria-label="대회 방식" role="tablist">
-                    {tournamentModes.map(mode => (
+                <div className="tournament-console-footer">
+                    <nav className="view-toggle tournament-mode-nav" aria-label="대회 방식" role="tablist">
+                        {tournamentModes.map(mode => (
+                            <button
+                                key={mode.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={activeTab === mode.id}
+                                className={`toggle-btn ${activeTab === mode.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(mode.id)}
+                            >
+                                {mode.label}
+                            </button>
+                        ))}
+                    </nav>
+                    {operationMode && operationStatus && (
                         <button
-                            key={mode.id}
                             type="button"
-                            role="tab"
-                            aria-selected={activeTab === mode.id}
-                            className={`toggle-btn ${activeTab === mode.id ? 'active' : ''}`}
-                            onClick={() => setActiveTab(mode.id)}
+                            className={`tournament-ops-toggle ${operationsOpen ? 'is-open' : ''}`}
+                            onClick={() => setOperationsOpen(value => !value)}
+                            aria-expanded={operationsOpen}
+                            aria-controls="tournament-operations-panel"
                         >
-                            {mode.label}
+                            <span className="tournament-ops-toggle-copy">
+                                <small>OPS STATUS</small>
+                                <strong>운영 현황</strong>
+                            </span>
+                            <span className="tournament-ops-toggle-meta">
+                                <span className="tournament-ops-stage-chip">{operationStatus.stage}</span>
+                                <span className="tournament-ops-toggle-icon" aria-hidden>
+                                    {operationsOpen ? '−' : '+'}
+                                </span>
+                            </span>
                         </button>
-                    ))}
-                </nav>
+                    )}
+                </div>
             </header>
 
-            {operationMode && operationStatus && (
-                <TournamentOperationsHeader modeName={modeNames[operationMode]} status={operationStatus} />
+            {operationMode && operationStatus && operationsOpen && (
+                <TournamentOperationsHeader
+                    id="tournament-operations-panel"
+                    modeName={modeNames[operationMode]}
+                    status={operationStatus}
+                />
             )}
 
             <div className="tournament-content">
