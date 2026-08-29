@@ -17,14 +17,17 @@
 		format json
 	}
 
+	# Railway/모니터용 헬스체크는 Express JSON을 그대로 노출
+	handle /health {
+		reverse_proxy {$API_UPSTREAM:http://127.0.0.1:3001}
+	}
+
 	# API는 같은 컨테이너의 Express(3001) 또는 Railway 내부 API 서비스로 프록시
 	handle /api/* {
 		reverse_proxy {$API_UPSTREAM:http://127.0.0.1:3001}
 	}
 
 	handle {
-		rewrite /health /*
-
 		root * dist
 		encode gzip
 		file_server

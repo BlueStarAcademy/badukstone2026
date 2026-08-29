@@ -50,6 +50,8 @@ npm run dev                  # http://localhost:5173
 
 별도 API 서비스는 선택 사항입니다. 프론트 서비스만으로 로그인·저장이 동작합니다.
 
+주의: `server/railway.json`도 `server/Dockerfile`을 가리킵니다. API 서비스에 루트 `Dockerfile`(Caddy+SPA)이 연결되면 `/health`와 공개 포트가 꼬여 배포/헬스체크가 실패할 수 있습니다.
+
 ### 자동 배포가 동작하려면
 
 1. **코드는 `main`에 있어야 합니다.** PR 브랜치만 푸시하면 Railway는 배포하지 않습니다.
@@ -73,6 +75,8 @@ npm run dev                  # http://localhost:5173
 **선택:** `API_UPSTREAM` — 기본 `http://127.0.0.1:3001` (같은 컨테이너 API)
 
 배포 로그에 `API is healthy` 가 보이면 정상입니다. `DATABASE_URL is not set` 이면 위 표대로 연결하세요.
+
+공개 헬스체크는 `GET /health` → `{"ok":true}` 입니다. (프론트 SPA로 rewrite하지 않습니다.)
 
 ### 별도 API 서비스를 쓸 때 (선택)
 

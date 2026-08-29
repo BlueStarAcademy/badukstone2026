@@ -13,6 +13,11 @@ fi
 export API_PORT
 export NODE_ENV=production
 
+if [ -n "$API_UPSTREAM" ] && [ "$API_UPSTREAM" != "http://127.0.0.1:${API_PORT}" ] && [ "$API_UPSTREAM" != "http://127.0.0.1:3001" ]; then
+    echo "WARNING: API_UPSTREAM=${API_UPSTREAM}"
+    echo "This service already runs Express in the same container. Prefer unsetting API_UPSTREAM so /api uses 127.0.0.1:${API_PORT}."
+fi
+
 echo "Starting BadukStone API on 127.0.0.1:${API_PORT}..."
 node api-dist/index.js &
 API_PID=$!
