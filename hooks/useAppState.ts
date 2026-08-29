@@ -104,9 +104,23 @@ export function useAppState<T extends AppData>(
             }
 
             lastSavedJson.current = currentJson;
-            isDirty.current = false;
-            localTruthRef.current = finalData;
-            setState(finalData);
+            const latestJson = localTruthRef.current
+                ? JSON.stringify(compactData(localTruthRef.current))
+                : currentJson;
+
+            if (latestJson === currentJson) {
+                isDirty.current = false;
+                localTruthRef.current = finalData;
+            } else {
+                isDirty.current = true;
+                if (!writeTimeout.current) {
+                    writeTimeout.current = window.setTimeout(() => {
+                        const latest = localTruthRef.current;
+                        if (latest) saveToServer(latest);
+                        writeTimeout.current = null;
+                    }, 300);
+                }
+            }
         } catch (e: unknown) {
             console.error('[API Error] Save failed:', e);
             setSaveError(e instanceof Error ? e : new Error('Save failed'));
@@ -204,19 +218,17 @@ export function useAppState<T extends AppData>(
 
             if (!nextState || nextState === 'error') return nextState;
 
-            const compactedNext = compactData(nextState);
-            localTruthRef.current = compactedNext;
+            localTruthRef.current = nextState;
             isDirty.current = true;
-            setIsSaving(true);
 
             if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
             writeTimeout.current = window.setTimeout(() => {
                 const latest = localTruthRef.current;
                 if (latest) saveToServer(latest);
                 writeTimeout.current = null;
-            }, 1000);
+            }, 400);
 
-            return compactedNext;
+            return nextState;
         });
     }, [saveToServer]);
 
