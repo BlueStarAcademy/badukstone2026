@@ -230,6 +230,97 @@
     border-radius: 8px;
 }
 
+.summary-contribution-action {
+    margin-top: 1.25rem;
+    text-align: center;
+}
+
+.summary-contribution-btn {
+    width: 100%;
+}
+
+.summary-contribution-hint {
+    margin: 0.65rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.86rem;
+}
+
+.relay-contribution-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.relay-contribution-mvp {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.1rem;
+    border-radius: 12px;
+    background: var(--t-gold-soft, #fbf5e6);
+    border: 1px solid var(--t-gold, #b4872d);
+}
+
+.relay-contribution-kicker {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--t-gold, #b4872d);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.relay-contribution-mvp-name {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.relay-contribution-award-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.relay-contribution-section h4 {
+    margin: 0 0 0.65rem;
+}
+
+.relay-contribution-table-wrap {
+    overflow-x: auto;
+}
+
+.relay-contribution-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+}
+
+.relay-contribution-table th,
+.relay-contribution-table td {
+    padding: 0.55rem 0.45rem;
+    border-bottom: 1px solid var(--border-color);
+    text-align: center;
+    vertical-align: middle;
+}
+
+.relay-contribution-table th {
+    font-size: 0.78rem;
+    color: var(--color-muted);
+    font-weight: 700;
+}
+
+.relay-contribution-table td small {
+    display: block;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+}
+
+.relay-contribution-total {
+    font-weight: 800;
+}
+
 .summary-mvp-title {
     margin: 0 0 0.5rem;
     color: var(--t-gold, #b4872d);

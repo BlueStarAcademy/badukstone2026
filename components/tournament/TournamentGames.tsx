@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { TournamentData, TournamentSettings, TournamentPlayer, GameKey, GameSelection } from '../../types';
-import { parseRank } from '../../utils';
+import { getEffectiveGame1Handicap } from '../../utils/tournament/relayScoring';
 
 interface TournamentGamesProps {
     data: TournamentData;
@@ -56,31 +56,10 @@ const RelayPlayerCard = ({
 }) => {
     
     const isEmpty = !player;
-    const playerRank = player ? parseRank(player.rank) : 0;
-    const opponentRank = opponent ? parseRank(opponent.rank) : 0;
-    const ranksAreSame = !player || !opponent || playerRank === opponentRank;
 
     let handicapValue = 0;
-    let isReadOnly = false;
-
     if (gameType === 'game1' && player) {
-        if (ranksAreSame) {
-            if (player.game1Color === 'white') {
-                handicapValue = settings.game1SameRankHandicap;
-                isReadOnly = true;
-            } else {
-                handicapValue = player.game1Handicap;
-                isReadOnly = false;
-            }
-        } else {
-            isReadOnly = true;
-            if (player.game1Color === 'white') {
-                handicapValue = 0;
-            } else {
-                const rankDiff = opponentRank - playerRank;
-                handicapValue = rankDiff > 1 ? rankDiff * settings.game1RankDiffHandicap : 0;
-            }
-        }
+        handicapValue = getEffectiveGame1Handicap(player, opponent, settings);
     }
 
     const handleChange = (field: keyof TournamentPlayer, value: any) => {
@@ -153,9 +132,9 @@ const RelayPlayerCard = ({
                                 type="number" 
                                 className="sm-input"
                                 step="0.5" 
-                                value={isReadOnly ? handicapValue : player.game1Handicap} 
+                                value={handicapValue}
                                 onChange={e => handleNumericChange('game1Handicap', e.target.value)} 
-                                readOnly={isReadOnly} 
+                                title="자동 계산값을 관리자가 수동으로 조정할 수 있습니다"
                             />
                         </div>
                         <div className="relay-input-row result-row">

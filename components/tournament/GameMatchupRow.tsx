@@ -1,6 +1,7 @@
 import React from 'react';
 // FIX: Corrected import path for type definitions.
 import type { TournamentPlayer, TournamentSettings, GameSelection } from '../../types';
+import { getEffectiveGame1Handicap } from '../../utils/tournament/relayScoring';
 import { parseRank } from '../../utils';
 
 interface GameMatchupRowProps {
@@ -49,28 +50,7 @@ const PlayerColumn: React.FC<{
     const opponentRank = opponent ? parseRank(opponent.rank) : 0;
     const ranksAreSame = !opponent || playerRank === opponentRank;
 
-    let handicapValue = 0;
-    let isReadOnly = false;
-
-    if (ranksAreSame) {
-        // 동급 대결: 백은 고정 덤(코미), 흑은 수동 조절 가능
-        if (player.game1Color === 'white') {
-            handicapValue = settings.game1SameRankHandicap;
-            isReadOnly = true;
-        } else {
-            handicapValue = player.game1Handicap; // Manual input for Black
-            isReadOnly = false;
-        }
-    } else {
-        // 급수차 대결: 덤 자동 계산, 수정 불가
-        isReadOnly = true;
-        if (player.game1Color === 'white') { // Player is stronger
-            handicapValue = 0;
-        } else { // Player is weaker (Black)
-            const rankDiff = opponentRank - playerRank;
-            handicapValue = rankDiff > 1 ? rankDiff * settings.game1RankDiffHandicap : 0;
-        }
-    }
+    const handicapValue = getEffectiveGame1Handicap(player, opponent, settings);
 
     const handleChange = (field: keyof TournamentPlayer, value: any) => {
         onPlayerChange(teamName, matchIndex, field, value);
@@ -128,7 +108,7 @@ const PlayerColumn: React.FC<{
                     <>
                         <div className="form-group">
                             <label>덤</label>
-                            <input type="number" step="0.5" value={isReadOnly ? handicapValue : player.game1Handicap} onChange={e => handleHandicapChange(e.target.value)} readOnly={isReadOnly} draggable={false} onDragStart={e => e.stopPropagation()} onKeyDown={stopBackspace} placeholder="0" />
+                            <input type="number" step="0.5" value={handicapValue} onChange={e => handleHandicapChange(e.target.value)} draggable={false} onDragStart={e => e.stopPropagation()} onKeyDown={stopBackspace} placeholder="0" title="자동 계산값을 관리자가 수동으로 조정할 수 있습니다" />
                         </div>
                         <div className="form-group">
                             <label>흑/백</label>

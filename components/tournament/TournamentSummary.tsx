@@ -1,75 +1,37 @@
 
 import React from 'react';
-import type { TournamentData, TournamentSettings, TournamentPlayer, Team } from '../../types';
-import { parseRank } from '../../utils';
+import type { TournamentData, TournamentSettings } from '../../types';
+import {
+    calculateRelayTeamScores,
+    findRelayMvp,
+} from '../../utils/tournament/relayScoring';
 
 interface TournamentSummaryProps {
     data: TournamentData;
     settings: TournamentSettings;
     onApplyPenalty?: (teamName: 'A' | 'B') => void;
     onApplyBonus?: (teamName: 'A' | 'B') => void;
-    /** GAME STATS 박스 바로 아래에 렌더링. 인자로 승자('A'|'B'|'Draw') 또는 null 전달 */
-    renderAfterGameStats?: (winner: string | null) => React.ReactNode;
+    onOpenContribution?: () => void;
 }
 
-const calculateTeamScores = (team: Team, settings: TournamentSettings) => {
-    let game1Score = 0;
-    let game2Score = 0;
-    let game3Score = 0;
-
-    team.players.forEach(p => {
-        if (p.game1Result !== null) game1Score += p.game1Result;
-        if (p.game2Score !== null) {
-            game2Score += p.game2Score * settings.game2StoneValue;
-            if (p.game2LastStone) game2Score += settings.game2LastStoneBonus;
-        }
-        if (p.game3Score !== null) game3Score += p.game3Score * settings.game3StoneValue;
-    });
-
-    const penaltyDeduction = (team.mannerPenalties || 0) * (settings.relayMannerPenalty || 0);
-    const bonusPoints = team.bonusScore || 0;
-    const totalScore = game1Score + game2Score + game3Score - penaltyDeduction + bonusPoints;
-    
-    return { totalScore, game1Score, game2Score, game3Score, penaltyDeduction, bonusPoints };
-};
-
-const findMvp = (teams: Team[], settings: TournamentSettings): TournamentPlayer | null => {
-    const allPlayers = teams.flatMap(t => t.players);
-    if(allPlayers.length === 0) return null;
-
-    let mvp: TournamentPlayer | null = null;
-    let maxScore = -Infinity;
-
-    allPlayers.forEach(p => {
-        let playerScore = 0;
-        if (p.game1Result !== null) playerScore += p.game1Result;
-        if (p.game2Score !== null) {
-             playerScore += p.game2Score * settings.game2StoneValue;
-            if (p.game2LastStone) playerScore += settings.game2LastStoneBonus;
-        }
-        if (p.game3Score !== null) playerScore += p.game3Score * settings.game3StoneValue;
-        
-        if (playerScore > maxScore) {
-            maxScore = playerScore;
-            mvp = p;
-        }
-    });
-
-    return mvp;
-}
-
-export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus, renderAfterGameStats }: TournamentSummaryProps) => {
+export const TournamentSummary = ({
+    data,
+    settings,
+    onApplyPenalty,
+    onApplyBonus,
+    onOpenContribution,
+}: TournamentSummaryProps) => {
     const teamA = data.teams.find(t => t.name === 'A');
     const teamB = data.teams.find(t => t.name === 'B');
 
     if (!teamA || !teamB) {
-        return { element: <div>팀 정보가 없습니다.</div>, winner: null };
+        return { element: <div>팀 정보가 없습니다.</div>, winner: null, mvp: null };
     }
 
-    const scoresA = calculateTeamScores(teamA, settings);
-    const scoresB = calculateTeamScores(teamB, settings);
+    const scoresA = calculateRelayTeamScores(teamA, teamB, settings);
+    const scoresB = calculateRelayTeamScores(teamB, teamA, settings);
 
-    const isFinished = settings.games.filter(g => g !== 'none').every((game, index) => {
+    const isFinished = settings.games.filter(g => g !== 'none').every((game) => {
         const gameKeyMap = {
             'game1': 'game1Result',
             'game2': 'game2Score',
@@ -80,7 +42,7 @@ export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus
     });
     
     const winner = isFinished ? (scoresA.totalScore > scoresB.totalScore ? 'A' : scoresA.totalScore < scoresB.totalScore ? 'B' : 'Draw') : null;
-    const mvp = isFinished ? findMvp([teamA, teamB], settings) : null;
+    const mvp = isFinished ? findRelayMvp([teamA, teamB], settings) : null;
 
     const maxTotalGameScore = Math.max(1, scoresA.game1Score + scoresB.game1Score, scoresA.game2Score + scoresB.game2Score, scoresA.game3Score + scoresB.game3Score);
     
@@ -156,19 +118,19 @@ export const TournamentSummary = ({ data, settings, onApplyPenalty, onApplyBonus
                 </div>
             </div>
 
-            {renderAfterGameStats && (
-                <div className="summary-after-game-stats">
-                    {renderAfterGameStats(winner)}
-                </div>
-            )}
-
-            {mvp && (
-                <div className="summary-mvp-badge">
-                    <h4 className="summary-mvp-title">대회 MVP</h4>
-                    <p className="summary-mvp-name">{mvp.name} <small>({mvp.rank})</small></p>
+            {onOpenContribution && (
+                <div className="summary-contribution-action">
+                    <button type="button" className="btn primary summary-contribution-btn" onClick={onOpenContribution}>
+                        팀 기여도
+                    </button>
+                    {mvp && (
+                        <p className="summary-contribution-hint">
+                            MVP: {mvp.name} ({mvp.rank})
+                        </p>
+                    )}
                 </div>
             )}
         </div>
     );
-    return { element, winner };
+    return { element, winner, mvp };
 };

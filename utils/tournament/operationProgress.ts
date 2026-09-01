@@ -1,5 +1,6 @@
 import type { TournamentData, TournamentSettings } from '../../types';
 import { asArray, normalizeHybridPreliminaryGroups, normalizeSwissRounds } from './compatibility';
+import { calculateRelayTeamScores } from './relayScoring';
 
 export interface OperationProgress {
     completed: number;
@@ -81,17 +82,9 @@ export function getTournamentOperationStatus(
             })
         );
         drawCreated = pairCount > 0 && games.length > 0;
-        const teamScore = (team: NonNullable<typeof teamA>) =>
-            team.players.reduce(
-                (sum, player) =>
-                    sum +
-                    (player.game1Result || 0) +
-                    (player.game2Score || 0) * settings.game2StoneValue +
-                    (player.game2LastStone ? settings.game2LastStoneBonus : 0) +
-                    (player.game3Score || 0) * settings.game3StoneValue,
-                (team.bonusScore || 0) - (team.mannerPenalties || 0) * (settings.relayMannerPenalty || 0)
-            );
-        relayIsDraw = !!teamA && !!teamB && teamScore(teamA) === teamScore(teamB);
+        const teamScore = (team: NonNullable<typeof teamA>, opponent: NonNullable<typeof teamB>) =>
+            calculateRelayTeamScores(team, opponent, settings).totalScore;
+        relayIsDraw = !!teamA && !!teamB && teamScore(teamA, teamB) === teamScore(teamB, teamA);
     } else if (mode === 'bracket') {
         items = flattenBracketMatches(data, mode);
         drawCreated = !!data.bracket;

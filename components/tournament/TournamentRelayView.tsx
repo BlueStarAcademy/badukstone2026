@@ -5,10 +5,10 @@ import { TournamentGames } from './TournamentGames';
 import { TournamentSummary } from './TournamentSummary';
 import { PlayerSwapModal } from './PlayerSwapModal';
 import { ConfirmationModal } from '../modals/ConfirmationModal';
-import { TournamentAwardModal } from './TournamentAwardModal';
+import { RelayTeamContributionModal } from './RelayTeamContributionModal';
 import { parseRank } from '../../utils';
-import { getRelayPrizeRow } from '../../utils/tournamentPrizes';
 import { cloneDeep } from '../../utils/tournament/clone';
+import { syncAutoGame1Handicap } from '../../utils/tournament/relayScoring';
 
 interface TournamentRelayViewProps {
     data: TournamentData;
@@ -18,22 +18,21 @@ interface TournamentRelayViewProps {
     setSettings: React.Dispatch<React.SetStateAction<TournamentSettings>>;
     onAwardBatch: (request: TournamentAwardRequest) => boolean;
     awardEventKey: string;
+    isAwarded: (eventKey: string) => boolean;
     onOpenPlayerManagement: () => void;
     onAssignTeams?: (mode: 'random' | 'ranked', ids: string[]) => void;
-    winnerAwarded?: boolean;
-    loserAwarded?: boolean;
 }
 
 export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) => {
     const {
         data, students, setData, settings, setSettings, onAwardBatch, awardEventKey,
-        onOpenPlayerManagement, onAssignTeams, winnerAwarded = false, loserAwarded = false,
+        isAwarded, onOpenPlayerManagement, onAssignTeams,
     } = props;
     
     const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
     const [playerToSwap, setPlayerToSwap] = useState<{ teamName: 'A' | 'B', playerIndex: number } | null>(null);
     const [confirmation, setConfirmation] = useState<{ message: React.ReactNode, actions: any[] } | null>(null);
-    const [awardModal, setAwardModal] = useState<{ teamName: string, teamType: 'winner' | 'loser' } | null>(null);
+    const [isContributionModalOpen, setIsContributionModalOpen] = useState(false);
     const [bonusEditorTeam, setBonusEditorTeam] = useState<'A' | 'B' | null>(null);
     const [bonusAmount, setBonusAmount] = useState('5');
     const [assignmentMode, setAssignmentMode] = useState<'random' | 'ranked'>('ranked');
@@ -53,16 +52,50 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
         }));
         setConfirmation(null);
     };
+    const syncMatchupHandicaps = useCallback((
+        teamsCopy: TournamentData['teams'],
+        indices: number[]
+    ) => {
+        const teamA = teamsCopy.find(team => team.name === 'A');
+        const teamB = teamsCopy.find(team => team.name === 'B');
+        if (!teamA || !teamB) return;
+
+        indices.forEach(index => {
+            const playerA = teamA.players[index];
+            const playerB = teamB.players[index];
+            if (playerA && playerB) {
+                teamA.players[index] = syncAutoGame1Handicap(playerA, playerB, settings);
+                teamB.players[index] = syncAutoGame1Handicap(playerB, playerA, settings);
+            }
+        });
+    }, [settings]);
+
     const handlePlayerChange = (teamName: 'A' | 'B', playerIndex: number, field: keyof TournamentPlayer, value: any) => {
         setData(prev => {
             const newTeams = prev.teams.map(team => {
                 if (team.name === teamName) {
                     const newPlayers = [...team.players];
-                    newPlayers[playerIndex] = { ...newPlayers[playerIndex], [field]: value };
+                    const current = newPlayers[playerIndex];
+                    if (!current) return team;
+
+                    if (field === 'game1Handicap') {
+                        newPlayers[playerIndex] = {
+                            ...current,
+                            game1Handicap: value,
+                            game1HandicapOverride: true,
+                        };
+                    } else {
+                        newPlayers[playerIndex] = { ...current, [field]: value };
+                    }
                     return { ...team, players: newPlayers };
                 }
                 return team;
             });
+
+            if (field === 'game1Color') {
+                syncMatchupHandicaps(newTeams, [playerIndex]);
+            }
+
             return { ...prev, teams: newTeams };
         });
     };
@@ -133,9 +166,11 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                 }
             });
 
+            syncMatchupHandicaps(teamsCopy, [...indicesToCheck]);
+
             return { ...prev, teams: teamsCopy };
         });
-    }, [setData]);
+    }, [setData, syncMatchupHandicaps]);
 
     const handleApplyPenalty = (teamName: 'A' | 'B') => {
         setConfirmation({
@@ -204,6 +239,7 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                     name: newStudent.name,
                     rank: newStudent.rank,
                     game1Handicap: 0,
+                    game1HandicapOverride: false,
                     game1Color: 'black',
                     game1Result: null,
                     game2Score: null,
@@ -218,33 +254,14 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                     autoAssignColors(pA, pB);
                 }
             }
+            syncMatchupHandicaps(teamsCopy, [playerIndex]);
             return { ...prev, teams: teamsCopy };
         });
         setIsSwapModalOpen(false);
         setPlayerToSwap(null);
     };
 
-    const handleAward = (amount: number, reason: string) => {
-        if (!awardModal) return;
-        const targetTeam = data.teams.find(t => t.name === awardModal.teamName);
-        if (targetTeam) {
-            const applied = onAwardBatch({
-                eventKey: `${awardEventKey}:${awardModal.teamType}`,
-                mode: 'relay',
-                label: `팀 대항전 ${awardModal.teamType === 'winner' ? '승리팀' : '패배팀'} 시상`,
-                grants: targetTeam.players.map(player => ({
-                    studentId: player.studentId,
-                    description: reason,
-                    amount,
-                })),
-                metadata: { phase: awardModal.teamType, team: awardModal.teamName },
-            });
-            if (!applied) return;
-        }
-        setAwardModal(null);
-    };
-
-    const availableStudents = students.filter(s => 
+    const availableStudents = students.filter(s =>
         !data.teams.some(team => team.players.some(p => p.studentId === s.id))
     );
     
@@ -321,21 +338,8 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
         settings,
         onApplyPenalty: handleApplyPenalty,
         onApplyBonus: handleApplyBonus,
-        renderAfterGameStats: (winner) =>
-            winner === 'A' || winner === 'B' ? (
-                <div className="award-buttons-below-stats">
-                    <button type="button" className="btn" disabled={winnerAwarded} onClick={() => setAwardModal({ teamName: winner, teamType: 'winner' })}>
-                        {winnerAwarded ? '✓ 승리팀 시상 완료' : '승리팀 시상'}
-                    </button>
-                    <button type="button" className="btn" disabled={loserAwarded} onClick={() => setAwardModal({ teamName: winner === 'A' ? 'B' : 'A', teamType: 'loser' })}>
-                        {loserAwarded ? '✓ 패배팀 시상 완료' : '패배팀 시상'}
-                    </button>
-                </div>
-            ) : winner === 'Draw' ? (
-                <p className="award-disabled-reason">동점 상태에서는 승리팀/패배팀 시상을 진행할 수 없습니다. 보너스 또는 감점을 확인하세요.</p>
-            ) : null,
+        onOpenContribution: () => setIsContributionModalOpen(true),
     });
-    const winnerTeam = summaryData.winner;
 
     return (
         <div className="tournament-relay-view">
@@ -419,18 +423,16 @@ export const TournamentRelayView: React.FC<TournamentRelayViewProps> = (props) =
                     ]}
                 />
             )}
-            {awardModal && (
-                <TournamentAwardModal
-                    isOpen={!!awardModal}
-                    onClose={() => setAwardModal(null)}
-                    teamName={awardModal.teamName}
-                    teamType={awardModal.teamType}
-                    onAward={handleAward}
-                    defaultStoneAmount={
-                        awardModal.teamType === 'winner'
-                            ? getRelayPrizeRow(settings, awardModal.teamName === 'A' ? 0 : 1).winPrize
-                            : getRelayPrizeRow(settings, awardModal.teamName === 'A' ? 0 : 1).losePrize
-                    }
+            {isContributionModalOpen && (
+                <RelayTeamContributionModal
+                    isOpen
+                    onClose={() => setIsContributionModalOpen(false)}
+                    teams={data.teams}
+                    settings={settings}
+                    winner={summaryData.winner}
+                    awardEventKey={awardEventKey}
+                    onAwardBatch={onAwardBatch}
+                    isAwarded={isAwarded}
                 />
             )}
         </div>

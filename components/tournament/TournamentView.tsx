@@ -39,6 +39,7 @@ import {
 import { TournamentAwardHistory } from './TournamentAwardHistory';
 import { TournamentOperationsHeader } from './TournamentOperationsHeader';
 import { getTournamentOperationStatus, type TournamentOperationMode } from '../../utils/tournament/operationProgress';
+import { syncAutoGame1Handicap } from '../../utils/tournament/relayScoring';
 import { cloneDeep } from '../../utils/tournament/clone';
 import {
     cancelLastSwissRound,
@@ -226,17 +227,19 @@ export const TournamentView = (props: TournamentViewProps) => {
         });
 
         const maxLen = Math.max(teamA.length, teamB.length);
-        for(let i=0; i<maxLen; i++) {
+        for (let i = 0; i < maxLen; i++) {
             if (teamA[i] && teamB[i]) {
                 const rankA = parseRank(teamA[i].rank);
                 const rankB = parseRank(teamB[i].rank);
-                if (rankA > rankB) { 
+                if (rankA > rankB) {
                     teamA[i].game1Color = 'white';
                     teamB[i].game1Color = 'black';
-                } else if (rankB > rankA) { 
+                } else if (rankB > rankA) {
                     teamB[i].game1Color = 'white';
                     teamA[i].game1Color = 'black';
                 }
+                teamA[i] = syncAutoGame1Handicap(teamA[i], teamB[i], settings);
+                teamB[i] = syncAutoGame1Handicap(teamB[i], teamA[i], settings);
             }
         }
         
@@ -800,8 +803,7 @@ export const TournamentView = (props: TournamentViewProps) => {
                         setSettings={setSettings}
                         onAwardBatch={handleAwardBatch}
                         awardEventKey={eventKey('relay', 'team')}
-                        winnerAwarded={activeAwardExists(`${eventKey('relay', 'team')}:winner`)}
-                        loserAwarded={activeAwardExists(`${eventKey('relay', 'team')}:loser`)}
+                        isAwarded={activeAwardExists}
                         onOpenPlayerManagement={() => setIsPlayerManagementModalOpen(true)}
                         onAssignTeams={handleAssignTeams}
                     />

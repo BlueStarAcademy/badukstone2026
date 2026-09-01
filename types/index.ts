@@ -193,6 +193,8 @@ export interface TournamentPlayer {
     name: string;
     rank: string;
     game1Handicap: number;
+    /** true면 game1Handicap을 관리자 수동값으로 사용 */
+    game1HandicapOverride?: boolean;
     game1Color: 'black' | 'white';
     game1Result: number | null;
     game2Score: number | null;
