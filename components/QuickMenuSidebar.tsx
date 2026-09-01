@@ -87,6 +87,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
     const [shopSearchTerm, setShopSearchTerm] = useState('');
     const [shopPriceRange, setShopPriceRange] = useState('all');
     const [tempDiscount, setTempDiscount] = useState(0);
+    const [isCartOpen, setIsCartOpen] = useState(false);
 
 
     // History state
@@ -135,6 +136,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setRecipientId('');
             setCart(new Map());
             setTempDiscount(0);
+            setIsCartOpen(false);
             setEditingTransaction(null);
             setShopSearchTerm('');
             setShopPriceRange('all');
@@ -151,6 +153,11 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
             setEditPersonalTargetGroups([MISSION_ALL_GROUPS]);
         }
     }, [isOpen, student?.id, generalSettings.josekiMissionValue]);
+
+    useEffect(() => {
+        if (activeTab !== 'shop') setIsCartOpen(false);
+    }, [activeTab]);
+
 
     useEffect(() => {
         if (!isOpen) return;
@@ -485,6 +492,7 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
         onPurchase(student.id, description, cartDetails.total, cartDetails.couponDeduction, cartDetails.finalStoneCost);
         setCart(new Map());
         setTempDiscount(0);
+        setIsCartOpen(false);
     };
 
     const handleSaveTimestamp = (transaction: Transaction, newTimestamp: string) => {
@@ -1058,8 +1066,40 @@ export const QuickMenuSidebar = (props: QuickMenuSidebarProps) => {
                                         </ul>
                                     </div>
                                 </div>
-                                <div className="shop-cart-panel">
-                                    <div className="cart-panel-header"><h3>장바구니 ({cartDetails.totalQuantity}개)</h3></div>
+                                <button
+                                    type="button"
+                                    className={`shop-cart-fab${cartDetails.totalQuantity > 0 ? ' has-items' : ''}`}
+                                    onClick={() => setIsCartOpen(true)}
+                                    aria-label={`장바구니 열기, ${cartDetails.totalQuantity}개`}
+                                >
+                                    <span className="shop-cart-fab-icon" aria-hidden="true">🛒</span>
+                                    <span className="shop-cart-fab-label">장바구니</span>
+                                    {cartDetails.totalQuantity > 0 && (
+                                        <span className="shop-cart-fab-badge">{cartDetails.totalQuantity}</span>
+                                    )}
+                                </button>
+
+                                {isCartOpen && (
+                                    <button
+                                        type="button"
+                                        className="shop-cart-backdrop"
+                                        aria-label="장바구니 닫기"
+                                        onClick={() => setIsCartOpen(false)}
+                                    />
+                                )}
+
+                                <div className={`shop-cart-panel${isCartOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-label="장바구니">
+                                    <div className="cart-panel-header">
+                                        <h3>장바구니 ({cartDetails.totalQuantity}개)</h3>
+                                        <button
+                                            type="button"
+                                            className="cart-panel-close"
+                                            onClick={() => setIsCartOpen(false)}
+                                            aria-label="장바구니 닫기"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
                                     <div className="cart-panel-items">
                                         {cartDetails.items.length > 0 ? (
                                             <ul className="cart-item-list">{cartDetails.items.map(item => (
