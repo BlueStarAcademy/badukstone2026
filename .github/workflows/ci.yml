@@ -12,11 +12,12 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    # ubuntu-latest는 26으로 이전 예정이라 LTS를 고정해 예고 notice를 줄인다.
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
