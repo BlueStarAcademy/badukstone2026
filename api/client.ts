@@ -27,17 +27,22 @@ export interface ApiUser {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const res = await fetch(`${getApiBaseUrl()}${path}`, {
-        ...options,
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(options.headers || {}),
-        },
-    });
+    let res: Response;
+    try {
+        res = await fetch(`${getApiBaseUrl()}${path}`, {
+            ...options,
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(options.headers || {}),
+            },
+        });
+    } catch {
+        throw new Error('네트워크 연결에 실패했습니다. 인터넷 상태를 확인해주세요.');
+    }
 
     if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
+        const body = await res.json().catch(() => ({} as { error?: string }));
         throw new Error(body.error || `Request failed: ${res.status}`);
     }
 

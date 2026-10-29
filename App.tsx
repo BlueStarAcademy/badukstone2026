@@ -223,7 +223,7 @@ interface MainAppProps {
 }
 
 const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
-    const [appState, setAppState, isSaving, saveError] = useAppState<AppData>(
+    const [appState, setAppState, isSaving, saveError, retrySave] = useAppState<AppData>(
         user.uid,
         getInitialData
     );
@@ -1238,8 +1238,17 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
         <div className="app-container">
             {/* 저장 실패 시 경고 배너 */}
             {saveError && (
-                <div className="save-error-banner" role="alert">
-                    데이터 저장에 실패했습니다. 네트워크 연결을 확인하세요. 이 상태에서 새로고침하면 작업 내용이 유실될 수 있습니다.
+                <div className="save-error-banner" role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                    <span>데이터 저장에 실패했습니다. 네트워크 연결을 확인하세요. 이 상태에서 새로고침하면 작업 내용이 유실될 수 있습니다.</span>
+                    <button
+                        type="button"
+                        className="btn-sm"
+                        onClick={retrySave}
+                        disabled={isSaving}
+                        style={{ background: '#fff', color: 'var(--danger-color)', border: 'none', fontWeight: 700, cursor: isSaving ? 'wait' : 'pointer' }}
+                    >
+                        {isSaving ? '저장 중…' : '다시 저장'}
+                    </button>
                 </div>
             )}
             
@@ -1424,7 +1433,13 @@ const MainApp = ({ user, onLogout, isDemo }: MainAppProps) => {
                         ? prev.generalSettings.specialMissionWeights[student.group]
                         : { 1: 20, 2: 20, 3: 20, 4: 20, 5: 20 };
 
-                    const randomMission = pickSpecialMissionForStudent(prev.specialMissions, student.group, groupOrder, weights);
+                    const randomMission = pickSpecialMissionForStudent(
+                        prev.specialMissions,
+                        student.group,
+                        groupOrder,
+                        weights,
+                        prev.generalSettings.specialMissionStarGroups
+                    );
                     if (!randomMission) return prev;
 
                     const today = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).split(' ')[0];

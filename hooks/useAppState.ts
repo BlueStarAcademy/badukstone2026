@@ -10,7 +10,7 @@ export function useAppState<T extends AppData>(
     userId: string | null,
     getInitialData: () => T,
     enabled: boolean = true
-): [T | 'error' | null, SetState<T>, boolean, Error | null] {
+): [T | 'error' | null, SetState<T>, boolean, Error | null, () => void] {
     const [state, setState] = useState<T | 'error' | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<Error | null>(null);
@@ -71,71 +71,133 @@ export function useAppState<T extends AppData>(
         return isDirty.current || isPendingWrite.current || writeTimeout.current !== null;
     }, []);
 
-    const saveToServer = useCallback(async (data: T) => {
+    const saveToServerRef = useRef<(data: T) => Promise<void>>(async () => {});
+
+    const scheduleSave = useCallback((delayMs: number) => {
+        if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
+        writeTimeout.current = window.setTimeout(() => {
+            writeTimeout.current = null;
+            const latest = localTruthRef.current;
+            if (latest) void saveToServerRef.current(latest);
+        }, delayMs);
+    }, []);
+
+    const saveToServer = useCallback(async (_data: T) => {
         if (!userId || !enabled) return;
 
-        const finalData = compactData(data);
-        const currentJson = JSON.stringify(finalData);
-
-        try {
-            localStorage.setItem(`backup_data_${userId}`, currentJson);
-            localStorage.setItem(`backup_timestamp_${userId}`, Date.now().toString());
-        } catch (e) {
-            console.warn('Local backup failed:', e);
-        }
-
-        if (currentJson === lastSavedJson.current) {
-            setIsSaving(false);
-            isDirty.current = false;
+        // 저장 중이면 최신 로컬 상태만 dirty로 표시하고, 진행 중인 저장이 이어서 처리
+        if (isPendingWrite.current) {
+            isDirty.current = true;
             return;
         }
 
+        isPendingWrite.current = true;
+        setIsSaving(true);
+
+        const MAX_ATTEMPTS = 3;
+        const RETRY_DELAYS_MS = [600, 1500, 3000];
+
         try {
-            isPendingWrite.current = true;
-            setIsSaving(true);
-            setSaveError(null);
-
-            if (isDemoMode) {
-                localStorage.setItem(`demo_data_${userId}`, currentJson);
-                await new Promise((resolve) => setTimeout(resolve, 300));
-            } else {
-                const result = await api.saveAppData(finalData as unknown as Record<string, unknown>);
-                lastServerUpdatedAt.current = result.lastUpdatedAt;
-            }
-
-            lastSavedJson.current = currentJson;
-            const latestJson = localTruthRef.current
-                ? JSON.stringify(compactData(localTruthRef.current))
-                : currentJson;
-
-            if (latestJson === currentJson) {
-                isDirty.current = false;
-                localTruthRef.current = finalData;
-            } else {
-                isDirty.current = true;
-                if (!writeTimeout.current) {
-                    writeTimeout.current = window.setTimeout(() => {
-                        const latest = localTruthRef.current;
-                        if (latest) saveToServer(latest);
-                        writeTimeout.current = null;
-                    }, 300);
+            // 저장 중에 추가 편집이 들어오면 같은 루프에서 최신본을 이어서 저장
+            while (true) {
+                const latest = localTruthRef.current;
+                if (!latest) {
+                    isDirty.current = false;
+                    break;
                 }
+
+                const finalData = compactData(latest);
+                const currentJson = JSON.stringify(finalData);
+
+                try {
+                    localStorage.setItem(`backup_data_${userId}`, currentJson);
+                    localStorage.setItem(`backup_timestamp_${userId}`, Date.now().toString());
+                } catch (e) {
+                    console.warn('Local backup failed:', e);
+                }
+
+                if (currentJson === lastSavedJson.current) {
+                    isDirty.current = false;
+                    setSaveError(null);
+                    break;
+                }
+
+                let saved = false;
+                let lastError: unknown = null;
+
+                for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+                    // 재시도 전에 더 최신 편집이 있으면 그 스냅샷으로 전환
+                    const attemptData = localTruthRef.current;
+                    if (!attemptData) break;
+                    const attemptCompacted = compactData(attemptData);
+                    const attemptJson = JSON.stringify(attemptCompacted);
+
+                    if (attemptJson === lastSavedJson.current) {
+                        saved = true;
+                        isDirty.current = false;
+                        setSaveError(null);
+                        break;
+                    }
+
+                    try {
+                        if (isDemoMode) {
+                            localStorage.setItem(`demo_data_${userId}`, attemptJson);
+                            await new Promise((resolve) => setTimeout(resolve, 300));
+                        } else {
+                            const result = await api.saveAppData(
+                                attemptCompacted as unknown as Record<string, unknown>
+                            );
+                            lastServerUpdatedAt.current = result.lastUpdatedAt;
+                        }
+
+                        lastSavedJson.current = attemptJson;
+                        saved = true;
+                        setSaveError(null);
+                        break;
+                    } catch (e: unknown) {
+                        lastError = e;
+                        console.error(`[API Error] Save failed (attempt ${attempt + 1}/${MAX_ATTEMPTS}):`, e);
+                        if (attempt < MAX_ATTEMPTS - 1) {
+                            await new Promise((resolve) =>
+                                setTimeout(resolve, RETRY_DELAYS_MS[attempt] ?? 3000)
+                            );
+                        }
+                    }
+                }
+
+                if (!saved) {
+                    isDirty.current = true;
+                    setSaveError(lastError instanceof Error ? lastError : new Error('Save failed'));
+                    // 일시적 오류일 수 있으므로 자동 재시도 예약 (알림창은 띄우지 않음 — 배너로 표시)
+                    scheduleSave(5000);
+                    break;
+                }
+
+                const afterJson = localTruthRef.current
+                    ? JSON.stringify(compactData(localTruthRef.current))
+                    : lastSavedJson.current;
+
+                if (afterJson === lastSavedJson.current) {
+                    isDirty.current = false;
+                    break;
+                }
+
+                isDirty.current = true;
+                // 루프를 계속해 최신본을 바로 이어서 저장
             }
-        } catch (e: unknown) {
-            console.error('[API Error] Save failed:', e);
-            setSaveError(e instanceof Error ? e : new Error('Save failed'));
-            alert('⚠️ 데이터 저장에 실패했습니다! 인터넷 연결을 확인해주세요.');
         } finally {
             isPendingWrite.current = false;
             setIsSaving(false);
         }
-    }, [userId, enabled]);
+    }, [userId, enabled, scheduleSave]);
+
+    saveToServerRef.current = saveToServer;
 
     useEffect(() => {
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-            if (isDirty.current || isPendingWrite.current) {
-                if (localTruthRef.current) {
-                    saveToServer(localTruthRef.current);
+            if (isDirty.current || isPendingWrite.current || writeTimeout.current !== null) {
+                if (localTruthRef.current && !isPendingWrite.current) {
+                    void saveToServer(localTruthRef.current);
                 }
                 e.preventDefault();
                 e.returnValue = '저장되지 않은 데이터가 있습니다. 정말 나가시겠습니까?';
@@ -220,17 +282,17 @@ export function useAppState<T extends AppData>(
 
             localTruthRef.current = nextState;
             isDirty.current = true;
-
-            if (writeTimeout.current) window.clearTimeout(writeTimeout.current);
-            writeTimeout.current = window.setTimeout(() => {
-                const latest = localTruthRef.current;
-                if (latest) saveToServer(latest);
-                writeTimeout.current = null;
-            }, 400);
+            scheduleSave(400);
 
             return nextState;
         });
-    }, [saveToServer]);
+    }, [scheduleSave]);
 
-    return [state, setDebouncedState, isSaving, saveError];
+    const retrySave = useCallback(() => {
+        if (!localTruthRef.current) return;
+        isDirty.current = true;
+        scheduleSave(0);
+    }, [scheduleSave]);
+
+    return [state, setDebouncedState, isSaving, saveError, retrySave];
 }

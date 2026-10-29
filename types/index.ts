@@ -143,6 +143,13 @@ export interface GeneralSettings {
             [stars: number]: number; // 1 to 5 stars, value is percentage (0-100)
         }
     };
+    /**
+     * 별(난이도)별 노출 반. 값에 '__all__'이 있으면 전체 반.
+     * 설정이 없으면 레거시(미션별 visibleGroups) 규칙을 사용.
+     */
+    specialMissionStarGroups?: {
+        [stars: number]: string[];
+    };
 }
 
 export interface RouletteSegment {
