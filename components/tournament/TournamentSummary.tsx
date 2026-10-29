@@ -41,7 +41,9 @@ export const TournamentSummary = ({
         return [...teamA.players, ...teamB.players].every(p => p[key] !== null);
     });
     
-    const winner = isFinished ? (scoresA.totalScore > scoresB.totalScore ? 'A' : scoresA.totalScore < scoresB.totalScore ? 'B' : 'Draw') : null;
+    const winner: 'A' | 'B' | 'Draw' | null = isFinished
+        ? (scoresA.totalScore > scoresB.totalScore ? 'A' : scoresA.totalScore < scoresB.totalScore ? 'B' : 'Draw')
+        : null;
     const mvp = isFinished ? findRelayMvp([teamA, teamB], settings) : null;
 
     const maxTotalGameScore = Math.max(1, scoresA.game1Score + scoresB.game1Score, scoresA.game2Score + scoresB.game2Score, scoresA.game3Score + scoresB.game3Score);
